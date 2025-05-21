@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Artigianato Online - Home</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/signup.css">
+</head>
+<body> 
+    <div id="navbar"></div>
+
+    <header class="mt-0 py-5 text-center">
+      <div class="container">
+        <h1 class="display-4">Registrazione utente</h1>
+      </div>
+    </header>
+
+    <div class="d-flex justify-content-center">
+      <form action="" method="POST" class="w-50">
+        <div class="container card p-3 my-5 mx-0">
+          <div class="d-flex flex-column flex-md-row justify-content-evenly align-items-center">
+            <div class="m-2 w-100">
+              <label for="usernameInput" class="form-label">Nome Utente/Ragione sociale <span style="color: red;">*</span></label>
+              <input type="text" class="form-control" id="usernameInput" placeholder="Inserisci il nome utente" required>
+            </div>
+            <div class="m-2 w-100">
+              <label for="emailInput" class="form-label">Email<span style="color: red;">*</span></label>
+              <input type="email" class="form-control" id="emailInput" placeholder="Inserisci la tua email" required>
+            </div>
+          </div>
+          <div class="d-flex flex-column flex-md-row justify-content-evenly align-items-center">
+            <div class="m-2 w-100">
+              <label for="nameInput" class="form-label">Nome<span style="color: red;">*</span></label>
+              <input type="text" class="form-control" id="nameInput" placeholder="Inserisci il tuo nome" required>
+            </div>
+            <div class="m-2 w-100">
+              <label for="surnameInput" class="form-label">Cognome<span style="color: red;">*</span></label>
+              <input type="text" class="form-control" id="surnameInput" placeholder="Inserisci il tuo cognome" required>
+            </div>
+          </div>
+          <div class="d-flex flex-column flex-md-row justify-content-evenly align-items-center">
+            <div class="m-2 w-100">
+              <label for="addressInput" class="form-label">Indirizzo</label>
+              <input type="text" class="form-control" id="addressInput" placeholder="Inserisci il tuo indirizzo">
+            </div>
+            <div class="m-2 w-100">
+              <label for="cityInput" class="form-label">Città</label>
+              <input type="text" class="form-control" id="cityInput" placeholder="Conferma la città di residenza">
+            </div>
+          </div>
+          <div class="d-flex flex-column">
+            <div class="d-flex flex-column flex-md-row justify-content-evenly align-items-center position-relative">
+              <div class="m-2 w-100">
+                <label for="passwordInput" class="form-label">Password<span style="color: red;">*</span></label>
+                <input type="password" class="form-control" id="passwordInput" placeholder="Inserisci la tua password" required>
+              </div>
+              <div class="m-2 w-100">
+                <label for="confirmPasswordInput" class="form-label">Conferma Password<span style="color: red;">*</span></label>
+                <input type="password" class="form-control" id="confirmPasswordInput" placeholder="Conferma la tua password" required>
+              </div>
+            </div>
+            <div class="error-cont">
+              <div id="passwordError" class="invalid-feedback is-invalid m-2 p-3">
+                <!--Errore criteri di validità password-->
+              </div>
+            </div>
+
+          </div>
+          <div class="m-2 w-100">
+            <div class="m-2 w-100 align-items-center form-label">Cosa vuoi fare?</div>
+            <div class="d-flex justify-content-start align-items-center">
+              <div class="m-2 w-20 form-check">
+                <input type="radio" class="form-check-input" name="userType" id="userCheck" onclick="toggleArtisanSection(false)">
+                <label class="form-check-label" for="userCheck">Comprare</label>
+              </div>
+              <div class="m-2 w-20 form-check">
+                <input type="radio" class="form-check-input" name="userType" id="artisanCheck" onclick="toggleArtisanSection(true)">
+                <label class="form-check-label" for="artisanCheck">Vendere</label>
+              </div>
+            </div>
+          </div>
+
+          <!--Sezione artigiano-->
+          <div id="artisanSection" class="d-none">
+            <div class="d-flex flex-column flex-md-row justify-content-evenly align-items-center">
+              <div class="m-2 w-100">
+                <label for="vatNumberInput" class="form-label">IBAN<span style="color: red;">*</span></label>
+                <input type="text" class="form-control" id="vatNumberInput" placeholder="Inserisci la tua partita IVA">
+              </div>
+              <div class="m-2 w-100">
+                <label for="phoneNumberInput" class="form-label">Telefono</label>
+                <input type="tel" class="form-control" id="phoneNumberInput" placeholder="Inserisci il tuo numero di telefono">
+              </div>
+            </div>
+            <div class="d-flex flex-column flex-md-row justify-content-evenly align-items-center">
+            <div class="m-2 w-100">
+                <label for="categoryInput" class="form-label">Categoria dei prodotti<span style="color: red;">*</span></label>
+                <select class="form-select" id="categoryInput">
+                    <option value="" selected disabled>Seleziona una categoria</option>
+                    <!-- Categorie del db-->
+                </select>
+            </div>
+              <div class="m-2 w-100">
+                <label for="profileImageInput" class="form-label">Carica immagine profilo</label>
+                <input type="file" class="form-control" id="profileImageInput">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="w-100 d-flex justify-content-center align-items-center pb-3">
+          <button type="submit" class="btn w-50 mt-1">Registrati</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-body d-flex flex-column align-items-center justify-content-center" style="min-height: 200px;"> <!-- Modificato lo stile -->
+            <svg width="124px" height="124px" viewBox="0 -398 1820 1820" class="icon" version="1.1" xmlns="http://www.w3.org/2000/svg" fill="#25db00" stroke="#25db00"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M910.317037 172.562963C723.247407 172.562963 570.785185 325.025185 570.785185 512.094815c0 186.974815 152.462222 339.531852 339.531852 339.531852s339.721481-152.651852 339.721482-339.531852c0-187.06963-152.557037-339.531852-339.721482-339.531852z m0 632.225185c-161.185185 0-292.503704-131.697778-292.503704-292.693333 0-161.374815 131.318519-292.314074 292.503704-292.314074 161.28 0 292.693333 130.939259 292.693333 292.314074 0 160.995556-131.318519 292.693333-292.693333 292.693333z" fill="#25db00bff00"></path><path d="M823.087407 497.682963c7.205926 13.463704 17.066667 29.771852 25.220741 45.700741 8.343704 16.213333 20.574815 38.684444 20.574815 38.684444s35.934815-74.714074 61.724444-113.493333c65.801481-98.702222 127.051852-122.121481 127.051852-122.121482s-6.352593 52.717037-5.688889 73.955556c0.758519 24.272593 10.808889 52.242963 10.808889 52.242963s-56.604444 32.900741-110.269629 90.832592c-33.848889 36.598519-79.36 108.468148-79.36 108.468149s-38.4-46.743704-68.645926-70.542223c-33.564444-26.453333-73.671111-47.881481-73.671111-47.881481s33.28-21.807407 50.157037-32.711111c16.971852-10.808889 42.097778-23.134815 42.097777-23.134815z" fill="#25db00"></path></g></svg>
+              <p style="font-weight: bold; text-align: center;">
+                La registrazione è avvenuta con successo!
+                <br>
+                Sarai reindirizzato alla pagina di login.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="footer"></div>
+
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/main.js"></script>
+    <script src="/js/signup.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Check if user is already logged in
+        const user = localStorage.getItem('user');
+        if (user) {
+            window.location.href = '/index.html';
+            return;
+        }
+    });
+    </script>
+</body>
+</html>
+

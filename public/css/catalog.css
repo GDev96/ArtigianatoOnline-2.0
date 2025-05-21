@@ -1,0 +1,52 @@
+
+.form-label{
+    padding-left: 0px !important;
+}
+.form-control{
+    position:relative;
+    width: 100% !important;
+}
+.quantity-counter {
+    display: flex;
+    align-items: center;
+}
+
+.quantity-input {
+    width: 40px;
+    text-align: center;
+    margin: 0 5px;
+    border: 1px solid #b99570;
+    border-radius: 4px;
+}
+
+.btn-quantity {
+    padding: 0 8px;
+    color: #b99570;
+    border: 1px solid #b99570;
+    background: transparent;
+}
+
+.btn-quantity:hover {
+    background-color: #b99570;
+    color: white;
+}
+.rating-input {
+    cursor: pointer;
+    font-size: 1.5rem;
+}
+
+.rating-input .fa-star {
+    color: #b99570;
+    transition: all 0.2s ease;
+    margin-right: 5px;
+}
+
+.rating-input .fa-star:hover,
+.rating-input .fa-star.active {
+    color: #b99570;
+    transform: scale(1.1);
+}
+
+.rating-input .fa-star.hover {
+    color: #b99570;
+}

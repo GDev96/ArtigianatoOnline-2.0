@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Artigianato Online</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <div class="admin-header">
+        <h1 class="admin-title">Admin Console</h1>
+        <div class="user-info">
+            <a class="logout-btn" href="/index.html">
+                Torna alla home<i class="bi bi-box-arrow-left ms-2"></i>
+            </a>
+        </div>
+    </div>
+    <div class="sidebar">
+        <nav class="nav flex-column">
+            <a class="nav-link active" href="#dashboard" data-bs-toggle="tab">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+            </a>
+            <a class="nav-link" href="#users" data-bs-toggle="tab">
+                <i class="bi bi-people me-2"></i>Utenti
+            </a>
+            <a class="nav-link" href="#artisans" data-bs-toggle="tab">
+                <i class="bi bi-tools me-2"></i>Artigiani
+            </a>
+            <a class="nav-link" href="#products" data-bs-toggle="tab">
+                <i class="bi bi-box-seam me-2"></i>Prodotti
+            </a>
+            <a class="nav-link" href="#orders" data-bs-toggle="tab">
+                <i class="bi bi-cart-check me-2"></i>Ordini
+            </a>
+            <a class="nav-link" href="#reviews" data-bs-toggle="tab">
+                <i class="bi bi-star me-2"></i>Recensioni
+            </a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="tab-content">
+            <!-- Dashboard Overview -->
+            <div class="tab-pane fade show active" id="dashboard">
+                <h2 class="mb-4">Dashboard Overview</h2>
+                <div class="row">
+                    <div class="col-md-4 mb-4">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <h6 class="text-muted">Clienti Registrati</h6>
+                                <h3 id="totalClients">0</h3>
+                                <small class="text-muted">Utenti semplici</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <h6 class="text-muted">Artigiani</h6>
+                                <h3 id="totalArtisans">0</h3>
+                                <small class="text-muted">Professionisti registrati</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Vendite Mensili</h5>
+                                <canvas id="salesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Top Categorie</h5>
+                                <canvas id="categoriesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Management -->
+            <div class="tab-pane fade" id="users">
+                <!-- Tab navigation per gli utenti -->
+                <ul class="nav nav-tabs mb-4">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#usersTab">
+                            <i class="bi bi-people me-2"></i>Utenti
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#usersReportsTab">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
+                            <span class="badge bg-danger" id="userReportsCount">0</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Users Tab -->
+                    <div class="tab-pane fade show active" id="usersTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Gestione Utenti</h2>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                                <i class="bi bi-plus-lg me-2"></i>Nuovo Utente
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Stato</th>
+                                        <th>Segnalazioni</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Users Reports Tab -->
+                    <div class="tab-pane fade" id="usersReportsTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Segnalazioni Utenti</h2>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-secondary active" data-filter="all">Tutte</button>
+                                <button class="btn btn-outline-secondary" data-filter="pending">In Attesa</button>
+                                <button class="btn btn-outline-secondary" data-filter="resolved">Risolte</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Utente ID</th>
+                                        <th>Segnalato da</th>
+                                        <th>Tipo</th>
+                                        <th>Descrizione</th>
+                                        <th>Data</th>
+                                        <th>Stato</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersReportsTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Artisans Management -->
+            <div class="tab-pane fade" id="artisans">
+                <!-- Tab navigation per gli artigiani -->
+                <ul class="nav nav-tabs mb-4">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#artisansTab">
+                            <i class="bi bi-tools me-2"></i>Artigiani
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#artisansReportsTab">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
+                            <span class="badge bg-danger" id="artisanReportsCount">0</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Artisans Tab -->
+                    <div class="tab-pane fade show active" id="artisansTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Gestione Artigiani</h2>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addArtisanModal">
+                                <i class="bi bi-plus-lg me-2"></i>Nuovo Artigiano
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome utente</th>
+                                        <th>Email</th>
+                                        <th>Categoria</th>
+                                        <th>Stato</th>
+                                        <th>Segnalazioni</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="artisansTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Artisans Reports Tab -->
+                    <div class="tab-pane fade" id="artisansReportsTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Segnalazioni Artigiani</h2>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-secondary active" data-filter="all">Tutte</button>
+                                <button class="btn btn-outline-secondary" data-filter="pending">In Attesa</button>
+                                <button class="btn btn-outline-secondary" data-filter="resolved">Risolte</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Artigiano ID</th>
+                                        <th>Segnalato da</th>
+                                        <th>Tipo</th>
+                                        <th>Descrizione</th>
+                                        <th>Data</th>
+                                        <th>Stato</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="artisansReportsTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Management -->
+            <div class="tab-pane fade" id="products">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Gestione Prodotti</h2>
+                    <div>
+                        <button class="btn btn-secondary me-2" id="filterProducts">
+                            <i class="bi bi-funnel me-2"></i>Filtra
+                        </button>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                            <i class="bi bi-plus-lg me-2"></i>Nuovo Prodotto
+                        </button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>Categoria</th>
+                                <th>Prezzo</th>
+                                <th>Quantità</th>
+                                <th>Artigiano</th>
+                                <th>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <!-- Populated via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Orders Management -->
+            <div class="tab-pane fade" id="orders">
+                <!-- Tab navigation -->
+                <ul class="nav nav-tabs mb-4">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#ordersTab">
+                            <i class="bi bi-cart-check me-2"></i>Ordini
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#reportsTab">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
+                            <span class="badge bg-danger" id="reportsCount">0</span>
+                        </a>
+                    </li>
+                </ul>
+            
+                <div class="tab-content">
+                    <!-- Orders Tab -->
+                    <div class="tab-pane fade show active" id="ordersTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Gestione Ordini</h2>
+                            <div>
+                                <button class="btn btn-secondary me-2" id="filterOrders">
+                                    <i class="bi bi-funnel me-2"></i>Filtra
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Cliente</th>
+                                        <th>Artigiano</th>
+                                        <th>Totale</th>
+                                        <th>Data</th>
+                                        <th>Stato</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ordersTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+            
+                    <!-- Reports Tab -->
+                    <div class="tab-pane fade" id="reportsTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Segnalazioni Ordini</h2>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-secondary active" data-filter="all">Tutte</button>
+                                <button class="btn btn-outline-secondary" data-filter="pending">In Attesa</button>
+                                <button class="btn btn-outline-secondary" data-filter="resolved">Risolte</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Ordine ID</th>
+                                        <th>Segnalato da</th>
+                                        <th>Tipo</th>
+                                        <th>Descrizione</th>
+                                        <th>Data</th>
+                                        <th>Stato</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportsTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reviews Management -->
+            <div class="tab-pane fade" id="reviews">
+                <!-- Tab navigation per le recensioni -->
+                <ul class="nav nav-tabs mb-4">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#reviewsTab">
+                            <i class="bi bi-star me-2"></i>Recensioni
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#reviewsReportsTab">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
+                            <span class="badge bg-danger" id="reviewReportsCount">0</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Reviews Tab -->
+                    <div class="tab-pane fade show active" id="reviewsTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Gestione Recensioni</h2>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-secondary active" data-filter="all">Tutte</button>
+                                <button class="btn btn-outline-secondary" data-filter="reported">Segnalate</button>
+                                <button class="btn btn-outline-secondary" data-filter="removed">Rimosse</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Utente</th>
+                                        <th>Artigiano</th>
+                                        <th>Valutazione</th>
+                                        <th>Commento</th>
+                                        <th>Data</th>
+                                        <th>Stato</th>
+                                        <th>Segnalazioni</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reviewsTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Reviews Reports Tab -->
+                    <div class="tab-pane fade" id="reviewsReportsTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Segnalazioni Recensioni</h2>
+                            <div class="btn-group">
+                                <button class="btn btn-outline-secondary active" data-filter="all">Tutte</button>
+                                <button class="btn btn-outline-secondary" data-filter="pending">In Attesa</button>
+                                <button class="btn btn-outline-secondary" data-filter="resolved">Risolte</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Recensione ID</th>
+                                        <th>Segnalato da</th>
+                                        <th>Tipo</th>
+                                        <th>Descrizione</th>
+                                        <th>Data</th>
+                                        <th>Stato</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reviewsReportsTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Review Details Modal -->
+            <div class="modal fade" id="reviewDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Dettagli Recensione</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="review-details mb-4"></div>
+                            <div class="reports-section">
+                                <h6>Segnalazioni ricevute</h6>
+                                <div class="reports-list"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                            <button type="button" class="btn btn-danger" id="removeReviewBtn">Rimuovi Recensione</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals for adding/editing users, products, etc. -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+</html>

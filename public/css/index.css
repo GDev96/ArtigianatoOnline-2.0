@@ -1,0 +1,25 @@
+  
+.dropdown-menu {
+    border: 1px solid #b99570;
+}
+
+.form-select {
+    border-color: #b99570;
+}
+
+.form-select:focus {
+    border-color: #b99570;
+    box-shadow: 0 0 0 0.25rem rgba(185, 149, 112, 0.25);
+}
+
+#applyFilters {
+    background-color: #b99570;
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+#applyFilters:hover {
+    background-color: #a38461;
+    transform: translateY(-2px);
+}

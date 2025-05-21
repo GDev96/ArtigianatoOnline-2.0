@@ -1,0 +1,20 @@
+
+.error-cont {
+    display: flex;
+    justify-content: center;  
+}
+#passwordError {
+    width: 90% !important; 
+}
+.invalid-feedback {
+    display: none;
+    color: #dc3545;
+    font-size: 0.875em;
+    margin-top: 0.25rem;
+    text-align: center;
+}
+.is-invalid {
+    background-color: #ffdee1;
+    border: 1px solid #dc3545;
+    border-radius: 5px;
+}
