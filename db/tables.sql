@@ -113,21 +113,6 @@ CREATE TABLE IF NOT EXISTS dettagli_ordine (
         ON DELETE CASCADE
 );
 
---crea tabella carrello
-CREATE TABLE IF NOT EXISTS carrello (
-    cliente_id INTEGER NOT NULL,
-    prodotto_id INTEGER NOT NULL,
-    PRIMARY KEY (cliente_id, prodotto_id),
-    CONSTRAINT carrello_cliente_id_fkey FOREIGN KEY (cliente_id)
-        REFERENCES utente (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
-    CONSTRAINT carrello_prodotto_id_fkey FOREIGN KEY (prodotto_id)
-        REFERENCES prodotti (prodotto_id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE
-);
-
 -- crea tabella recensioni
 CREATE TABLE IF NOT EXISTS recensioni (
     recensione_id SERIAL PRIMARY KEY,

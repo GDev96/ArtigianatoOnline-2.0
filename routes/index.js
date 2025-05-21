@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db/database');
+const pool = require('../db/db.js');
 
 // Home page
 router.get('/', async (req, res) => {
@@ -13,6 +13,7 @@ router.get('/', async (req, res) => {
 });
 
 // API per recuperare tutte le categorie
+// API per recuperare tutte le categorie
 router.get('/categories', async (req, res) => {
     try {
         const query = `
@@ -23,10 +24,7 @@ router.get('/categories', async (req, res) => {
         
         const result = await pool.query(query);
         
-        res.json({
-            success: true,
-            categories: result.rows
-        });
+        res.json(result.rows); // Modificato per restituire direttamente l'array
 
     } catch (error) {
         console.error('Error fetching categories:', error);

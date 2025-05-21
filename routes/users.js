@@ -1,16 +1,16 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const pool = require('../db/database');
+const pool = require('../db/db.js');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 require('dotenv').config();
 
 router.post('/register', async (req, res) => {
   let {
-    nome_utente,nome, cognome, email, password, isArtigiano, numero_telefono, indirizzo, citta, tipologia_id, iban, immagine } = req.body;
+    username, nome, cognome, email, password, isArtigiano, numero_telefono, indirizzo, citta, tipologia_id, iban, immagine } = req.body;
 
   // Controlliamo i campi obbligatori per tutti gli utenti
-  if (!nome_utente || !nome || !cognome || !email || !password) {
+  if (!username || !nome || !cognome || !email || !password) {
     return res.status(400).json({ error: 'Tutti i campi obbligatori devono essere compilati.' });
   }
 
@@ -35,12 +35,12 @@ router.post('/register', async (req, res) => {
 
     // Inserisci il nuovo utente nella tabella utente
     const userInsertQuery = `
-      INSERT INTO utente (nome_utente, nome, cognome, numero_telefono, indirizzo, citta, email, password_hash, ruolo_id)
+      INSERT INTO utente (username, nome, cognome, numero_telefono, indirizzo, citta, email, password_hash, ruolo_id)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id
     `;
     const userValues = [
-      nome_utente,
+      username,
       nome,
       cognome,
       numero_telefono || null,
@@ -73,9 +73,9 @@ router.post('/register', async (req, res) => {
 
 // API per registrare un admin 
 router.post('/register-admin', async (req, res) => {
-  const { nome_utente, nome, cognome, email, password } = req.body;
+  const { username, nome, cognome, email, password } = req.body;
 
-  if (!nome_utente || !nome || !cognome || !email || !password) {
+  if (!username || !nome || !cognome || !email || !password) {
     return res.status(400).json({ error: 'Tutti i campi obbligatori devono essere compilati.' });
   }
 
@@ -86,11 +86,11 @@ router.post('/register-admin', async (req, res) => {
     const ruolo_id = 3; // ADMIN
 
     const query = `
-      INSERT INTO utente (nome_utente, nome, cognome, email, password_hash, ruolo_id)
+      INSERT INTO utente (username, nome, cognome, email, password_hash, ruolo_id)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `;
-    const values = [nome_utente, nome, cognome, email, password_hash, ruolo_id];
+    const values = [username, nome, cognome, email, password_hash, ruolo_id];
 
     const result = await pool.query(query, values);
 
@@ -107,14 +107,14 @@ router.post('/register-admin', async (req, res) => {
 
 // API per il login
 router.post('/login', async (req, res) => {
-  const { nome_utente, password } = req.body;
+  const { username, password } = req.body;
 
   try {
     // 1. Verifica se l'utente esiste
-    const result = await pool.query('SELECT * FROM utente WHERE nome_utente = $1', [nome_utente]);
+    const result = await pool.query('SELECT * FROM utente WHERE username = $1', [username]);
 
     if (result.rows.length === 0) {
-      return res.status(400).json({ message: 'Nome utente o password errati' });
+      return res.status(400).json({ message: 'Username o password errati' });
     }
 
     const user = result.rows[0];
@@ -122,7 +122,7 @@ router.post('/login', async (req, res) => {
     // 2. Verifica la password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Nome utente o password errati' });
+      return res.status(400).json({ message: 'Username o password errati' });
     }
 
     // 3. Crea il payload di base
@@ -130,12 +130,13 @@ router.post('/login', async (req, res) => {
       id: user.id,
       nome: user.nome,
       cognome: user.cognome,
-      nome_utente: user.nome_utente,
+      username: user.username,
       email: user.email,
       numero_telefono: user.numero_telefono,
       indirizzo: user.indirizzo,
       citta: user.citta,
-      ruolo_id: user.ruolo_id
+      ruolo_id: user.ruolo_id,
+      stato: user.stato
     };
 
     // 4. Se è un artigiano, aggiungi i dati extra
@@ -170,19 +171,20 @@ router.get('/artisans', async (req, res) => {
       const artisansResult = await pool.query(`
           SELECT 
               u.id, 
-              u.nome_utente, 
+              u.username, 
+              u.nome, 
+              u.cognome,
               u.email, 
               u.numero_telefono, 
               u.indirizzo,
               u.citta,
-              a.tipologia_id
+              a.tipologia_id,
+              t.nome_tipologia
           FROM utente u 
-          JOIN ruoli r ON u.ruolo_id = r.ruolo_id 
-          LEFT JOIN artigiani a ON u.id = a.artigiano_id
-          WHERE r.nome_ruolo = 'artigiano'
+          JOIN artigiani a ON u.id = a.artigiano_id
+          LEFT JOIN tipologia t ON a.tipologia_id = t.tipologia_id
+          WHERE u.ruolo_id = 2 AND u.stato = 'attivo'
       `);
-
-      console.log(`Trovati ${artisansResult.rows.length} artigiani`);
 
       if (artisansResult.rows.length === 0) {
           return res.status(404).json({
@@ -196,7 +198,7 @@ router.get('/artisans', async (req, res) => {
           artisans: artisansResult.rows
       });
     } catch (error) {
-      console.error('❌ Errore nel recupero degli artigiani:', error);
+      console.error('Errore nel recupero degli artigiani:', error);
       res.status(500).json({
           success: false,
           message: 'Errore interno del server',

@@ -10,33 +10,26 @@ Legenda:
 
 | Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
 |-----------------------------------------------------------------------------|-----------|-------------|-------------|
-| Creare strutture pagine HTML                                                | Gaia         | -           | ✅ Completato |
-| Nella pagina home creare delle schede che colleghino al catalogo di ciascun artigiano | Gaia      | homepage (❌ Cancellato)   | ✅ Completato  |
-| Pagina catalogo             | Gaia         | catalogpage (❌ Cancellato)          | ✅ Completato   |
-| Profilo artigiano nella pagina catalogo                | Gaia         | catalogpage (❌ Cancellato)          | ✅ Completato   |
-| Pagina di login               | Gaia         | loginpage (❌ Cancellato)          | ✅ Completato    |
-| Modale di registrazione utente              | Gaia         | loginpage (❌ Cancellato)           | ✅ Completato   |
-| Pagina carrello                | Gaia         | cartpage(❌ Cancellato)           | ✅ Completato   |
-| Modale conferma ordine                | Gaia         | cartpage(❌ Cancellato)           | ✅ Completato   |
-| Dashboard artigiano                | Gaia         | dashboard (❌ Cancellato)          | ✅ Completato   |
-| Interfaccia navbar utente loggato               | Gaia         | navlogin (❌ Cancellato)        | ✅ Completato   |
-| Interfaccia admin              | Gaia        | adminconsole2          | ❌ Da fare   |
-| Interfaccia profilo utente per riepilogo ordini e visualizzazione dati              | Gaia        | userprofile          | ✅ Completato   |
-| Correggere pagina catalogo             | Gaia        | fixcatalog         | ❌ Da fare   |
-| Correggere pagina carrello              | Gaia        |           | ❌ Da fare   |
-| Correggere pagina profilo              | Gaia        |           | ❌ Da fare   |
-| Correggere logica pagina dashboard              | Gaia        |           | ❌ Da fare   |
-| Gestire recensioni catalogo             | Gaia        |         | ❌ Da fare   |
-| Gestire segnalazioni catalogo             | Gaia        |         | ❌ Da fare   |
+| Aggiungere file vecchio progetto                                             | Gaia         | main (primo commit)           | ✅ Completato |
+| Pagina catalogo             | -         | -          | ❌ Da fare   |
+| Pagina profilo utente             | -         | -          | ❌ Da fare   |
+| Pagina carrello             | -         | -          | ❌ Da fare   |
+| Pagina dashboard             | -         | -          | ❌ Da fare   |
+| Pagina admin             | -         | -          | ❌ Da fare   |
+| -             | -         | -          | ❌ Da fare   |
 
 
 ## BACKEND PAGINE HTML
-_Necessario il db_
 | Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
 |-----------------------------------------------------------------------------|-----------|-------------|-------------|
-| Rotte con parametri per passaggi tra pagine             | Gaia         | navlogin (❌ Cancellato)           | ✅ Completato  |
-| Interrogazione db per popolare le pagine e i menu a tendina                | Gaia         | -           | ❌ Da fare   |
-| Salvataggio dati a db per registrazione utenti e inserimento prodotti                | Gaia         | -           | ❌ Da fare   |
+| Correggere API vecchio progetto             | Gaia         | fixAPI          | ⏳ In corso   |
+| -             | -         | -          | ⏳ In corso   |
+| API Utenti             | -         | -          | ❌ Da fare   |
+| API Artigiani             | -         | -          | ❌ Da fare   |
+| API prodotti             | -         | -          | ❌ Da fare   |
+| API recensioni             | -         | -          | ❌ Da fare   |
+| API segnalazioni             | -         | -          | ❌ Da fare   |
+| API Ordini             | -         | -          | ❌ Da fare   |
 
 ## DATABASE
 
@@ -52,15 +45,7 @@ Tabelle e attributi:
 
 | Descrizione                     | Assegnato a | Nome Branch | Stato       |
 |---------------------------------|-----------|-------------|-------------|
-| Creare DB (tabelle utenti, prodotti) | Fede    | -           | ⏳ In corso     |
-
-## BACKEND
-| Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
-|-----------------------------------------------------------------------------|-----------|-------------|-------------|
-| API necessarie alla connessione e accesso ai dati del db dall'applicazione             | -         | -           | ❌ Da fare   |
-| Autenticazione e permessi - creazione e utilizzo dei token (parte delle API)                | -         | -           | ❌ Da fare   |
-| Deploy e connessione al cloud del db                | -         | -           | ❌ Da fare   |
-| Unit e integration testing               | -         | -           | ❌ Da fare   |
+| Creare nuovo db    | Gaia    | main   |✅ Completato
 
 
 
