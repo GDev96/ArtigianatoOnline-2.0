@@ -1,0 +1,84 @@
+const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
+
+// Prima connessione al database di default per verificare/creare il nostro database
+async function initializeDatabase() {
+    try {
+        console.log('Verifica esistenza del database...');
+        
+        // Colleghiamoci prima al database di default 'postgres' per controllare se il nostro database esiste
+        const adminPool = new Pool({
+            user: 'postgres',
+            host: 'localhost',
+            database: 'postgres', // Database di default
+            password: 'postgres',
+            port: 5432,
+        });
+
+        // Verifica se il database esiste
+        const dbCheckResult = await adminPool.query(
+            "SELECT 1 FROM pg_database WHERE datname = 'artigianato_online'"
+        );
+
+        // Se il database non esiste, crealo
+        if (dbCheckResult.rows.length === 0) {
+            console.log('Database non trovato. Creazione in corso...');
+            await adminPool.query('CREATE DATABASE artigianato_online');
+            console.log('Database artigianato_online creato con successo');
+        } else {
+            console.log('Database artigianato_online già esistente');
+        }
+
+        await adminPool.end();
+        
+        // Ora possiamo connetterci al nostro database e inizializzarlo
+        return initializeTables();
+    } catch (err) {
+        console.error('Errore durante l\'inizializzazione del database:', err);
+        throw err;
+    }
+}
+
+// Pool di connessione al nostro database
+const pool = new Pool({
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    database: process.env.DB_NAME || 'artigianato_online',
+    password: process.env.DB_PASSWORD || '',
+    port: parseInt(process.env.DB_PORT || '5432'),
+});
+
+// Funzione per inizializzare le tabelle e popolare il database
+async function initializeTables() {
+    const client = await pool.connect();
+    
+    try {
+        console.log('Connessione al database avvenuta con successo');
+        console.log('Preparazione del database in corso...');
+
+        // Creare le tabelle
+        const tablesPath = path.join(__dirname, 'tables.sql');
+        const tables = fs.readFileSync(tablesPath, 'utf-8');
+        await client.query(tables);
+        console.log('Struttura delle tabelle creata correttamente');
+
+        // Eseguire il seed
+        const seedModule = require('./seed');
+        // Il seed.js esegue già la funzione al suo interno, quindi non è necessario chiamarla qui
+        console.log('Seed eseguito correttamente');
+
+        return pool; // Ritorniamo il pool per l'uso nell'applicazione
+    } catch (err) {
+        console.error('Errore nell\'esecuzione delle tables o del seed:', err);
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+// Esportiamo sia il pool che la funzione di inizializzazione
+module.exports = {
+    pool,
+    initializeDatabase
+};
