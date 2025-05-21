@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const { pool } = require('./db/db.js');
+const { pool } = require('./db');
 
 async function seed() {
     console.log('Avvio del seed...');
@@ -7,27 +7,27 @@ async function seed() {
         // --- CREAZIONE RUOLI ---
         console.log('Inserimento ruoli...');
         await pool.query(`
-            INSERT INTO ruoli (nome_ruolo) VALUES
-            ('cliente'),
-            ('artigiano'),
-            ('admin')
+            INSERT INTO ruoli (ruolo_id, nome_ruolo) VALUES
+            (1, 'cliente'),
+            (2, 'artigiano'),
+            (3, 'admin')
             ON CONFLICT (nome_ruolo) DO NOTHING;
         `);
 
         // --- CREAZIONE TIPOLOGIE ---
         console.log('Inserimento tipologie...');
         await pool.query(`
-            INSERT INTO tipologia (nome_tipologia) VALUES
-            ('Ceramica'),
-            ('Legno'),
-            ('Tessuti'),
-            ('Gioielli'),
-            ('Vetro'),
-            ('Arredamento'),
-            ('Elettronica'),
-            ('Metallo'),
-            ('Decorazioni'),
-            ('Vario')
+            INSERT INTO tipologia (tipologia_id, nome_tipologia) VALUES
+            (1, 'Ceramica'),
+            (2, 'Legno'),
+            (3, 'Tessuti'),
+            (4, 'Gioielli'),
+            (5, 'Vetro'),
+            (6, 'Arredamento'),
+            (7, 'Elettronica'),
+            (8, 'Metallo'),
+            (9, 'Decorazioni'),
+            (10, 'Vario')
             ON CONFLICT (nome_tipologia) DO NOTHING;
         `);
 
@@ -101,7 +101,8 @@ async function seed() {
                 [artId, p.nome, p.tipologia_id, p.prezzo, 10]
             );
         }
-
+        // FIXME: Pieno di errori
+        /*
         const clientiRes = await pool.query("SELECT id FROM utente WHERE ruolo_id = 1");
         const ordini = [
             { cliente_id: clientiRes.rows[0].id, stato: 'consegnato' },
@@ -123,10 +124,10 @@ async function seed() {
         // --- CREAZIONE DETTAGLI ORDINE ---
         console.log('Inserimento dettagli ordine...');
         const dettagliOrdini = [
-            { ordine_id: ordiniInseriti[0], prodotto_id: prodottiInseriti[0].id, quantita: 2, prezzo_unitario: prodottiInseriti[0].prezzo, stato: 'consegnato' },
-            { ordine_id: ordiniInseriti[0], prodotto_id: prodottiInseriti[2].id, quantita: 1, prezzo_unitario: prodottiInseriti[2].prezzo, stato: 'consegnato' },
-            { ordine_id: ordiniInseriti[1], prodotto_id: prodottiInseriti[3].id, quantita: 1, prezzo_unitario: prodottiInseriti[3].prezzo, stato: 'in spedizione' },
-            { ordine_id: ordiniInseriti[2], prodotto_id: prodottiInseriti[4].id, quantita: 3, prezzo_unitario: prodottiInseriti[4].prezzo, stato: 'consegnato' }
+            { ordine_id: ordiniInseriti[0], prodotto_id: prodotti[0].id, quantita: 2, prezzo_unitario: prodotti[0].prezzo, stato: 'consegnato' },
+            { ordine_id: ordiniInseriti[0], prodotto_id: prodotti[2].id, quantita: 1, prezzo_unitario: prodotti[2].prezzo, stato: 'consegnato' },
+            { ordine_id: ordiniInseriti[1], prodotto_id: prodotti[3].id, quantita: 1, prezzo_unitario: prodotti[3].prezzo, stato: 'in spedizione' },
+            { ordine_id: ordiniInseriti[2], prodotto_id: prodotti[4].id, quantita: 3, prezzo_unitario: prodotti[4].prezzo, stato: 'consegnato' }
         ];
 
         for (const dettaglio of dettagliOrdini) {
@@ -140,9 +141,9 @@ async function seed() {
         // --- CREAZIONE RECENSIONI ---
         console.log('Inserimento recensioni...');
         const recensioni = [
-            { cliente_id: clientiRes.rows[0].id, artigiano_id: prodottiInseriti[0].artigiano_id, valutazione: 5, descrizione: 'Prodotto bellissimo e di ottima qualità!', stato: 'attiva' },
-            { cliente_id: clientiRes.rows[1].id, artigiano_id: prodottiInseriti[2].artigiano_id, valutazione: 4, descrizione: 'Buon prodotto, spedizione un po\' lenta', stato: 'attiva' },
-            { cliente_id: clientiRes.rows[2].id, artigiano_id: prodottiInseriti[4].artigiano_id, valutazione: 5, descrizione: 'Perfetto, esattamente come nella descrizione', stato: 'attiva' }
+            { cliente_id: clientiRes.rows[0].id, artigiano_id: prodotti[0].artigiano_id, valutazione: 5, descrizione: 'Prodotto bellissimo e di ottima qualità!', stato: 'attiva' },
+            { cliente_id: clientiRes.rows[1].id, artigiano_id: prodotti[2].artigiano_id, valutazione: 4, descrizione: 'Buon prodotto, spedizione un po\' lenta', stato: 'attiva' },
+            { cliente_id: clientiRes.rows[2].id, artigiano_id: prodotti[4].artigiano_id, valutazione: 5, descrizione: 'Perfetto, esattamente come nella descrizione', stato: 'attiva' }
         ];
 
         for (const recensione of recensioni) {
@@ -168,7 +169,7 @@ async function seed() {
                 [segnalazione.ordine_id, segnalazione.utente_id, segnalazione.recensione_id, segnalazione.testo, segnalazione.motivazione, segnalazione.stato_segnalazione]
             );
         }
-
+        */
         console.log('Seed completato con successo.');
     } catch (error) {
         console.error('Errore durante il seed:', error);

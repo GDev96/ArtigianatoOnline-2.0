@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db/db.js'); // o dove hai configurato il tuo pool
+const pool = require('../db/db'); // o dove hai configurato il tuo pool
 const authorize = require('../middleware/auth');
 const multer = require('multer');
 

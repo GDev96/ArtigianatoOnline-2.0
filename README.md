@@ -70,8 +70,6 @@ URL provvisori pre-db:
 
 ---
 
-
-
 ## 🛠️ Tecnologie usate
 
 - HTML5

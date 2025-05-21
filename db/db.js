@@ -65,7 +65,6 @@ async function initializeTables() {
 
         // Eseguire il seed
         const seedModule = require('./seed');
-        // Il seed.js esegue già la funzione al suo interno, quindi non è necessario chiamarla qui
         console.log('Seed eseguito correttamente');
 
         return pool; // Ritorniamo il pool per l'uso nell'applicazione

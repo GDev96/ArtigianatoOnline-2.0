@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
-const { initializeDatabase, pool } = require('./db/db.js');
+const { initializeDatabase, pool } = require('./db/db');
 const path = require('path');
 
 const app = express();
