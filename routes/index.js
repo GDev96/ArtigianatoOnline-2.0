@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db/db');
+const { pool } = require('../db/db');
 
-// Home page
+// TODO: Home page
 router.get('/', async (req, res) => {
   try {
       res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -12,30 +12,35 @@ router.get('/', async (req, res) => {
   }
 });
 
-// API per recuperare tutte le categorie
+// TODO: API per recuperare tutte le categorie
 // API per recuperare tutte le categorie
 router.get('/categories', async (req, res) => {
     try {
         const query = `
-            SELECT tipologia_id, nome_tipologia 
+            SELECT 
+                tipologia_id AS id,
+                nome_tipologia AS name
             FROM tipologia 
             ORDER BY nome_tipologia ASC
         `;
         
         const result = await pool.query(query);
         
-        res.json(result.rows); // Modificato per restituire direttamente l'array
+        res.json({
+            success: true,
+            data: result.rows
+        });
 
     } catch (error) {
         console.error('Error fetching categories:', error);
         res.status(500).json({
             success: false,
-            message: 'Internal server error'
+            message: 'Errore nel recupero delle categorie',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
-
-// API per recuperare tutte le recensioni
+// TODO: API per recuperare tutte le recensioni
 router.get('/api/reviews', async (req, res) => {
     try {
         const reviewsResult = await pool.query(`
@@ -68,7 +73,7 @@ router.get('/api/reviews', async (req, res) => {
     }
 });
 
-// API per salvare una nuova recensione
+// TODO: API per salvare una nuova recensione
 router.post('/reviews', async (req, res) => {
     try {
         const { cliente_id, artigiano_id, valutazione, descrizione, data_recensione } = req.body;

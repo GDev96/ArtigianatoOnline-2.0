@@ -25,6 +25,7 @@ app.use('/api/users', utentiRouter);
 const productsRouter = require('./routes/products');
 app.use('/api/products', productsRouter);
 
+
 async function startServer() {
     try {
         // Inizializza il database (crea DB se non esiste, crea tabelle, esegue seed)
