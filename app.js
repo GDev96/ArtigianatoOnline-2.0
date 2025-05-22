@@ -15,15 +15,14 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 const indexRouter = require('./routes/index');
 app.use('/', indexRouter);
-app.use('/api', indexRouter);
 
 // Users route
 const utentiRouter = require('./routes/users');
-app.use('/api/users', utentiRouter);
+app.use('/users', utentiRouter);
 
 //Products route
 const productsRouter = require('./routes/products');
-app.use('/api/products', productsRouter);
+app.use('/products', productsRouter);
 
 
 async function startServer() {
@@ -55,8 +54,10 @@ async function startServer() {
         });
 
         // Avvia il server
+        const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
-            console.log(`Server in esecuzione sulla porta ${PORT}`);
+            console.log(`Server running on http://localhost:${PORT}`);
+            console.log('Press Ctrl+C to stop the server');
         });
     } catch (error) {
         console.error('Errore durante l\'avvio del server:', error);

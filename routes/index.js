@@ -17,18 +17,21 @@ router.get('/', async (req, res) => {
 router.get('/categories', async (req, res) => {
     try {
         const query = `
-            SELECT 
-                tipologia_id AS id,
-                nome_tipologia AS name
-            FROM tipologia 
-            ORDER BY nome_tipologia ASC
+            SELECT DISTINCT 
+                t.tipologia_id,
+                t.nome_tipologia
+            FROM tipologia t
+            INNER JOIN artigiani a ON t.tipologia_id = a.tipologia_id
+            INNER JOIN utente u ON a.artigiano_id = u.id
+            WHERE u.stato = 'attivo'
+            ORDER BY t.nome_tipologia ASC
         `;
         
         const result = await pool.query(query);
         
         res.json({
             success: true,
-            data: result.rows
+            categories: result.rows
         });
 
     } catch (error) {
@@ -40,6 +43,8 @@ router.get('/categories', async (req, res) => {
         });
     }
 });
+
+
 // TODO: API per recuperare tutte le recensioni
 router.get('/api/reviews', async (req, res) => {
     try {
