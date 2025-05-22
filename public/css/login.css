@@ -1,4 +1,18 @@
+/* Login form specific styles */
+.card {
+    background-color: var(--bg-color);
+    border: 2px solid var(--palette-light);
+    border-radius: 15px;
+}
 
+.card h2 {
+    color: var(--palette-secondary);
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-2xl);
+}
+
+/* Password input styling */
 .password-container {
     position: relative;
 }
@@ -9,6 +23,35 @@
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
-    color: #b99570;
-    font-size: 1.3rem;
+    color: var(--palette-secondary);
+    font-size: var(--font-size-xl);
+    transition: color 0.3s ease;
+}
+
+.password-toggle:hover {
+    color: var(--palette-primary);
+}
+
+/* Alert styling */
+.alert-danger {
+    background-color: var(--bg-color);
+    border: 2px solid var(--palette-secondary);
+    border-radius: 15px;
+    color: var(--text-color);
+    font-family: var(--font-primary);
+    font-size: var(--font-size-sm);
+}
+
+/* Register link styling */
+.register-link {
+    color: var(--palette-primary);
+    text-decoration: none;
+    font-family: var(--font-primary);
+    font-size: var(--font-size-md);
+    transition: color 0.3s ease;
+}
+
+.register-link:hover {
+    color: var(--palette-secondary);
+    text-decoration: underline;
 }

@@ -1,13 +1,15 @@
-  .badge {
-    background-color: #e6d5c7;
-    color: #6c4c3d;
-    font-weight: 500;
+/* Base styles for dashboard-specific components */
+.badge {
+    background-color: var(--palette-accent);
+    color: var(--palette-secondary);
+    font-weight: var(--font-weight-medium);
     padding: 8px 12px;
-  }
-  
-  /* Table styles */
+    font-family: var(--font-primary);
+}
+
+/* Table styles */
 .table-responsive-container {
-    border-radius: 8px;
+    border-radius: 15px;
     overflow: auto;
 }
 
@@ -16,20 +18,22 @@
 }
 
 .table thead {
-    background-color: #d7bea8;
+    background-color: var(--palette-accent);
 }
 
 .table th {
     padding: 12px 16px;
-    font-weight: 500;
-    color: #333;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-color);
     border: none;
+    text-align: left;
 }
 
 .table td {
     padding: 12px 16px;
     vertical-align: middle;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--palette-light);
+    color: var(--text-color);
 }
 
 /* First column (Nome) */
@@ -54,23 +58,68 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: background-color 0.2s;
+    transition: all 0.3s ease;
 }
 
 .table td:last-child .btn:hover {
-    background-color: #e6d5c7;
+    background-color: var(--palette-accent);
+    color: var(--text-color-light);
 }
 
-/* Button primary style */
-.btn-primary {
-    background-color: #6c4c3d;
-    border-color: #6c4c3d;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
+/* Chart container styles */
+.chart-container {
+    background-color: var(--bg-color);
+    border: 2px solid var(--palette-light);
+    border-radius: 15px;
+    padding: 20px;
 }
 
-.btn-primary:hover {
-    background-color: #9d7c5f;
-    border-color: #9d7c5f;
+/* Profile section styles */
+.profile-section {
+    background-color: var(--bg-color);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+/* Card overrides for dashboard */
+.card {
+    background-color: var(--bg-color);
+    border: 2px solid var(--palette-light);
+    border-radius: 15px;
+}
+
+.card h4 {
+    color: var(--palette-secondary);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-xl);
+    margin-bottom: 1rem;
+}
+
+/* Modal overrides */
+.modal-content {
+    background-color: var(--bg-color);
+    border: 2px solid var(--palette-light);
+    border-radius: 15px;
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--palette-light);
+}
+
+.modal-header .modal-title {
+    color: var(--palette-secondary);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-responsive-container {
+        margin: 0 -15px;
+        border-radius: 0;
+    }
+    
+    .card {
+        margin: 10px 0;
+    }
 }
