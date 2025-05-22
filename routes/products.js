@@ -1,31 +1,47 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db/db'); // o dove hai configurato il tuo pool
+const pool = require('../db/db');
 const authorize = require('../middleware/auth');
 const multer = require('multer');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// GET tutti i prodotti - pubblico
+// GET tutti i prodotti - pubblico - corretto
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT  p.*, u.nome_utente AS artigiano_nome, t.nome_tipologia as categoria
+      SELECT 
+        p.*,
+        u.nome AS artigiano_nome,
+        u.cognome AS artigiano_cognome,
+        t.nome_tipologia,
+        t.tipologia_id
       FROM prodotti p
-      JOIN artigiani a ON p.artigiano_id = a.artigiano_id
-      JOIN utente u ON a.artigiano_id = u.id
-      JOIN tipologia t ON p.tipologia_id = t.tipologia_id
+      JOIN utente u ON p.artigiano_id = u.id
+      LEFT JOIN tipologia t ON p.tipologia_id = t.tipologia_id
+      WHERE u.stato = 'attivo'
+      ORDER BY p.nome_prodotto ASC
     `);
     
+    const products = result.rows.map(product => ({
+      ...product,
+      immagine: product.immagine ? product.immagine.toString('base64') : null,
+      prezzo: parseFloat(product.prezzo)
+    }));
+
     res.json({
       success: true,
-      products: result.rows
+      products
     });
     
   } catch (error) {
     console.error('Errore nel recupero dei prodotti:', error);
-    res.status(500).json({ message: 'Errore del server' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Errore del server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

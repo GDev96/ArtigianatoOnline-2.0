@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db/db');
 
-// TODO: Home page
+// Home page
 router.get('/', async (req, res) => {
   try {
       res.sendFile(path.join(__dirname, '../public/index.html'));
@@ -12,8 +12,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// TODO: API per recuperare tutte le categorie
-// API per recuperare tutte le categorie
+// API per recuperare tutte le categorie - corretta
 router.get('/categories', async (req, res) => {
     try {
         const query = `
@@ -44,26 +43,31 @@ router.get('/categories', async (req, res) => {
     }
 });
 
-
-// TODO: API per recuperare tutte le recensioni
-router.get('/api/reviews', async (req, res) => {
+// API per recuperare tutte le recensioni
+router.get('/reviews', async (req, res) => {
     try {
         const reviewsResult = await pool.query(`
             SELECT 
                 r.recensione_id,
-                r.descrizione as testo,
+                r.cliente_id,
+                r.artigiano_id,
+                r.descrizione,
                 r.valutazione,
+                r.stato,
                 r.data_recensione,
-                u.nome_utente as cliente_nome,
-                a.nome_utente as artigiano_nome,
-                r.artigiano_id
+                c.username as cliente_username,
+                c.nome as cliente_nome,
+                c.cognome as cliente_cognome,
+                a.username as artigiano_username,
+                a.nome as artigiano_nome,
+                a.cognome as artigiano_cognome
             FROM recensioni r
-            JOIN utente u ON r.cliente_id = u.id
+            JOIN utente c ON r.cliente_id = c.id
             JOIN utente a ON r.artigiano_id = a.id
+            WHERE r.stato = 'attiva'
             ORDER BY r.data_recensione DESC
         `);
 
-        // Rimuoviamo il controllo che restituiva 404
         res.json({
             success: true,
             reviews: reviewsResult.rows
@@ -78,58 +82,71 @@ router.get('/api/reviews', async (req, res) => {
     }
 });
 
-// TODO: API per salvare una nuova recensione
+// API per salvare una nuova recensione
 router.post('/reviews', async (req, res) => {
     try {
-        const { cliente_id, artigiano_id, valutazione, descrizione, data_recensione } = req.body;
+        const { cliente_id, artigiano_id, valutazione, descrizione } = req.body;
 
-        console.log('Dati ricevuti:', req.body);
-
-        // Valida i dati
+        // Validazione dei dati
         if (!cliente_id || !artigiano_id || !valutazione || !descrizione) {
             return res.status(400).json({
                 success: false,
-                message: 'Dati mancanti'
+                message: 'Dati mancanti. Richiesti: cliente_id, artigiano_id, valutazione, descrizione'
             });
         }
 
-        // Verifica che l'utente esista
-        const userExists = await pool.query(
-            'SELECT id FROM utente WHERE id = $1',
-            [cliente_id]
+        // Verifica che il cliente esista e sia attivo
+        const clienteExists = await pool.query(
+            'SELECT id FROM utente WHERE id = $1 AND ruolo_id = 1 AND stato = $2',
+            [cliente_id, 'attivo']
         );
 
-        if (userExists.rows.length === 0) {
+        if (clienteExists.rows.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Utente non trovato'
+                message: 'Cliente non trovato o non attivo'
             });
         }
 
-        // Verifica che l'artigiano esista
-        const artisanExists = await pool.query(
-            'SELECT id FROM utente WHERE id = $1',
-            [artigiano_id]
+        // Verifica che l'artigiano esista e sia attivo
+        const artigianoExists = await pool.query(
+            'SELECT u.id FROM utente u JOIN artigiani a ON u.id = a.artigiano_id WHERE u.id = $1 AND u.ruolo_id = 2 AND u.stato = $2',
+            [artigiano_id, 'attivo']
         );
 
-        if (artisanExists.rows.length === 0) {
+        if (artigianoExists.rows.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Artigiano non trovato'
+                message: 'Artigiano non trovato o non attivo'
             });
         }
 
-        // Inserisci la recensione nel database senza specificare recensione_id
+        // Inserisci la recensione
         const result = await pool.query(`
-            INSERT INTO recensioni (cliente_id, artigiano_id, valutazione, descrizione, data_recensione)
-            VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_TIMESTAMP))
+            INSERT INTO recensioni (
+                cliente_id, 
+                artigiano_id, 
+                valutazione, 
+                descrizione, 
+                stato,
+                data_recensione
+            )
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
             RETURNING recensione_id
-        `, [cliente_id, artigiano_id, valutazione, descrizione, data_recensione]);
+        `, [cliente_id, artigiano_id, valutazione, descrizione, 'attiva']);
 
-        res.json({
+        res.status(201).json({
             success: true,
             message: 'Recensione salvata con successo',
-            review_id: result.rows[0].recensione_id
+            review: {
+                recensione_id: result.rows[0].recensione_id,
+                cliente_id,
+                artigiano_id,
+                valutazione,
+                descrizione,
+                stato: 'attiva',
+                data_recensione: new Date()
+            }
         });
     } catch (error) {
         console.error('Errore nel salvataggio della recensione:', error);

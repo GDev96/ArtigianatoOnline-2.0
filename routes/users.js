@@ -128,48 +128,64 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Lista artigiani
+// Get tutti gli artigiani - corretta
 router.get('/artisans', async (req, res) => {
-  try {
-    const artisansResult = await pool.query(`
-      SELECT 
-        u.id, 
-        u.username, 
-        u.nome, 
-        u.cognome,
-        u.email, 
-        u.numero_telefono, 
-        u.indirizzo,
-        u.citta,
-        a.tipologia_id,
-        t.nome_tipologia,
-        a.iban,
-        a.immagine
-      FROM utente u 
-      JOIN artigiani a ON u.id = a.artigiano_id
-      LEFT JOIN tipologia t ON a.tipologia_id = t.tipologia_id
-      WHERE u.ruolo_id = 2
-    `);
+    try {
+        const artisansResult = await pool.query(`
+            SELECT 
+                u.id, 
+                u.username, 
+                u.nome, 
+                u.cognome,
+                u.email, 
+                u.numero_telefono, 
+                u.indirizzo,
+                u.citta,
+                u.stato,
+                a.tipologia_id,
+                t.nome_tipologia,
+                a.iban,
+                a.immagine,
+                COALESCE(AVG(r.valutazione)::numeric(10,1), 0) as valutazione_media,
+                COUNT(r.recensione_id) as numero_recensioni
+            FROM utente u 
+            JOIN artigiani a ON u.id = a.artigiano_id
+            LEFT JOIN tipologia t ON a.tipologia_id = t.tipologia_id
+            LEFT JOIN recensioni r ON u.id = r.artigiano_id AND r.stato = 'attiva'
+            WHERE u.ruolo_id = 2 AND u.stato = 'attivo'
+            GROUP BY u.id, u.username, u.nome, u.cognome, u.email, 
+                     u.numero_telefono, u.indirizzo, u.citta, u.stato,
+                     a.tipologia_id, t.nome_tipologia, a.iban, a.immagine
+            ORDER BY u.nome, u.cognome
+        `);
 
-    if (!artisansResult.rows.length) {
-      return res.status(404).json({ success: false, message: 'Nessun artigiano trovato' });
+        if (!artisansResult.rows.length) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Nessun artigiano trovato' 
+            });
+        }
+
+        const artisans = artisansResult.rows.map(artisan => ({
+            ...artisan,
+            immagine: artisan.immagine ? artisan.immagine.toString('base64') : null,
+            valutazione_media: parseFloat(artisan.valutazione_media) || 0,
+            numero_recensioni: parseInt(artisan.numero_recensioni) || 0
+        }));
+
+        res.json({ 
+            success: true, 
+            artisans 
+        });
+
+    } catch (error) {
+        console.error('Errore DB:', error);
+        res.status(500).json({ 
+            success: false,
+            message: 'Errore del server',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
-
-    const artisans = artisansResult.rows.map(artisan => ({
-      ...artisan,
-      immagine: artisan.immagine ? artisan.immagine.toString('base64') : null
-    }));
-
-    res.json({ success: true, artisans });
-
-  } catch (error) {
-    console.error('Errore DB:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Errore del server',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
 });
 
 module.exports = router;

@@ -1,19 +1,23 @@
-//Recupera i dati dell'artigiano
+//Recupera i dati dell'artigiano - funziona
 document.addEventListener('DOMContentLoaded', async function() {
-    // Recupera l'ID dell'artigiano dall'URL
     const urlParams = new URLSearchParams(window.location.search);
     const artisanId = urlParams.get('id');
 
     if (!artisanId) {
-        console.error('ID artigiano non trovato');
+        showError('ID artigiano non trovato');
         return;
     }
     
     try {
         // Fetch parallelo per artigiani e categorie
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+
         const [artisansResponse, categoriesResponse] = await Promise.all([
-            fetch('/api/users/artisans'),
-            fetch('/api/categories')
+            fetch('/users/artisans', { headers }),
+            fetch('/categories', { headers })
         ]);
 
         if (!artisansResponse.ok || !categoriesResponse.ok) {
@@ -25,12 +29,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             categoriesResponse.json()
         ]);
 
+        if (!artisansData.success || !categoriesData.success) {
+            throw new Error('Invalid API response format');
+        }
+
         // Filtra l'artigiano per ID
         const artisan = artisansData.artisans.find(a => a.id.toString() === artisanId);
-
         if (!artisan) {
-            console.error('Artigiano non trovato nel dataset');
-            return;
+            throw new Error('Artigiano non trovato');
         }
 
         // Trova il nome della categoria
@@ -38,12 +44,24 @@ document.addEventListener('DOMContentLoaded', async function() {
         const categoryName = category ? category.nome_tipologia : 'Categoria non specificata';
 
         // Compila i dati dell'artigiano
-        document.getElementById('artisan-name').textContent = artisan.nome_utente;
+        document.getElementById('artisan-name').textContent = `${artisan.nome} ${artisan.cognome}`;
         document.getElementById('artisan-category').textContent = categoryName;
-        document.getElementById('artisan-address').textContent =
+        document.getElementById('artisan-address').textContent = 
             `${artisan.indirizzo || ''} - ${artisan.citta || ''}`;
-        document.getElementById('artisan-contact').textContent =
-            `${artisan.email} - ${artisan.telefono || 'Contatto telefico non specificato'}`;
+        document.getElementById('artisan-contact').textContent = 
+            `${artisan.email} - ${artisan.numero_telefono || 'Contatto telefonico non specificato'}`;
+
+        // Aggiorna immagine profilo se disponibile
+        const profilePic = document.getElementById('profilePicture');
+        if (artisan.immagine) {
+            profilePic.src = `data:image/jpeg;base64,${artisan.immagine}`;
+        }
+
+        // Carica le recensioni per l'artigiano
+        //await loadReviews(artisanId);
+        
+        // Carica i prodotti dell'artigiano
+        await loadProducts(artisanId);
 
     } catch (error) {
         console.error('Error:', error);
@@ -54,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 
 
-//Popola i prodotti dell'artigiano
+//FIXME: Popola i prodotti dell'artigiano
 document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const artisanId = urlParams.get('id');
@@ -190,15 +208,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="alert alert-danger" role="alert">
                         Si è verificato un errore nel caricamento dei prodotti. 
                         <br>Dettaglio: ${error.message}
-                    </div>
-                </div>`;
-        }
+                </div>
+            </div>`;
     }
+}
 });
 
-
-
-//Applicazione dei filtri sui prodotti
+//FIXME: Applicazione dei filtri sui prodotti
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -273,10 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-
-
-
-// Funzione per aggiornare la visualizzazione dei prodotti
+//FIXME: Funzione per aggiornare la visualizzazione dei prodotti
 function updateProductsDisplay(products) {
     const productsContainer = document.querySelector('.container.my-5 .row');
     
@@ -349,7 +362,7 @@ function updateProductsDisplay(products) {
 
 
 
-//Pulsante aggiunta prodotto al carrello
+// FIXME: Pulsante aggiunta prodotto al carrello
 document.addEventListener('DOMContentLoaded', function() {
     // Controlla se l'utente è loggato
     const user = JSON.parse(localStorage.getItem('user'));
@@ -367,8 +380,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-
-
+//FIXME
 function addToCart(button) {
     const card = button.closest('.card');
     const product = {
@@ -398,7 +410,7 @@ function addToCart(button) {
 
 
 
-//Popolare recensioni
+// FIXME Popolare recensioni
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -506,14 +518,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Funzione per generare le stelle della valutazione
+// FIXME Funzione per generare le stelle della valutazione
 function generateStars(rating) {
     return Array(5).fill(0).map((_, index) => 
         `<i class="fa fa-star${index < rating ? ' checked' : ''}" aria-hidden="true"></i>`
     ).join('');
 }
 
-// Funzione per aggiornare la valutazione media nella header
+// FIXMEFunzione per aggiornare la valutazione media nella header
 function updateAverageRating(averageRating, totalReviews) {
     const ratingSection = document.querySelector('.rating');
     if (ratingSection) {
@@ -528,7 +540,7 @@ function updateAverageRating(averageRating, totalReviews) {
     }
 }
 
-// Gestione stelle recensione nel modale
+// FIXME Gestione stelle recensione nel modale
 document.addEventListener('DOMContentLoaded', function() {
     const ratingStars = document.querySelectorAll('.rating-input .fa-star');
     const ratingValue = document.getElementById('ratingValue');
@@ -563,7 +575,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-//Aggiungere nuova recensione al db
+// FIXME Aggiungere nuova recensione al db
 function submitReview() {
     const rating = document.getElementById('ratingValue').value;
     const reviewText = document.getElementById('reviewText').value;
@@ -630,8 +642,7 @@ function submitReview() {
     });
 }
 
-
-//Segnalazione recensione
+// FIXME Segnalazione recensione
 function openReviewReport(reviewId) {
     document.getElementById('reportedReviewId').value = reviewId;
     const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
