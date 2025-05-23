@@ -5,14 +5,10 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 require('dotenv').config();
 
+// FIXME: API per recuperare tutte le recensioni - pubblica
 
-//TODO: API per visualizzare tutti i prodotti
 
-//TODO: API per creare un prodotto - artigiano
-
-//TODO: API per modificare un prodotto - artigiano
-
-//TODO: API per eliminare un prodotto - artigiano
+// FIXME: API per salvare una nuova recensione - solo utenti loggati
 
 
 module.exports = router;

@@ -313,7 +313,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-
 // Update the review display function to conditionally show report buttons
 function updateReviewsDisplay(reviews) {
     const user = JSON.parse(sessionStorage.getItem('user'));

@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Handle form submission
-loginForm?.addEventListener('submit', async function(e) {
+    loginForm?.addEventListener('submit', async function(e) {
         e.preventDefault();
         loginError.classList.add('d-none');
         
@@ -23,9 +23,7 @@ loginForm?.addEventListener('submit', async function(e) {
                 password: document.getElementById('passwordInput').value
             };
 
-            console.log('Attempting login with:', { ...credentials, password: '***' });
-
-            const response = await fetch('/users/login', {
+            const response = await fetch('/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -34,22 +32,20 @@ loginForm?.addEventListener('submit', async function(e) {
             });
 
             const data = await response.json();
-            console.log('Server response:', data);
 
-            if (!response.ok) {
+            if (!response.ok || !data.success) {
                 throw new Error(data.error || data.message || 'Errore durante il login');
             }
 
-            if (!data.token || !data.user || !data.expiresIn) {
-                console.error('Missing required login data:', data);
+            if (!data.token || !data.user) {
                 throw new Error('Dati di login incompleti dal server');
             }
 
-            AuthService.setSession(data.token, data.user, data.expiresIn);
+            AuthService.setSession(data.token, data.user);
             window.location.href = '/index.html';
 
         } catch (error) {
-            console.error('Login error details:', error);
+            console.error('Login error:', error);
             loginError.textContent = error.message;
             loginError.classList.remove('d-none');
         }

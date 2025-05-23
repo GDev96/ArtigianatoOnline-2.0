@@ -92,43 +92,45 @@ document.querySelector('form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     try {
-        // Basic form data
         const formData = {
             nome_utente: document.getElementById('usernameInput').value.trim(),
             email: document.getElementById('emailInput').value.trim(),
             nome: document.getElementById('nameInput').value.trim(),
             cognome: document.getElementById('surnameInput').value.trim(),
             password: document.getElementById('passwordInput').value,
-            conferma_password: document.getElementById('confirmPasswordInput').value,
             indirizzo: document.getElementById('addressInput').value.trim(),
             citta: document.getElementById('cityInput').value.trim(),
-            isArtigiano: document.getElementById('artisanCheck').checked
+            ruolo_id: document.getElementById('artisanCheck').checked ? 2 : 3 // 2 for artisan, 3 for customer
         };
 
-        // Validate passwords match
-        if (formData.password !== formData.conferma_password) {
+        // Validate password confirmation
+        if (formData.password !== document.getElementById('confirmPasswordInput').value) {
             throw new Error('Le password non coincidono');
         }
 
-        // Add artisan specific fields
-        if (formData.isArtigiano) {
-            formData.iban = document.getElementById('vatNumberInput').value.trim();
-            formData.numero_telefono = document.getElementById('phoneNumberInput').value.trim();
-            formData.tipologia_id = document.getElementById('categoryInput').value;
+        // Add artisan specific fields if artisan registration
+        if (document.getElementById('artisanCheck').checked) {
+            const artisanData = {
+                iban: document.getElementById('vatNumberInput').value.trim(),
+                numero_telefono: document.getElementById('phoneNumberInput').value.trim(),
+                tipologia_id: parseInt(document.getElementById('categoryInput').value),
+            };
 
-            // Process image if present
-            const imageInput = document.getElementById('profileImageInput');
-            if (imageInput.files[0]) {
+            // Process profile image
+            const imageFile = document.getElementById('profileImageInput').files[0];
+            if (imageFile) {
                 try {
-                    formData.immagine = await processImage(imageInput.files[0]);
+                    const base64Image = await processImage(imageFile);
+                    artisanData.immagine = base64Image.split(',')[1]; // Remove data:image/... prefix
                 } catch (error) {
                     throw new Error(`Errore immagine: ${error.message}`);
                 }
             }
+
+            Object.assign(formData, artisanData);
         }
 
-        // Send registration request
-        const response = await fetch('/users/signup', {
+        const response = await fetch('/auth/signup', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -138,21 +140,20 @@ document.querySelector('form').addEventListener('submit', async (e) => {
 
         const data = await response.json();
 
-        if (!response.ok) {
+        if (!response.ok || !data.success) {
             throw new Error(data.error || 'Errore durante la registrazione');
         }
 
-        // Show success modal
+        // Show success modal and redirect
         const successModal = new bootstrap.Modal(document.getElementById('successModal'));
         successModal.show();
 
-        // Reindirizzo dopo 3 secondi
         setTimeout(() => {
             window.location.href = '/login.html';
         }, 3000);
 
     } catch (error) {
-        console.error('Errore durante la registrazione:', error);
+        console.error('Registration error:', error);
         alert(error.message);
     }
 });

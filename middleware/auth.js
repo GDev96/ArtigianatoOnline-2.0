@@ -5,16 +5,18 @@ const createAuthMiddleware = () => {
         const publicPaths = [
             '/login.html',
             '/signup.html',
-            '/users/login',
-            '/users/signup',
+            '/auth/login',
+            '/auth/signup',
+            '/auth/logout',
             '/css/',
             '/js/',
             '/assets/',
             '/categories',
+            '/products',        
+            '/reviews',         
             '/index.html',
             '/'
         ];
-
         const currentPath = req.originalUrl || req.url || '';
 
         // Allow public paths

@@ -1,16 +1,19 @@
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const auth = JSON.parse(localStorage.getItem('auth') || '{}');
+        const user = JSON.parse(sessionStorage.getItem('user'));
         const headers = {
             'Accept': 'application/json',
             'Content-Type': 'application/json'
         };
         
-        if (auth.token) {
-            headers.Authorization = `Bearer ${auth.token}`;
+        if (user) {
+            const token = sessionStorage.getItem('token');
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
         }
 
-        // Fetch artisans data first
+        // Fetch artisans data with new endpoint
         const response = await fetch('/users/artisans', { headers });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

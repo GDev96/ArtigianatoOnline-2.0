@@ -94,12 +94,32 @@ function initNavbar() {
         userMenu?.classList.add('d-none');
         guestMenu?.classList.remove('d-none');
     }
-
+    
     // Handle logout
-    document.getElementById('logoutButton')?.addEventListener('click', function(e) {
+    document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
         e.preventDefault();
-        sessionStorage.clear();
-        window.location.href = '/login.html';
+        try {
+            const response = await fetch('/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+    
+            if (!response.ok) {
+                throw new Error('Errore durante il logout');
+            }
+    
+            // Clear session storage
+            sessionStorage.clear();
+            console.log('Logout successful');
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        } catch (error) {
+            console.error('Logout error:', error);
+            alert('Errore durante il logout. Riprova più tardi.');
+        }
     });
 
     // Add navigation handlers

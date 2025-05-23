@@ -1,59 +1,43 @@
 class AuthService {
-    static setSession(token, user, expiresIn) {
-        const expiresAt = new Date().getTime() + expiresIn;
+    static setSession(token, user) {
         sessionStorage.setItem('token', token);
         sessionStorage.setItem('user', JSON.stringify(user));
-        sessionStorage.setItem('expiresAt', expiresAt.toString());
-
-        // Set timeout for auto logout
-        setTimeout(() => this.logout(), expiresIn);
+        sessionStorage.setItem('auth_time', new Date().getTime());
     }
 
     static logout() {
         sessionStorage.removeItem('token');
         sessionStorage.removeItem('user');
-        sessionStorage.removeItem('expiresAt');
-        window.location.href = '/login.html';
+        sessionStorage.removeItem('auth_time');
     }
 
     static isAuthenticated() {
-        const expiresAt = sessionStorage.getItem('expiresAt');
-        return expiresAt && new Date().getTime() < parseInt(expiresAt);
+        return !!sessionStorage.getItem('token');
     }
 
     static getUser() {
-        if (!this.isAuthenticated()) {
-            this.logout();
-            return null;
-        }
-        return JSON.parse(sessionStorage.getItem('user'));
+        const user = sessionStorage.getItem('user');
+        return user ? JSON.parse(user) : null;
     }
 
     static getToken() {
-        if (!this.isAuthenticated()) {
-            this.logout();
-            return null;
-        }
         return sessionStorage.getItem('token');
     }
 
     static checkAuth() {
-        if (this.isAuthenticated()) {
-            const expiresAt = parseInt(sessionStorage.getItem('expiresAt'));
-            const remaining = expiresAt - new Date().getTime();
-            setTimeout(() => this.logout(), remaining);
-            return true;
-        }
-        return false;
-    }
+        const token = this.getToken();
+        if (!token) return false;
 
-    static async fetch(url, options = {}) {
-        if (this.getToken()) {
-            options.headers = {
-                ...options.headers,
-                'Authorization': `Bearer ${this.getToken()}`
-            };
+        // Optional: check token expiration
+        const authTime = sessionStorage.getItem('auth_time');
+        if (authTime) {
+            const elapsed = (new Date().getTime() - parseInt(authTime)) / 1000;
+            if (elapsed > 30 * 60) { // 30 minutes
+                this.logout();
+                return false;
+            }
         }
-        return fetch(url, options);
+
+        return true;
     }
 }

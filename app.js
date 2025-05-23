@@ -6,46 +6,48 @@ const { initializeDatabase, pool } = require('./db/db');
 const path = require('path');
 const createAuthMiddleware = require('./middleware/auth');
 
-// Create auth middleware instance
-const requireAuth = createAuthMiddleware();
-
-// Import routes
-const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
-const productsRouter = require('./routes/products');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware setup
-app.use(cookieParser());
-app.use(express.json({limit: '50mb'}));
-app.use(express.urlencoded({limit: '50mb', extended: true}));
+// Create auth middleware
+const requireAuth = createAuthMiddleware();
 
-// Serve static files first
+// Middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(express.static('public'));
 
-// Protected routes
-app.use('/api', requireAuth);
-app.use('/profile.html', requireAuth);
-app.use('/cart.html', requireAuth);
-app.use('/admin.html', requireAuth);
-app.use('/dashboard.html', requireAuth);
+// Import routes
+const indexRouter = require('./routes/index');
+const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users');
+const productsRouter = require('./routes/products');
+const reviewsRouter = require('./routes/reviews');
 
-// API routes
+// Public routes
+app.use('/', indexRouter);
+app.use('/auth', authRouter);
 app.use('/users', usersRouter);
 app.use('/products', productsRouter);
+app.use('/reviews', reviewsRouter);
+app.use('/categories', indexRouter);
 
-// Error handling
+// Protected routes
+app.use('/profile.html', requireAuth);
+app.use('/cart.html', requireAuth);
+app.use('/dashboard.html', requireAuth);
+
+// Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({
         success: false,
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: 'Si è verificato un errore interno del server'
     });
 });
 
+// Start server
 async function startServer() {
     try {
         // Inizializza il database (crea DB se non esiste, crea tabelle, esegue seed)
@@ -73,13 +75,6 @@ async function startServer() {
                 });
             }
         });
-
-        // Avvia il server
-        const PORT = process.env.PORT || 3000;
-        app.listen(PORT, () => {
-            console.log(`Server running on http://localhost:${PORT}`);
-            console.log('Press Ctrl+C to stop the server');
-        });
     } catch (error) {
         console.error('Errore durante l\'avvio del server:', error);
         process.exit(1);
@@ -88,3 +83,9 @@ async function startServer() {
 
 // Avvia il server
 startServer();
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = app;
