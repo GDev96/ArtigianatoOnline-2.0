@@ -1,25 +1,29 @@
-  
 .dropdown-menu {
-    border: 1px solid #b99570;
+    border: 1px solid var(--palette-primary);
+    font-family: var(--font-primary);
 }
 
 .form-select {
-    border-color: #b99570;
+    border: 2px solid var(--palette-light);
+    font-family: var(--font-primary);
+    font-size: var(--font-size-md);
 }
 
 .form-select:focus {
-    border-color: #b99570;
-    box-shadow: 0 0 0 0.25rem rgba(185, 149, 112, 0.25);
+    border-color: var(--palette-primary);
+    box-shadow: 0 0 0 0.25rem rgba(112, 149, 185, 0.25);
 }
 
 #applyFilters {
-    background-color: #b99570;
-    color: white;
+    background-color: var(--palette-primary);
+    color: var(--text-color-light);
     border: none;
     transition: all 0.3s ease;
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 #applyFilters:hover {
-    background-color: #a38461;
+    background-color: var(--palette-secondary);
     transform: translateY(-2px);
 }
