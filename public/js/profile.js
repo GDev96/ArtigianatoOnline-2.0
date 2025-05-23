@@ -1,11 +1,17 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user || user.ruolo_id !== 1) {
+        window.location.href = '/login.html';
+        return;
+    }
+    
     loadUserData();
     loadOrders();
     loadUserReports();
 });
 
 async function loadUserData() {
-    const user = JSON.parse(localStorage.getItem('user'));
+    const user = JSON.parse(sessionStorage.getItem('user'));
     
     if (!user) {
         window.location.href = '/login.html';
@@ -14,7 +20,7 @@ async function loadUserData() {
 
     // Update header information
     document.getElementById('profileName').textContent = `${user.nome} ${user.cognome}`;
-    document.getElementById('username').textContent = user.nome_utente;
+    document.getElementById('username').textContent = user.username;
     
     // Update info cards
     const fullAddress = user.indirizzo && user.citta ? 
@@ -26,17 +32,17 @@ async function loadUserData() {
     const phoneCard = document.querySelector('.card-phone p');
     const emailCard = document.querySelector('.card-mail p');
     
-    addressCard.textContent = fullAddress;
-    phoneCard.textContent = user.telefono || 'Non specificato';
-    emailCard.textContent = user.email;
+    if (addressCard) addressCard.textContent = fullAddress;
+    if (phoneCard) phoneCard.textContent = user.numero_telefono || 'Non specificato';
+    if (emailCard) emailCard.textContent = user.email;
 
     // Populate edit form fields
-    document.getElementById('editName').value = user.nome;
-    document.getElementById('editSurname').value = user.cognome;
-    document.getElementById('editEmail').value = user.email;
-    document.getElementById('editPhone').value = user.telefono || '';
-    document.getElementById('editAddress').value = user.indirizzo || '';
-    document.getElementById('editCity').value = user.citta || '';
+    document.getElementById('editNameInput').value = user.nome;
+    document.getElementById('editSurnameInput').value = user.cognome;
+    document.getElementById('editEmailInput').value = user.email;
+    document.getElementById('editPhoneInput').value = user.numero_telefono || '';
+    document.getElementById('editAddressInput').value = user.indirizzo || '';
+    document.getElementById('editCityInput').value = user.citta || '';
 }
 
 async function updateProfile() {

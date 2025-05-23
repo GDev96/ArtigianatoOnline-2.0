@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const { pool } = require('./database');
+const { pool } = require('./db');
 
 async function seed() {
     console.log('Avvio del seed...');
@@ -7,27 +7,27 @@ async function seed() {
         // --- CREAZIONE RUOLI ---
         console.log('Inserimento ruoli...');
         await pool.query(`
-            INSERT INTO ruoli (nome_ruolo) VALUES
-            ('cliente'),
-            ('artigiano'),
-            ('admin')
+            INSERT INTO ruoli (ruolo_id, nome_ruolo) VALUES
+            (1, 'cliente'),
+            (2, 'artigiano'),
+            (3, 'admin')
             ON CONFLICT (nome_ruolo) DO NOTHING;
         `);
 
         // --- CREAZIONE TIPOLOGIE ---
         console.log('Inserimento tipologie...');
         await pool.query(`
-            INSERT INTO tipologia (nome_tipologia) VALUES
-            ('Ceramica'),
-            ('Legno'),
-            ('Tessuti'),
-            ('Gioielli'),
-            ('Vetro'),
-            ('Arredamento'),
-            ('Elettronica'),
-            ('Metallo'),
-            ('Decorazioni'),
-            ('Vario')
+            INSERT INTO tipologia (tipologia_id, nome_tipologia) VALUES
+            (1, 'Ceramica'),
+            (2, 'Legno'),
+            (3, 'Tessuti'),
+            (4, 'Gioielli'),
+            (5, 'Vetro'),
+            (6, 'Arredamento'),
+            (7, 'Elettronica'),
+            (8, 'Metallo'),
+            (9, 'Decorazioni'),
+            (10, 'Vario')
             ON CONFLICT (nome_tipologia) DO NOTHING;
         `);
 
@@ -42,6 +42,7 @@ async function seed() {
 
         // --- CREAZIONE UTENTI ---
         const utenti = [
+            { username: 'mario_clientetest', nome: 'Mario', cognome: 'Test', numero_telefono: '3281234599', email: 'mariotest@example.com', ruolo_id: 1, citta: 'Venezia', indirizzo: 'Via Test 1', password: 'cliente4' },
             { username: 'giulia_tessuti', nome: 'Giulia', cognome: 'Rossi', numero_telefono: '3281234567', email: 'giulia@example.com', ruolo_id: 2, citta: 'Firenze', indirizzo: 'Via delle Rose 10', password: 'password1' },
             { username: 'marco_legno', nome: 'Marco', cognome: 'Bianchi', numero_telefono: '3283454567', email: 'marco@example.com', ruolo_id: 2, citta: 'Torino', indirizzo: 'Via Bosco 21', password: 'password2' },
             { username: 'alessia_gioielli', nome: 'Alessia', cognome: 'Verdi', numero_telefono: '3282345643', email: 'alessia@example.com', ruolo_id: 2, citta: 'Roma', indirizzo: 'Via Appia 45', password: 'password3' },
@@ -56,9 +57,9 @@ async function seed() {
         for (const u of utenti) {
             const hash = await bcrypt.hash(u.password, saltRounds);
             await pool.query(
-                `INSERT INTO utente (username, nome, cognome, numero_telefono, email, indirizzo, citta, password_hash, ruolo_id)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [u.username, u.nome, u.cognome, u.numero_telefono, u.email, u.indirizzo, u.citta, hash, u.ruolo_id]
+                `INSERT INTO utente (username, nome, cognome, numero_telefono, email, indirizzo, citta, password_hash, ruolo_id, stato)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [u.username, u.nome, u.cognome, u.numero_telefono, u.email, u.indirizzo, u.citta, hash, u.ruolo_id, 'attivo']
             );
         }
 
@@ -102,18 +103,38 @@ async function seed() {
             );
         }
 
+        // --- CREAZIONE CARRELLO ---
+        console.log('Inserimento carrello...');
         const clientiRes = await pool.query("SELECT id FROM utente WHERE ruolo_id = 1");
+        const prodottiRes = await pool.query("SELECT prodotto_id, prezzo FROM prodotti");
+        
+        const carrello = [
+            { cliente_id: clientiRes.rows[0].id, prodotto_id: prodottiRes.rows[0].prodotto_id, quantita: 2, prezzo: prodottiRes.rows[0].prezzo },
+            { cliente_id: clientiRes.rows[1].id, prodotto_id: prodottiRes.rows[1].prodotto_id, quantita: 1, prezzo: prodottiRes.rows[1].prezzo },
+            { cliente_id: clientiRes.rows[2].id, prodotto_id: prodottiRes.rows[2].prodotto_id, quantita: 3, prezzo: prodottiRes.rows[2].prezzo }
+        ];
+
+        for (const item of carrello) {
+            await pool.query(
+                `INSERT INTO carrello (cliente_id, prodotto_id, quantita, prezzo_unitario)
+                 VALUES ($1, $2, $3, $4)`,
+                [item.cliente_id, item.prodotto_id, item.quantita, item.prezzo]
+            );
+        }
+
+        // --- CREAZIONE ORDINI ---
+        console.log('Inserimento ordini...');
         const ordini = [
             { cliente_id: clientiRes.rows[0].id, stato: 'consegnato' },
             { cliente_id: clientiRes.rows[1].id, stato: 'in spedizione' },
-            { cliente_id: clientiRes.rows[2].id, stato: 'consegnato' }
+            { cliente_id: clientiRes.rows[2].id, stato: 'controversia aperta' }
         ];
 
         const ordiniInseriti = [];
         for (const ordine of ordini) {
             const ordineRes = await pool.query(
-                `INSERT INTO ordini (cliente_id, stato)
-                 VALUES ($1, $2)
+                `INSERT INTO ordini (cliente_id, stato, data_ordine)
+                 VALUES ($1, $2, CURRENT_TIMESTAMP - interval '1 day' * random() * 30)
                  RETURNING ordine_id`,
                 [ordine.cliente_id, ordine.stato]
             );
@@ -123,49 +144,55 @@ async function seed() {
         // --- CREAZIONE DETTAGLI ORDINE ---
         console.log('Inserimento dettagli ordine...');
         const dettagliOrdini = [
-            { ordine_id: ordiniInseriti[0], prodotto_id: prodottiInseriti[0].id, quantita: 2, prezzo_unitario: prodottiInseriti[0].prezzo, stato: 'consegnato' },
-            { ordine_id: ordiniInseriti[0], prodotto_id: prodottiInseriti[2].id, quantita: 1, prezzo_unitario: prodottiInseriti[2].prezzo, stato: 'consegnato' },
-            { ordine_id: ordiniInseriti[1], prodotto_id: prodottiInseriti[3].id, quantita: 1, prezzo_unitario: prodottiInseriti[3].prezzo, stato: 'in spedizione' },
-            { ordine_id: ordiniInseriti[2], prodotto_id: prodottiInseriti[4].id, quantita: 3, prezzo_unitario: prodottiInseriti[4].prezzo, stato: 'consegnato' }
+            { ordine_id: ordiniInseriti[0], prodotto_id: prodottiRes.rows[0].prodotto_id, quantita: 2, prezzo: prodottiRes.rows[0].prezzo, stato: 'consegnato' },
+            { ordine_id: ordiniInseriti[1], prodotto_id: prodottiRes.rows[1].prodotto_id, quantita: 1, prezzo: prodottiRes.rows[1].prezzo, stato: 'in spedizione' },
+            { ordine_id: ordiniInseriti[2], prodotto_id: prodottiRes.rows[2].prodotto_id, quantita: 3, prezzo: prodottiRes.rows[2].prezzo, stato: 'controversia aperta' }
         ];
 
         for (const dettaglio of dettagliOrdini) {
             await pool.query(
                 `INSERT INTO dettagli_ordine (ordine_id, prodotto_id, quantita, prezzo_unitario, stato)
                  VALUES ($1, $2, $3, $4, $5)`,
-                [dettaglio.ordine_id, dettaglio.prodotto_id, dettaglio.quantita, dettaglio.prezzo_unitario, dettaglio.stato]
+                [dettaglio.ordine_id, dettaglio.prodotto_id, dettaglio.quantita, dettaglio.prezzo, dettaglio.stato]
             );
         }
 
         // --- CREAZIONE RECENSIONI ---
         console.log('Inserimento recensioni...');
+        const artigianiIds = await pool.query("SELECT artigiano_id FROM artigiani");
+        
         const recensioni = [
-            { cliente_id: clientiRes.rows[0].id, artigiano_id: prodottiInseriti[0].artigiano_id, valutazione: 5, descrizione: 'Prodotto bellissimo e di ottima qualità!', stato: 'attiva' },
-            { cliente_id: clientiRes.rows[1].id, artigiano_id: prodottiInseriti[2].artigiano_id, valutazione: 4, descrizione: 'Buon prodotto, spedizione un po\' lenta', stato: 'attiva' },
-            { cliente_id: clientiRes.rows[2].id, artigiano_id: prodottiInseriti[4].artigiano_id, valutazione: 5, descrizione: 'Perfetto, esattamente come nella descrizione', stato: 'attiva' }
+            { cliente_id: clientiRes.rows[0].id, artigiano_id: artigianiIds.rows[0].artigiano_id, valutazione: 5, descrizione: 'Ottimo prodotto e servizio!', stato: 'attiva' },
+            { cliente_id: clientiRes.rows[1].id, artigiano_id: artigianiIds.rows[1].artigiano_id, valutazione: 4, descrizione: 'Buon prodotto, spedizione nella media', stato: 'attiva' },
+            { cliente_id: clientiRes.rows[2].id, artigiano_id: artigianiIds.rows[2].artigiano_id, valutazione: 3, descrizione: 'Prodotto ok ma tempi lunghi', stato: 'sospesa' }
         ];
 
+        const recensioniInserite = [];
         for (const recensione of recensioni) {
-            await pool.query(
-                `INSERT INTO recensioni (cliente_id, artigiano_id, valutazione, descrizione, stato)
-                 VALUES ($1, $2, $3, $4, $5)`,
+            const recensioneRes = await pool.query(
+                `INSERT INTO recensioni (cliente_id, artigiano_id, valutazione, descrizione, stato, data_recensione)
+                 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP - interval '1 day' * random() * 15)
+                 RETURNING recensione_id`,
                 [recensione.cliente_id, recensione.artigiano_id, recensione.valutazione, recensione.descrizione, recensione.stato]
             );
+            recensioniInserite.push(recensioneRes.rows[0].recensione_id);
         }
 
         // --- CREAZIONE SEGNALAZIONI ---
         console.log('Inserimento segnalazioni...');
-        const recensioniRes = await pool.query("SELECT recensione_id FROM recensioni");
         const segnalazioni = [
-            { ordine_id: ordiniInseriti[1], utente_id: clientiRes.rows[1].id, recensione_id: null, testo: 'Il prodotto non è arrivato', motivazione: 'Prodotto mancante', stato_segnalazione: 'in attesa' },
-            { ordine_id: null, utente_id: clientiRes.rows[0].id, recensione_id: recensioniRes.rows[1].recensione_id, testo: 'Recensione ingiusta', motivazione: 'Recensione falsa', stato_segnalazione: 'in attesa' }
+            { ordine_id: ordiniInseriti[2], utente_id: clientiRes.rows[2].id, recensione_id: null, 
+              testo: 'Prodotto mai ricevuto', motivazione: 'Mancata consegna', stato_segnalazione: 'in attesa' },
+            { ordine_id: null, utente_id: artigianiIds.rows[1].artigiano_id, recensione_id: recensioniInserite[2], 
+              testo: 'Recensione ingiustificata', motivazione: 'Diffamazione', stato_segnalazione: 'in attesa' }
         ];
 
         for (const segnalazione of segnalazioni) {
             await pool.query(
-                `INSERT INTO segnalazioni (ordine_id, utente_id, recensione_id, testo, motivazione, stato_segnalazione)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [segnalazione.ordine_id, segnalazione.utente_id, segnalazione.recensione_id, segnalazione.testo, segnalazione.motivazione, segnalazione.stato_segnalazione]
+                `INSERT INTO segnalazioni (ordine_id, utente_id, recensione_id, testo, motivazione, stato_segnalazione, data_segnalazione)
+                 VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP - interval '1 day' * random() * 5)`,
+                [segnalazione.ordine_id, segnalazione.utente_id, segnalazione.recensione_id, 
+                 segnalazione.testo, segnalazione.motivazione, segnalazione.stato_segnalazione]
             );
         }
 

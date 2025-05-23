@@ -1,30 +1,53 @@
 require('dotenv').config();
 
 const express = require('express');
-const { initializeDatabase, pool } = require('./db/database');
+const cookieParser = require('cookie-parser');
+const { initializeDatabase, pool } = require('./db/db');
 const path = require('path');
+const createAuthMiddleware = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Create auth middleware
+const requireAuth = createAuthMiddleware();
+
 // Middleware
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(express.static('public'));
 
-// Routes
+// Import routes
 const indexRouter = require('./routes/index');
-app.use('/', indexRouter);
-app.use('/api', indexRouter);
-
-// Users route
-const utentiRouter = require('./routes/users');
-app.use('/api/users', utentiRouter);
-
-//Products route
+const authRouter = require('./routes/auth');
+const usersRouter = require('./routes/users');
 const productsRouter = require('./routes/products');
-app.use('/api/products', productsRouter);
+const reviewsRouter = require('./routes/reviews');
 
+// Public routes
+app.use('/', indexRouter);
+app.use('/auth', authRouter);
+app.use('/users', usersRouter);
+app.use('/products', productsRouter);
+app.use('/reviews', reviewsRouter);
+app.use('/categories', indexRouter);
+
+// Protected routes
+app.use('/profile.html', requireAuth);
+app.use('/cart.html', requireAuth);
+app.use('/dashboard.html', requireAuth);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({
+        success: false,
+        message: 'Si è verificato un errore interno del server'
+    });
+});
+
+// Start server
 async function startServer() {
     try {
         // Inizializza il database (crea DB se non esiste, crea tabelle, esegue seed)
@@ -52,11 +75,6 @@ async function startServer() {
                 });
             }
         });
-
-        // Avvia il server
-        app.listen(PORT, () => {
-            console.log(`Server in esecuzione sulla porta ${PORT}`);
-        });
     } catch (error) {
         console.error('Errore durante l\'avvio del server:', error);
         process.exit(1);
@@ -65,3 +83,9 @@ async function startServer() {
 
 // Avvia il server
 startServer();
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = app;

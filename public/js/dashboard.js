@@ -1,3 +1,24 @@
+document.addEventListener('DOMContentLoaded', async () => {
+    const rawUser = sessionStorage.getItem('user');
+    if (!rawUser) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    try {
+        const user = JSON.parse(rawUser);
+        if (user.ruolo_id !== 2) {
+            window.location.href = '/index.html';
+            return;
+        }
+        // Continue with dashboard initialization...
+    } catch (error) {
+        console.error('Error loading dashboard:', error);
+        sessionStorage.clear();
+        window.location.href = '/login.html';
+    }
+});
+
 // Initialization
 document.addEventListener('DOMContentLoaded', async () => {
     const user = JSON.parse(localStorage.getItem('user'));

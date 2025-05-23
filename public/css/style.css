@@ -86,6 +86,8 @@ header {
 
 footer {
   background-color: var(--palette-secondary) !important;
+}
+footer * {
   color: var(--text-color-light);
 }
 

@@ -1,4 +1,3 @@
-
 // Funzione per mostrare/nascondere la sezione artigiano
 function toggleArtisanSection(isArtisan) {
     console.log('funzione chiamata', isArtisan);
@@ -12,12 +11,13 @@ function toggleArtisanSection(isArtisan) {
     }
 }
 
-//POpola il select delle categorie
+// Popola le categorie del select
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const response = await fetch('/api/categories', {
+        const response = await fetch('/categories', {
             headers: {
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
             }
         });
         
@@ -26,151 +26,134 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         const data = await response.json();
+
+        console.log('Categorie ricevute:', data);
+        
+        if (!data.success || !data.categories) {
+            throw new Error('Invalid API response format');
+        }
+
         const categorySelect = document.getElementById('categoryInput');
         
+        // Reset select to empty state
+        categorySelect.innerHTML = '<option value="" selected disabled>Seleziona una categoria</option>';
+
+        // Add all categories without filtering
         data.categories.forEach(category => {
             const option = document.createElement('option');
             option.value = category.tipologia_id;
             option.textContent = category.nome_tipologia;
             categorySelect.appendChild(option);
         });
+
     } catch (error) {
         console.error('Error loading categories:', error);
         const categorySelect = document.getElementById('categoryInput');
         categorySelect.innerHTML = '<option value="" selected disabled>Errore nel caricamento delle categorie</option>';
+        
+        // Show error to user
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger mt-2';
+        errorDiv.textContent = 'Errore nel caricamento delle categorie. Riprova più tardi.';
+        categorySelect.parentNode.appendChild(errorDiv);
     }
 });
 
-//Funzione di registrazione
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.querySelector('form');
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
 
-        const passwordInput = document.getElementById('passwordInput');
-        const confirmPasswordInput = document.getElementById('confirmPasswordInput');
-        const passwordError = document.getElementById('passwordError');
-
-        // Reset classi e messaggi d'errore precedenti
-        passwordInput.classList.remove('is-invalid');
-        confirmPasswordInput.classList.remove('is-invalid');
-        passwordError.textContent = '';
-
-        const userCheck = document.getElementById('userCheck');
-        const artisanCheck = document.getElementById('artisanCheck');
-
-        if (!userCheck.checked && !artisanCheck.checked) {
-            userCheck.checked = true;
+async function processImage(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) {
+            resolve(null);
             return;
         }
 
-        const password = passwordInput.value;
-        const confirmPassword = confirmPasswordInput.value;
-
-        // Verifica i criteri della password usando regex
-        const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
-        if (!passwordRegex.test(password)) {
-            passwordInput.classList.add('is-invalid');
-            passwordError.textContent = 'La password deve avere almeno 8 caratteri, una lettera maiuscola, un numero e un simbolo';
-            passwordError.style.display = 'block';
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        if (!validTypes.includes(file.type)) {
+            reject(new Error('Formato immagine non valido. Sono accettati solo JPEG, JPG e PNG.'));
             return;
-        } else if (password !== confirmPassword) {
-            passwordInput.classList.add('is-invalid');
-            confirmPasswordInput.classList.add('is-invalid');
-            passwordError.textContent = 'Le password non coincidono';
-            passwordError.style.display = 'block';
-            return;
-        } else {
-            passwordInput.classList.remove('is-invalid');
-            confirmPasswordInput.classList.remove('is-invalid');
-            passwordError.textContent = '';
-            passwordError.style.display = 'none';
         }
 
-        // Prepara i dati base dell'utente
-        const formData = {
-            nome_utente: document.getElementById('usernameInput').value,
-            email: document.getElementById('emailInput').value,
-            nome: document.getElementById('nameInput').value,
-            cognome: document.getElementById('surnameInput').value,
-            password: password,
-            indirizzo: document.getElementById('addressInput').value,
-            citta: document.getElementById('cityInput').value,
-            numero_telefono: document.getElementById('phoneNumberInput').value,
-            isArtigiano: artisanCheck.checked
-        };
-      
-        // Aggiungi i dati dell'artigiano se necessario
-        if (artisanCheck.checked) {
-            formData.iban = document.getElementById('vatNumberInput').value;
-            formData.tipologia_id = getCategoryId(document.getElementById('categoryInput').value);
-
-            // Gestione dell'immagine del profilo
-            const profileImageInput = document.getElementById('profileImageInput');
-            if (profileImageInput.files && profileImageInput.files[0]) {
-              const reader = new FileReader();
-              reader.onload = async function(e) {
-                formData.immagine = e.target.result.split(',')[1]; // Prendi solo i dati base64
-                await sendRegistrationRequest(formData);
-              };
-              reader.readAsDataURL(profileImageInput.files[0]);
-            } else {
-              await sendRegistrationRequest(formData);
-            }
-        } else {
-            await sendRegistrationRequest(formData);
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            reject(new Error('L\'immagine è troppo grande. Dimensione massima: 5MB'));
+            return;
         }
-          
-// Funzione helper per ottenere l'ID della categoria
-function getCategoryId(categoryName) {
-    const categoryMap = {
-        'ceramica': 1,
-        'legno': 2,
-        'tessuti': 3,
-        'gioielli': 4,
-        'vetro': 5,
-        'arredamento': 6,
-        'elettronica': 7,
-        'metallo': 8,
-        'decorazioni': 9,
-        'altro': 10
-    };
-    return categoryMap[categoryName.toLowerCase()] || 10;
+
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Errore nella lettura del file'));
+        reader.readAsDataURL(file);
+    });
 }
-    
-    // Funzione per inviare la richiesta di registrazione
-    async function sendRegistrationRequest(formData) {
-      try {
-        const response = await fetch('/api/users/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(formData)
-        });
-    
-        const data = await response.json();
-    
-        if (response.ok) {
-          console.log('Registrazione avvenuta con successo:', data);
-          const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-          successModal.show();
-          
-          setTimeout(() => {
-            successModal.hide();
-            window.location.href = '/login.html';
-          }, 5000);
-    
-          document.getElementById('successModal').addEventListener('hidden.bs.modal', function () {
-            window.location.href = '/login.html';
-          });
-        } else {
-          alert(data.error || 'Errore durante la registrazione');
+
+// Registration function
+document.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    try {
+        const formData = {
+            nome_utente: document.getElementById('usernameInput').value.trim(),
+            email: document.getElementById('emailInput').value.trim(),
+            nome: document.getElementById('nameInput').value.trim(),
+            cognome: document.getElementById('surnameInput').value.trim(),
+            password: document.getElementById('passwordInput').value,
+            indirizzo: document.getElementById('addressInput').value.trim(),
+            citta: document.getElementById('cityInput').value.trim(),
+            ruolo_id: document.getElementById('artisanCheck').checked ? 2 : 3 // 2 for artisan, 3 for customer
+        };
+
+        // Validate password confirmation
+        if (formData.password !== document.getElementById('confirmPasswordInput').value) {
+            throw new Error('Le password non coincidono');
         }
-      } catch (error) {
-        console.error('Errore:', error);
-        alert('Errore durante la registrazione');
-      }
+
+        // Add artisan specific fields if artisan registration
+        if (document.getElementById('artisanCheck').checked) {
+            const artisanData = {
+                iban: document.getElementById('vatNumberInput').value.trim(),
+                numero_telefono: document.getElementById('phoneNumberInput').value.trim(),
+                tipologia_id: parseInt(document.getElementById('categoryInput').value),
+            };
+
+            // Process profile image
+            const imageFile = document.getElementById('profileImageInput').files[0];
+            if (imageFile) {
+                try {
+                    const base64Image = await processImage(imageFile);
+                    artisanData.immagine = base64Image.split(',')[1]; // Remove data:image/... prefix
+                } catch (error) {
+                    throw new Error(`Errore immagine: ${error.message}`);
+                }
+            }
+
+            Object.assign(formData, artisanData);
+        }
+
+        const response = await fetch('/auth/signup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Errore durante la registrazione');
+        }
+
+        // Show success modal and redirect
+        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        successModal.show();
+
+        setTimeout(() => {
+            window.location.href = '/login.html';
+        }, 3000);
+
+    } catch (error) {
+        console.error('Registration error:', error);
+        alert(error.message);
     }
-  });
 });

@@ -1,41 +1,41 @@
 // Array di immagini per lo sfondo
-  const backgroundImages = [
-    '/assets/images/wallpaper1.jpg',
-    '/assets/images/wallpaper2.jpg',
-    '/assets/images/wallpaper3.jpg',
-    '/assets/images/wallpaper4.jpg',
-  ];
+const backgroundImages = [
+  '/assets/images/wallpaper1.jpg',
+  '/assets/images/wallpaper2.jpg',
+  '/assets/images/wallpaper3.jpg',
+  '/assets/images/wallpaper4.jpg',
+];
 
-  let currentIndex = 0;
+let currentIndex = 0;
 
 // Funzione per cambiare lo sfondo
-  function changeBackground() {
-    document.body.style.backgroundImage = `url(${backgroundImages[currentIndex]})`;
-    currentIndex = (currentIndex + 1) % backgroundImages.length; // Ciclo infinito
-  }
+function changeBackground() {
+  document.body.style.backgroundImage = `url(${backgroundImages[currentIndex]})`;
+  currentIndex = (currentIndex + 1) % backgroundImages.length; // Ciclo infinito
+}
 
 // Cambia lo sfondo ogni 10 secondi
-  setInterval(changeBackground, 10000);
+setInterval(changeBackground, 10000);
 
 // Imposta l'immagine iniziale
-  changeBackground();
+changeBackground();
 
 // Caricamento dei componenti
-  function loadComponent(selector, file, callback) {
-    fetch(file)
-      .then(response => response.text())
-      .then(data => {
-        document.querySelector(selector).innerHTML = data;
+function loadComponent(selector, file, callback) {
+  fetch(file)
+    .then(response => response.text())
+    .then(data => {
+      document.querySelector(selector).innerHTML = data;
 
-        // Esegui callback dopo che l'HTML è stato iniettato nel DOM
-        if (typeof callback === 'function') {
-          setTimeout(callback, 0); // garantisce che il DOM sia aggiornato
-        }
-      })
-      .catch(error => console.error('Errore nel caricamento:', error));
-  }
+      // Esegui callback dopo che l'HTML è stato iniettato nel DOM
+      if (typeof callback === 'function') {
+        setTimeout(callback, 0); // garantisce che il DOM sia aggiornato
+      }
+    })
+    .catch(error => console.error('Errore nel caricamento:', error));
+}
 
-  function initNavbar() {
+function initNavbar() {
     const userMenu = document.getElementById('userMenu');
     const guestMenu = document.getElementById('guestMenu');
     const username = document.getElementById('username');
@@ -43,49 +43,186 @@
     const artisanMenuItems = document.querySelectorAll('.artisan-only');
     const adminMenuItems = document.querySelectorAll('.admin-only');
 
+    // Get user from session storage
+    const rawUser = sessionStorage.getItem('user');
+    console.log('[Navbar Init] Session user:', rawUser);
 
-    const rawUser = localStorage.getItem('user');
-    console.log('[Navbar Init] localStorage user:', rawUser);
     if (rawUser) {
         try {
-        const user = JSON.parse(rawUser);
-        if (user.nome_utente) {
-            userMenu?.classList.remove('d-none');
-            guestMenu?.classList.add('d-none');
-            username.textContent = user.nome_utente;
+            const user = JSON.parse(rawUser);
+            if (user.username) {
+                // Show user menu, hide guest menu
+                userMenu?.classList.remove('d-none');
+                guestMenu?.classList.add('d-none');
+                username.textContent = `${user.nome} ${user.cognome}`;
 
-            clientMenuItems.forEach(item => item.classList.add('d-none'));
-            artisanMenuItems.forEach(item => item.classList.add('d-none'));
-            adminMenuItems.forEach(item => item.classList.add('d-none'));
+                // Hide all role-specific menu items first
+                clientMenuItems.forEach(item => item.classList.add('d-none'));
+                artisanMenuItems.forEach(item => item.classList.add('d-none'));
+                adminMenuItems.forEach(item => item.classList.add('d-none'));
 
-            switch (parseInt(user.ruolo_id)) {
-                case 1:
-                    clientMenuItems.forEach(item => item.classList.remove('d-none'));
-                    break;
-                case 2:
-                    artisanMenuItems.forEach(item => item.classList.remove('d-none'));
-                    break;
-                case 3:
-                    adminMenuItems.forEach(item => item.classList.remove('d-none'));
-                    break;
+                // Show menu items based on user role
+                switch (user.ruolo_id) {
+                    case 1: // Cliente
+                        clientMenuItems.forEach(item => {
+                            item.classList.remove('d-none');
+                            item.classList.add('d-flex');
+                        });
+                        break;
+                    case 2: // Artigiano
+                        artisanMenuItems.forEach(item => {
+                            item.classList.remove('d-none');
+                            item.classList.add('d-flex');
+                        });
+                        break;
+                    case 3: // Admin
+                        adminMenuItems.forEach(item => {
+                            item.classList.remove('d-none');
+                            item.classList.add('d-flex');
+                        });
+                        break;
+                }
             }
-        }
         } catch (e) {
-        console.error('Errore parsing user:', e);
+            console.error('Errore parsing user:', e);
+            sessionStorage.clear();
+            userMenu?.classList.add('d-none');
+            guestMenu?.classList.remove('d-none');
+        }
+    } else {
+        // No user in session, show guest menu
+        userMenu?.classList.add('d-none');
+        guestMenu?.classList.remove('d-none');
+    }
+    
+    // Handle logout
+    document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
+        e.preventDefault();
+        try {
+            const response = await fetch('/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+    
+            if (!response.ok) {
+                throw new Error('Errore durante il logout');
+            }
+    
+            // Clear session storage
+            sessionStorage.clear();
+            console.log('Logout successful');
+            
+            // Redirect to login page
+            window.location.href = '/login.html';
+        } catch (error) {
+            console.error('Logout error:', error);
+            alert('Errore durante il logout. Riprova più tardi.');
+        }
+    });
+
+    // Add navigation handlers
+    document.querySelectorAll('a[href]').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const path = this.getAttribute('href');
+            const protectedPaths = ['profile.html', 'dashboard.html', 'admin.html', 'cart.html'];
+            
+            if (protectedPaths.some(p => path.includes(p))) {
+                e.preventDefault();
+                const rawUser = sessionStorage.getItem('user');
+                
+                if (!rawUser) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                try {
+                    const user = JSON.parse(rawUser);
+                    // Always allow cart for authenticated users
+                    if (path.includes('cart.html')) {
+                        window.location.href = path;
+                        return;
+                    }
+
+                    // Check role-based access
+                    if ((path.includes('profile.html') && user.ruolo_id === 1) ||
+                        (path.includes('dashboard.html') && user.ruolo_id === 2) ||
+                        (path.includes('admin.html') && user.ruolo_id === 3)) {
+                        window.location.href = path;
+                    } else {
+                        window.location.href = '/index.html';
+                    }
+                } catch (error) {
+                    console.error('Navigation error:', error);
+                    sessionStorage.clear();
+                    window.location.href = '/login.html';
+                }
+            }
+        });
+    });
+}
+
+//Gestione dei permessi di navigazione
+function checkAuthForNavigation() {
+    const protectedPages = {
+        '/profile.html': [1],     // Cliente
+        '/dashboard.html': [2],   // Artigiano
+        '/admin.html': [3],      // Admin
+        '/cart.html': [1, 2, 3]  // Tutti gli utenti autenticati
+    };
+
+    const currentPath = window.location.pathname;
+    
+    // Debug log
+    console.log('Checking auth for:', currentPath);
+    
+    // Get user from session storage
+    const rawUser = sessionStorage.getItem('user');
+    console.log('Session user:', rawUser);
+
+    // For protected pages, check authentication
+    const isProtectedPage = Object.keys(protectedPages).some(page => 
+        currentPath.toLowerCase().includes(page.toLowerCase())
+    );
+
+    if (isProtectedPage) {
+        if (!rawUser) {
+            console.log('No user found, redirecting to login');
+            window.location.href = '/login.html';
+            return;
+        }
+
+        try {
+            const user = JSON.parse(rawUser);
+            console.log('User role:', user.ruolo_id);
+
+            // Find matching protected page
+            const matchingPage = Object.keys(protectedPages).find(page => 
+                currentPath.toLowerCase().includes(page.toLowerCase())
+            );
+
+            if (matchingPage && !protectedPages[matchingPage].includes(user.ruolo_id)) {
+                console.log('Unauthorized access attempt');
+                window.location.href = '/index.html';
+                return;
+            }
+        } catch (error) {
+            console.error('Auth check error:', error);
+            sessionStorage.clear();
+            window.location.href = '/login.html';
+            return;
         }
     }
+}
 
-    document.getElementById('logoutButton')?.addEventListener('click', function (e) {
-        e.preventDefault();
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/';
-    });
-  }
+// Carica la navbar e il footer
+loadComponent('#navbar', '/components/navbar.html', initNavbar);
+loadComponent('#footer', '/components/footer.html');
 
-    // Carica la navbar e il footer
-  loadComponent('#navbar', '/components/navbar.html', initNavbar);
-  loadComponent('#footer', '/components/footer.html');
+// Add this line after loadComponent calls
+document.addEventListener('DOMContentLoaded', checkAuthForNavigation);
+
 
 /***********Pagina Catalogo ******************/
 // Funzione per generare le stelle in base alla valutazione

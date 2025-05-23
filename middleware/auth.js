@@ -1,35 +1,67 @@
 const jwt = require('jsonwebtoken');
 
-// Middleware per autenticazione e autorizzazione
-function authMiddleware(minRole) {
-  return (req, res, next) => {
-    const authHeader = req.headers['authorization'];
+const createAuthMiddleware = () => {
+    return (req, res, next) => {
+        const publicPaths = [
+            '/login.html',
+            '/signup.html',
+            '/auth/login',
+            '/auth/signup',
+            '/auth/logout',
+            '/css/',
+            '/js/',
+            '/assets/',
+            '/categories',
+            '/products',        
+            '/reviews',         
+            '/index.html',
+            '/'
+        ];
+        const currentPath = req.originalUrl || req.url || '';
 
-    // Controlla che ci sia un token nel formato Bearer
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Token mancante o non valido' });
-    }
+        // Allow public paths
+        if (publicPaths.some(path => currentPath.startsWith(path))) {
+            return next();
+        }
 
-    const token = authHeader.split(' ')[1];
+        let token = null;
+        
+        // Check authorization header
+        if (req.headers?.authorization) {
+            const parts = req.headers.authorization.split(' ');
+            if (parts.length === 2 && parts[0] === 'Bearer') {
+                token = parts[1];
+            }
+        }
 
-    try {
-      // Verifica e decodifica il token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Check cookies and query if no token in header
+        token = token || req.cookies?.token || req.query?.token;
 
-      // Controllo del ruolo minimo
-      if (decoded.ruolo_id < minRole) {
-        return res.status(403).json({ message: 'Accesso non autorizzato' });
-      }
+        if (!token) {
+            return res.redirect('/login.html');
+        }
 
-      // Salva i dati dell’utente nel request per usarli nei controller
-      req.user = decoded;
-      next();
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            req.user = decoded;
 
-    } catch (err) {
-      console.error('Errore nel middleware auth:', err);
-      res.status(403).json({ message: 'Token non valido o scaduto' });
-    }
-  };
-}
+            // Check role-based access
+            const isProfilePage = currentPath.includes('profile.html');
+            const isDashboardPage = currentPath.includes('dashboard.html');
+            const isAdminPage = currentPath.includes('admin.html');
 
-module.exports = authMiddleware;
+            if ((isProfilePage && decoded.ruolo_id !== 1) ||
+                (isDashboardPage && decoded.ruolo_id !== 2) ||
+                (isAdminPage && decoded.ruolo_id !== 3)) {
+                return res.redirect('/index.html');
+            }
+
+            return next();
+        } catch (error) {
+            console.error('Token verification error:', error);
+            return res.redirect('/login.html');
+        }
+    };
+};
+
+module.exports = createAuthMiddleware;
