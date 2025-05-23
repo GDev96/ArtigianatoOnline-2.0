@@ -111,68 +111,76 @@ router.post('/signup', async (req, res) => {
 });
 
 //FIXME login
-// Login endpoint
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+    try {
+        const { nome_utente, password } = req.body;
+        
+        console.log('Login attempt for user:', nome_utente);
 
-  try {
-    const result = await pool.query('SELECT * FROM utente WHERE username = $1', [username]);
+        // Check for required fields
+        if (!nome_utente || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username e password sono richiesti'
+            });
+        }
 
-    if (result.rows.length === 0) {
-      return res.status(400).json({ message: 'Username o password errati' });
+        // Get user from database
+        const result = await pool.query(
+            'SELECT * FROM utente WHERE username = $1 AND stato = $2',
+            [nome_utente, 'attivo']
+        );
+
+        if (result.rows.length === 0) {
+            console.log('User not found:', nome_utente);
+            return res.status(401).json({
+                success: false,
+                error: 'Username o password errati'
+            });
+        }
+
+        const user = result.rows[0];
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+
+        if (!isMatch) {
+            console.log('Invalid password for user:', nome_utente);
+            return res.status(401).json({
+                success: false,
+                error: 'Username o password errati'
+            });
+        }
+
+        // Create token payload
+        const payload = {
+            id: user.id,
+            username: user.username,
+            ruolo_id: user.ruolo_id
+        };
+
+        // Sign token
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30m' });
+
+        // Send successful response
+        res.json({
+            success: true,
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                nome: user.nome,
+                cognome: user.cognome,
+                ruolo_id: user.ruolo_id
+            },
+            expiresIn: 30 * 60 * 1000 // 30 minutes in milliseconds
+        });
+
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore del server durante il login'
+        });
     }
-
-    const user = result.rows[0];
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Username o password errati' });
-    }
-
-    // Payload base con timestamp di scadenza
-    const payload = {
-      id: user.id,
-      nome: user.nome,
-      cognome: user.cognome,
-      username: user.username,
-      email: user.email,
-      numero_telefono: user.numero_telefono,
-      indirizzo: user.indirizzo,
-      citta: user.citta,
-      ruolo_id: user.ruolo_id,
-      exp: Math.floor(Date.now() / 1000) + (30 * 60) // 30 minuti
-    };
-
-    // Dati extra artigiano
-    if (user.ruolo_id === 2) {
-      const artisanResult = await pool.query(`
-        SELECT a.*, t.nome_tipologia 
-        FROM artigiani a 
-        JOIN tipologia t ON a.tipologia_id = t.tipologia_id 
-        WHERE a.artigiano_id = $1
-      `, [user.id]);
-      
-      if (artisanResult.rows.length > 0) {
-        const artisan = artisanResult.rows[0];
-        payload.tipologia_id = artisan.tipologia_id;
-        payload.nome_tipologia = artisan.nome_tipologia;
-        payload.iban = artisan.iban;
-        payload.immagine = artisan.immagine;
-      }
-    }
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30m' });
-
-    res.status(200).json({
-      token,
-      user: payload,
-      expiresIn: 30 * 60 * 1000 // 30 minuti in millisecondi
-    });
-
-  } catch (error) {
-    console.error('Errore durante il login:', error);
-    res.status(500).json({ message: 'Errore del server' });
-  }
 });
 
 // Get tutti gli artigiani - corretta

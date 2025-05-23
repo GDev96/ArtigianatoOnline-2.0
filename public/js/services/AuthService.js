@@ -47,74 +47,13 @@ class AuthService {
         return false;
     }
 
-        static getAuthorizationHeader() {
-        const token = this.getToken();
-        return token ? `Bearer ${token}` : null;
-    }
-
     static async fetch(url, options = {}) {
-        const token = this.getToken();
-        if (token) {
+        if (this.getToken()) {
             options.headers = {
                 ...options.headers,
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${this.getToken()}`
             };
         }
         return fetch(url, options);
     }
 }
-
-const jwt = require('jsonwebtoken');
-
-function requireAuth(req, res, next) {
-    // Public paths that don't need authentication
-    const publicPaths = [
-        '/login.html',
-        '/signup.html',
-        '/users/login',
-        '/users/signup',
-        '/css/',
-        '/js/',
-        '/assets/'
-    ];
-
-    // Get the current path, ensuring it exists
-    const currentPath = req.originalUrl || req.url || '';
-
-    // Check if path is public
-    if (publicPaths.some(path => currentPath.startsWith(path))) {
-        return next();
-    }
-
-    // Check for token in different places
-    const token = req.headers.authorization?.split(' ')[1] || 
-                 req.cookies?.token ||
-                 req.query?.token;
-
-    if (!token) {
-        // Handle API requests differently from page requests
-        if (req.xhr || currentPath.startsWith('/api/')) {
-            return res.status(401).json({ 
-                success: false,
-                error: 'Authentication required' 
-            });
-        }
-        return res.redirect('/login.html');
-    }
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        if (req.xhr || currentPath.startsWith('/api/')) {
-            return res.status(401).json({ 
-                success: false,
-                error: 'Invalid or expired token' 
-            });
-        }
-        res.redirect('/login.html');
-    }
-}
-
-module.exports = requireAuth;
