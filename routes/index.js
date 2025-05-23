@@ -12,18 +12,15 @@ router.get('/', async (req, res) => {
   }
 });
 
-// API per recuperare tutte le categorie - corretta
+// API per recuperare tutte le categorie
 router.get('/categories', async (req, res) => {
     try {
         const query = `
-            SELECT DISTINCT 
-                t.tipologia_id,
-                t.nome_tipologia
-            FROM tipologia t
-            INNER JOIN artigiani a ON t.tipologia_id = a.tipologia_id
-            INNER JOIN utente u ON a.artigiano_id = u.id
-            WHERE u.stato = 'attivo'
-            ORDER BY t.nome_tipologia ASC
+            SELECT 
+                tipologia_id,
+                nome_tipologia
+            FROM tipologia
+            ORDER BY nome_tipologia ASC
         `;
         
         const result = await pool.query(query);

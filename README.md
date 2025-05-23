@@ -10,7 +10,8 @@ Legenda:
 
 | Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
 |-----------------------------------------------------------------------------|-----------|-------------|-------------|
-| Aggiungere file vecchio progetto                                             | Gaia         | main (primo commit)           | ✅ Completato |
+| Aggiungere file vecchio progetto         | Gaia         | main (primo commit)           | ✅ Completato |
+| Cambiare stili              | Gaia        | fixstyles| ✅ Completato |
 | Pagina catalogo             | -         | -          | ❌ Da fare   |
 | Pagina profilo utente             | -         | -          | ❌ Da fare   |
 | Pagina carrello             | -         | -          | ❌ Da fare   |
