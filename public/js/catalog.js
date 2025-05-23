@@ -86,7 +86,6 @@ function showError(message) {
 
 
 
-// Popola i prodotti dell'artigiano
 async function loadProducts(artisanId) {
     try {
         const headers = {
@@ -94,46 +93,53 @@ async function loadProducts(artisanId) {
             'Content-Type': 'application/json'
         };
 
-        // Add debug logging
         console.log('Fetching products for artisan:', artisanId);
 
-        // Fetch products with proper error handling
-        const productsResponse = await fetch('/products', {
+        const response = await fetch('/products', { 
             headers,
             method: 'GET'
         });
 
-        // Log response status
-        console.log('Products response status:', productsResponse.status);
-
-        if (!productsResponse.ok) {
-            const errorData = await productsResponse.json().catch(() => ({}));
-            console.error('Server error response:', errorData);
-            throw new Error(
-                errorData.message || 
-                `Errore nel caricamento dei prodotti (${productsResponse.status})`
-            );
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Server error details:', errorData);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const productsData = await productsResponse.json();
-        console.log('Products data received:', productsData);
-
-        if (!productsData.success || !productsData.products) {
+        const data = await response.json();
+        console.log('Products data received:', data);
+        
+        if (!data.success || !data.products) {
             throw new Error('Formato dati prodotti non valido');
         }
 
-        // Filter products by artisan
-        const artisanProducts = productsData.products.filter(product => 
+        // Filter products by artisan ID
+        const artisanProducts = data.products.filter(product => 
             product.artigiano_id && product.artigiano_id.toString() === artisanId
         );
 
-        console.log('Filtered products:', artisanProducts);
-
         if (artisanProducts.length === 0) {
-            showError('Nessun prodotto disponibile per questo artigiano');
+            const container = document.querySelector('.container.my-5 .row');
+            if (container) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="card text-center p-5">
+                            <div class="card-body">
+                                <h3 class="card-title text-muted">
+                                    <i class="fas fa-box-open mb-3 d-block" style="font-size: 3rem;"></i>
+                                    Nessun prodotto disponibile
+                                </h3>
+                                <p class="card-text text-muted">
+                                    Questo artigiano non ha ancora inserito prodotti.
+                                </p>
+                            </div>
+                        </div>
+                    </div>`;
+            }
             return;
         }
 
+        // Update display with fetched products
         updateProductsDisplay(artisanProducts);
 
     } catch (error) {
@@ -142,102 +148,92 @@ async function loadProducts(artisanId) {
     }
 }
 
-// Applicazione dei filtri sui prodotti
-function applyFilters(products) {
-    const selectedCategory = document.getElementById('filterCategory').value;
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const minPrice = parseFloat(document.getElementById('rangeMin').value) || 0;
-    const maxPrice = parseFloat(document.getElementById('rangeMax').value) || Infinity;
-    const onlyAvailable = document.getElementById('onlyAvailabily').checked;
-
-    return products.filter(product => {
-        const matchSearch = !searchTerm || 
-            product.nome_prodotto.toLowerCase().includes(searchTerm) || 
-            (product.descrizione && product.descrizione.toLowerCase().includes(searchTerm));
-        
-        const matchCategory = !selectedCategory || 
-            selectedCategory === 'placeholdercategory' || 
-            product.tipologia_id.toString() === selectedCategory;
-
-        const productPrice = parseFloat(product.prezzo);
-        const matchPrice = (!minPrice || productPrice >= minPrice) && 
-                         (!maxPrice || productPrice <= maxPrice);
-
-        const matchAvailability = !onlyAvailable || product.quantita > 0;
-
-        return matchCategory && matchSearch && matchPrice && matchAvailability;
-    });
-}
-
-// Funzione per aggiornare la visualizzazione dei prodotti
 function updateProductsDisplay(products) {
     const productsContainer = document.querySelector('.container.my-5 .row');
+    const user = JSON.parse(sessionStorage.getItem('user'));
     
-    if (!products || products.length === 0) {
-        productsContainer.innerHTML = `
-            <div class="col-12">
-                <div class="card text-center p-5">
-                    <div class="card-body">
-                        <h3 class="card-title text-muted">
-                            <i class="fas fa-box-open mb-3 d-block" style="font-size: 3rem;"></i>
-                            Nessun prodotto disponibile
-                        </h3>
-                        <p class="card-text text-muted">
-                            Non sono stati trovati prodotti.
-                        </p>
-                    </div>
-                </div>
-            </div>`;
-        return;
-    }
+    if (!productsContainer) return;
 
     productsContainer.innerHTML = products.map(product => `
         <div class="col-md-4 mb-4">
-            <div class="card" data-product-id="${product.prodotto_id}">
-                <img src="data:image/jpeg;base64,${product.immagine}" 
+            <div class="card h-60">
+                <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/wallpaper3.jpg'}" 
                     class="card-img-top" 
                     alt="${product.nome_prodotto}"
-                    onerror="this.src='/assets/images/wallpaper3.jpg'">
-                <div class="card-body">
+                    style="height: 200px; object-fit: cover;">
+                <div class="card-body d-flex flex-column">
                     <h5 class="card-title">${product.nome_prodotto}</h5>
-                    <p class="card-text">${product.descrizione || ''}</p>
-                    <p class="card-category">${product.nome_tipologia || 'Categoria non specificata'}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <p class="m-0 me-1">€${parseFloat(product.prezzo).toFixed(2)}</p>
-                        ${product.quantita > 0 ? 
-                            `<div class="d-flex">
-                                <a class="btn guest-button" href="/login.html">
-                                    <i class="fas fa-sign-in-alt"></i> Accedi
-                                </a>
-                                <div class="quantity-counter d-none user-button">
-                                    <button class="btn" onclick="showQuantityInput(this)">
-                                        <i class="fas fa-cart-plus"></i> Aggiungi
-                                    </button>
-                                    <div class="quantity-controls" style="display: none;">
-                                        <input type="number" class="quantity-input" value="1" min="1" max="${product.quantita}">
-                                        <button class="btn ms-2" onclick="updateCart(this)">
-                                            <i class="fas fa-check"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>` : 
-                            `<span class="text-danger">Non disponibile</span>`
-                        }
+                    <div class="mt-auto">
+                        <p class="card-category text-muted mb-2">
+                            <small>${product.nome_tipologia || 'Categoria non specificata'}</small>
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">€${parseFloat(product.prezzo).toFixed(2)}</h5>
+                            ${product.quantita > 0 ? 
+                                `<div class="btn-group">
+                                    ${!user ? 
+                                        `<a href="/login.html" class="btn btn-outline-primary">
+                                            <i class="fas fa-sign-in-alt"></i> Accedi
+                                        </a>` :
+                                        `<button class="btn btn-primary add-to-cart" 
+                                            data-product-id="${product.prodotto_id}"
+                                            data-max-quantity="${product.quantita}">
+                                            <i class="fas fa-cart-plus"></i> Aggiungi
+                                        </button>`
+                                    }
+                                </div>` : 
+                                `<span class="badge bg-danger">Non disponibile</span>`
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     `).join('');
 
-    // Update button visibility based on authentication
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    const guestButtons = document.querySelectorAll('.guest-button');
-    const userButtons = document.querySelectorAll('.user-button');
-
+    // Add event listeners for add to cart buttons
     if (user) {
-        guestButtons.forEach(btn => btn.classList.add('d-none'));
-        userButtons.forEach(btn => btn.classList.remove('d-none'));
+        document.querySelectorAll('.add-to-cart').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const productId = e.target.closest('button').dataset.productId;
+                const maxQuantity = parseInt(e.target.closest('button').dataset.maxQuantity);
+                showQuantitySelector(productId, maxQuantity);
+            });
+        });
     }
+}
+
+function showQuantitySelector(productId, maxQuantity) {
+    const modalHtml = `
+        <div class="modal fade" id="quantityModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Seleziona quantità</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="number" class="form-control" id="quantityInput" 
+                            min="1" max="${maxQuantity}" value="1">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                        <button type="button" class="btn btn-primary" onclick="addToCart(${productId})">
+                            Aggiungi al carrello
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = new bootstrap.Modal(document.getElementById('quantityModal'));
+    modal.show();
+
+    // Clean up modal after hiding
+    document.getElementById('quantityModal').addEventListener('hidden.bs.modal', function () {
+        this.remove();
+    });
 }
 
 
@@ -289,7 +285,7 @@ function addToCart(button) {
 }
 
 
-// Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato
+// Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato - corretta
 document.addEventListener('DOMContentLoaded', function() {
     const user = JSON.parse(sessionStorage.getItem('user'));
     const addReviewButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#addReviewModal"]');
@@ -313,35 +309,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-// Update the review display function to conditionally show report buttons
-function updateReviewsDisplay(reviews) {
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    const reviewsContainer = document.querySelector('.container-review .row');
-    
-    reviewsContainer.innerHTML = reviews.map(review => `
-        <div class="col-9 mb-4">
-            <div class="card w-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
-                        ${user ? 
-                            `<button class="btn btn-outline-danger btn-sm" onclick="openReviewReport(${review.recensione_id})">
-                                <i class="fas fa-flag"></i>
-                            </button>` : 
-                            ''
-                        }
-                    </div>
-                    <div class="stars mb-2 d-flex justify-content-between align-items-center">
-                        ${generateStars(review.valutazione)}
-                        <small class="text-muted ms-2">${new Date(review.data_recensione).toLocaleDateString()}</small>
-                    </div>
-                    <p class="card-text">${review.descrizione}</p>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-// Popolare recensioni
+
+// Popola le recensioni - corretta
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -419,7 +388,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Popola le recensioni
         reviewsContainer.innerHTML = artisanReviews.map(review => `
             <div class="col-9 mb-4">
-                <div class="card w-100">
+                <div class="card bg-light w-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
@@ -427,7 +396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <i class="fas fa-flag"></i>
                             </button>
                         </div>
-                        <div class="stars mb-2 d-flex justify-content-between align-items-center">
+                        <div class="stars mb-2 d-flex align-items-center">
                             ${generateStars(review.valutazione)}
                             <small class="text-muted ms-2">${new Date(review.data_recensione).toLocaleDateString()}</small>
                         </div>
@@ -478,76 +447,203 @@ function updateAverageRating(averageRating, totalReviews) {
 }
 
 // Aggiungere nuova recensione al db
-function submitReview() {
-    const rating = document.getElementById('ratingValue').value;
-    const reviewText = document.getElementById('reviewText').value;
-    const urlParams = new URLSearchParams(window.location.search);
-    const artisanId = urlParams.get('id');
-    const user = JSON.parse(sessionStorage.getItem('user'));
+async function submitReview() {
+    try {
+        const rating = document.getElementById('ratingValue').value;
+        const reviewText = document.getElementById('reviewText').value;
+        const urlParams = new URLSearchParams(window.location.search);
+        const artisanId = urlParams.get('id');
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        const token = sessionStorage.getItem('token');
 
-    if (!user) {
-        alert('Devi essere loggato per lasciare una recensione');
-        return;
-    }
-    if (!rating) {
-        alert('Per favore seleziona una valutazione');
-        return;
-    }
-    if (!reviewText.trim()) {
-        alert('Per favore scrivi una recensione');
-        return;
-    }
-
-    // Prepara i dati della recensione
-    const reviewData = {
-        cliente_id: user.id,
-        artigiano_id: parseInt(artisanId),
-        valutazione: parseInt(rating),
-        descrizione: reviewText
-    };
-
-    // Invia la recensione al server
-    fetch('/reviews', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-        },
-        body: JSON.stringify(reviewData)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Errore nel salvataggio della recensione');
+        // Validazione input e controllo autenticazione
+        if (!user || !token) {
+            throw new Error('Devi essere loggato per lasciare una recensione');
         }
-        return response.json();
-    })
-    .then(data => {
-        if (!data.success) {
+        if (!rating) {
+            throw new Error('Per favore seleziona una valutazione');
+        }
+        if (!reviewText.trim()) {
+            throw new Error('Per favore scrivi una recensione');
+        }
+        if (!artisanId) {
+            throw new Error('ID artigiano non valido');
+        }
+
+        // Prepara i dati della recensione
+        const reviewData = {
+            artigiano_id: parseInt(artisanId),
+            valutazione: parseInt(rating),
+            descrizione: reviewText.trim()
+        };
+
+        // Invia la recensione al server
+        const response = await fetch('/reviews', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(reviewData)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
             throw new Error(data.message || 'Errore nel salvataggio della recensione');
         }
 
         // Chiudi il modale
-        const modal = bootstrap.Modal.getInstance(document.getElementById('addReviewModal'));
-        modal.hide();
+        const reviewModal = document.getElementById('addReviewModal');
+        const modalInstance = bootstrap.Modal.getInstance(reviewModal);
+        modalInstance.hide();
 
         // Reset form
-        document.getElementById('reviewForm').reset();
+        resetReviewForm();
+
+        // Mostra messaggio di successo
+        showSuccessMessage('Recensione pubblicata con successo!');
+
+        // Ricarica la pagina dopo un breve delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Errore nella sottomissione della recensione:', error);
+        showErrorMessage(error.message);
+    }
+}
+
+function resetReviewForm() {
+    const form = document.getElementById('reviewForm');
+    if (form) {
+        form.reset();
         document.getElementById('ratingValue').value = '';
-        const ratingStars = document.querySelectorAll('.rating-input .fa-star');
-        ratingStars.forEach(star => {
-            star.classList.remove('fas', 'hover');
+        
+        // Reset stars
+        const stars = document.querySelectorAll('.rating-input .fa-star');
+        stars.forEach(star => {
+            star.classList.remove('fas');
             star.classList.add('far');
         });
+    }
+}
 
-        // Ricarica le recensioni
-        location.reload();
-    })
-    .catch(error => {
-        console.error('Errore:', error);
-        alert('Si è verificato un errore nel salvataggio della recensione');
+// Utility function per mostrare messaggi di successo
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.style.zIndex = '1050';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Rimuovi automaticamente dopo 3 secondi
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+
+// Gestione delle stelle per la valutazione
+document.addEventListener('DOMContentLoaded', function() {
+    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
+    const ratingValue = document.getElementById('ratingValue');
+
+    // Gestione hover
+    ratingStars.forEach(star => {
+        star.addEventListener('mouseover', function() {
+            const rating = this.dataset.rating;
+            highlightStars(rating);
+        });
+
+        star.addEventListener('mouseout', function() {
+            const currentRating = ratingValue.value;
+            highlightStars(currentRating);
+        });
+
+        // Gestione click
+        star.addEventListener('click', function() {
+            const rating = this.dataset.rating;
+            ratingValue.value = rating;
+            highlightStars(rating);
+        });
+    });
+
+    // Funzione per evidenziare le stelle
+    function highlightStars(rating) {
+        ratingStars.forEach(star => {
+            const starRating = star.dataset.rating;
+            if (starRating <= rating) {
+                star.classList.remove('far');
+                star.classList.add('fas');
+            } else {
+                star.classList.remove('fas');
+                star.classList.add('far');
+            }
+        });
+    }
+});
+
+// Aggiorna anche la funzione resetReviewForm esistente
+function resetReviewForm() {
+    document.getElementById('reviewForm').reset();
+    document.getElementById('ratingValue').value = '';
+    
+    // Reset stelle
+    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
+    ratingStars.forEach(star => {
+        star.classList.remove('fas');
+        star.classList.add('far');
     });
 }
 
+function resetReviewForm() {
+    // Reset form
+    document.getElementById('reviewForm').reset();
+    document.getElementById('ratingValue').value = '';
+    
+    // Reset stars
+    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
+    ratingStars.forEach(star => {
+        star.classList.remove('fas', 'hover');
+        star.classList.add('far');
+    });
+}
+
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => alertDiv.remove(), 5000);
+}
 
 
 // FIXME Segnalazione recensione

@@ -59,3 +59,9 @@
 .rating-input .fa-star.hover {
     color: var(--palette-secondary);
 }
+
+.reviews-section {
+    background-color: var(--bg-color);
+    padding: 2rem 0;
+    margin: 0;
+}

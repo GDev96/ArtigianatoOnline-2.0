@@ -1,7 +1,42 @@
 const jwt = require('jsonwebtoken');
 
+
 const createAuthMiddleware = () => {
     return (req, res, next) => {
+        // Check for API endpoints that require authentication
+        if (req.path === '/reviews' && req.method === 'POST') {
+            const authHeader = req.headers.authorization;
+            
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Autenticazione richiesta'
+                });
+            }
+
+            try {
+                const token = authHeader.split(' ')[1];
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                
+                // Set user info in request
+                req.user = {
+                    id: decoded.id,
+                    username: decoded.username,
+                    ruolo_id: decoded.ruolo_id
+                };
+                
+                return next();
+            } catch (error) {
+                console.error('Token verification error:', error);
+                return res.status(401).json({
+                    success: false,
+                    message: 'Token non valido o scaduto'
+                });
+            }
+
+        }
+
+        // Allow public paths
         const publicPaths = [
             '/login.html',
             '/signup.html',
@@ -17,11 +52,41 @@ const createAuthMiddleware = () => {
             '/index.html',
             '/'
         ];
-        const currentPath = req.originalUrl || req.url || '';
 
-        // Allow public paths
-        if (publicPaths.some(path => currentPath.startsWith(path))) {
+        if (publicPaths.some(path => req.path.startsWith(path)) && req.method === 'GET') {
             return next();
+        }
+
+        // Check for API endpoints that require authentication
+        if (req.path === '/reviews' && req.method === 'POST') {
+            const authHeader = req.headers.authorization;
+            
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Autenticazione richiesta'
+                });
+            }
+
+            try {
+                const token = authHeader.split(' ')[1];
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                
+                // Set user info in request
+                req.user = {
+                    id: decoded.id,
+                    username: decoded.username,
+                    ruolo_id: decoded.ruolo_id
+                };
+                
+                return next();
+            } catch (error) {
+                console.error('Token verification error:', error);
+                return res.status(401).json({
+                    success: false,
+                    message: 'Token non valido o scaduto'
+                });
+            }
         }
 
         let token = null;
@@ -46,6 +111,7 @@ const createAuthMiddleware = () => {
             req.user = decoded;
 
             // Check role-based access
+            const currentPath = req.path;
             const isProfilePage = currentPath.includes('profile.html');
             const isDashboardPage = currentPath.includes('dashboard.html');
             const isAdminPage = currentPath.includes('admin.html');
