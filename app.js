@@ -22,26 +22,21 @@ app.use(cookieParser());
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb', extended: true}));
 
-// Static files
+// Serve static files first
 app.use(express.static('public'));
 
-// Apply auth middleware to specific routes
+// Protected routes
 app.use('/api', requireAuth);
-app.use('/products', requireAuth);
-app.use('/users', (req, res, next) => {
-    if (['/login', '/signup'].includes(req.path)) {
-        return next();
-    }
-    requireAuth(req, res, next);
-});
+app.use('/profile.html', requireAuth);
+app.use('/cart.html', requireAuth);
+app.use('/admin.html', requireAuth);
+app.use('/dashboard.html', requireAuth);
 
-// Route handlers
-app.use('/', indexRouter);
+// API routes
 app.use('/users', usersRouter);
 app.use('/products', productsRouter);
 
-// ...rest of your code...
-// Error handling middleware
+// Error handling
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({

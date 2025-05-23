@@ -1,3 +1,24 @@
+document.addEventListener('DOMContentLoaded', function() {
+    const rawUser = sessionStorage.getItem('user');
+    if (!rawUser) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    try {
+        const user = JSON.parse(rawUser);
+        if (user.ruolo_id !== 3) {
+            window.location.href = '/index.html';
+            return;
+        }
+        // Continue with admin console initialization...
+    } catch (error) {
+        console.error('Error loading admin console:', error);
+        sessionStorage.clear();
+        window.location.href = '/login.html';
+    }
+});
+
 // Initialization
 document.addEventListener('DOMContentLoaded', function() {
     // Check if user is admin

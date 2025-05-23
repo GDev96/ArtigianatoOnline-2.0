@@ -1,3 +1,20 @@
+document.addEventListener('DOMContentLoaded', function() {
+    const rawUser = sessionStorage.getItem('user');
+    if (!rawUser) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    try {
+        const user = JSON.parse(rawUser);
+        // Continue with cart initialization...
+    } catch (error) {
+        console.error('Error loading cart:', error);
+        sessionStorage.clear();
+        window.location.href = '/login.html';
+    }
+});
+
 //Compila i dati dell'utente nel profilo
 document.addEventListener('DOMContentLoaded', function() {
     // Recupera i dati utente dal localStorage

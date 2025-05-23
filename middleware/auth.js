@@ -1,11 +1,8 @@
 const jwt = require('jsonwebtoken');
 
-// Export a function that returns the middleware
-module.exports = function createAuthMiddleware() {
-    return function requireAuth(req, res, next) {
+const createAuthMiddleware = () => {
+    return (req, res, next) => {
         const publicPaths = [
-            '/',
-            '/index.html',
             '/login.html',
             '/signup.html',
             '/users/login',
@@ -13,53 +10,56 @@ module.exports = function createAuthMiddleware() {
             '/css/',
             '/js/',
             '/assets/',
-            '/categories'
+            '/categories',
+            '/index.html',
+            '/'
         ];
 
         const currentPath = req.originalUrl || req.url || '';
 
-        // Skip auth for public paths
+        // Allow public paths
         if (publicPaths.some(path => currentPath.startsWith(path))) {
             return next();
         }
 
         let token = null;
-
-        // Get token from different sources
+        
+        // Check authorization header
         if (req.headers?.authorization) {
-            const [bearer, authToken] = req.headers.authorization.split(' ');
-            if (bearer === 'Bearer' && authToken) {
-                token = authToken;
+            const parts = req.headers.authorization.split(' ');
+            if (parts.length === 2 && parts[0] === 'Bearer') {
+                token = parts[1];
             }
         }
 
+        // Check cookies and query if no token in header
         token = token || req.cookies?.token || req.query?.token;
 
         if (!token) {
-            const isApiRequest = req.xhr || currentPath.startsWith('/api/');
-            const response = {
-                success: false,
-                error: 'Authentication required'
-            };
-
-            if (!isApiRequest) {
-                response.redirect = '/login.html';
-            }
-
-            return res.status(401).json(response);
+            return res.redirect('/login.html');
         }
 
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             req.user = decoded;
+
+            // Check role-based access
+            const isProfilePage = currentPath.includes('profile.html');
+            const isDashboardPage = currentPath.includes('dashboard.html');
+            const isAdminPage = currentPath.includes('admin.html');
+
+            if ((isProfilePage && decoded.ruolo_id !== 1) ||
+                (isDashboardPage && decoded.ruolo_id !== 2) ||
+                (isAdminPage && decoded.ruolo_id !== 3)) {
+                return res.redirect('/index.html');
+            }
+
             return next();
         } catch (error) {
             console.error('Token verification error:', error);
-            return res.status(401).json({
-                success: false,
-                error: 'Invalid or expired token',
-                redirect: '/login.html'
-            });
+            return res.redirect('/login.html');
         }
     };
 };
+
+module.exports = createAuthMiddleware;

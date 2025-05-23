@@ -146,7 +146,7 @@ document.querySelector('form').addEventListener('submit', async (e) => {
         const successModal = new bootstrap.Modal(document.getElementById('successModal'));
         successModal.show();
 
-        // Redirect after delay
+        // Reindirizzo dopo 3 secondi
         setTimeout(() => {
             window.location.href = '/login.html';
         }, 3000);

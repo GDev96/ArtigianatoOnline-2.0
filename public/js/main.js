@@ -101,11 +101,108 @@ function initNavbar() {
         sessionStorage.clear();
         window.location.href = '/login.html';
     });
+
+    // Add navigation handlers
+    document.querySelectorAll('a[href]').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const path = this.getAttribute('href');
+            const protectedPaths = ['profile.html', 'dashboard.html', 'admin.html', 'cart.html'];
+            
+            if (protectedPaths.some(p => path.includes(p))) {
+                e.preventDefault();
+                const rawUser = sessionStorage.getItem('user');
+                
+                if (!rawUser) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                try {
+                    const user = JSON.parse(rawUser);
+                    // Always allow cart for authenticated users
+                    if (path.includes('cart.html')) {
+                        window.location.href = path;
+                        return;
+                    }
+
+                    // Check role-based access
+                    if ((path.includes('profile.html') && user.ruolo_id === 1) ||
+                        (path.includes('dashboard.html') && user.ruolo_id === 2) ||
+                        (path.includes('admin.html') && user.ruolo_id === 3)) {
+                        window.location.href = path;
+                    } else {
+                        window.location.href = '/index.html';
+                    }
+                } catch (error) {
+                    console.error('Navigation error:', error);
+                    sessionStorage.clear();
+                    window.location.href = '/login.html';
+                }
+            }
+        });
+    });
 }
 
-    // Carica la navbar e il footer
-  loadComponent('#navbar', '/components/navbar.html', initNavbar);
-  loadComponent('#footer', '/components/footer.html');
+//Gestione dei permessi di navigazione
+function checkAuthForNavigation() {
+    const protectedPages = {
+        '/profile.html': [1],     // Cliente
+        '/dashboard.html': [2],   // Artigiano
+        '/admin.html': [3],      // Admin
+        '/cart.html': [1, 2, 3]  // Tutti gli utenti autenticati
+    };
+
+    const currentPath = window.location.pathname;
+    
+    // Debug log
+    console.log('Checking auth for:', currentPath);
+    
+    // Get user from session storage
+    const rawUser = sessionStorage.getItem('user');
+    console.log('Session user:', rawUser);
+
+    // For protected pages, check authentication
+    const isProtectedPage = Object.keys(protectedPages).some(page => 
+        currentPath.toLowerCase().includes(page.toLowerCase())
+    );
+
+    if (isProtectedPage) {
+        if (!rawUser) {
+            console.log('No user found, redirecting to login');
+            window.location.href = '/login.html';
+            return;
+        }
+
+        try {
+            const user = JSON.parse(rawUser);
+            console.log('User role:', user.ruolo_id);
+
+            // Find matching protected page
+            const matchingPage = Object.keys(protectedPages).find(page => 
+                currentPath.toLowerCase().includes(page.toLowerCase())
+            );
+
+            if (matchingPage && !protectedPages[matchingPage].includes(user.ruolo_id)) {
+                console.log('Unauthorized access attempt');
+                window.location.href = '/index.html';
+                return;
+            }
+        } catch (error) {
+            console.error('Auth check error:', error);
+            sessionStorage.clear();
+            window.location.href = '/login.html';
+            return;
+        }
+    }
+}
+
+// Carica la navbar e il footer
+loadComponent('#navbar', '/components/navbar.html', initNavbar);
+loadComponent('#footer', '/components/footer.html');
+
+// Add this line after loadComponent calls
+document.addEventListener('DOMContentLoaded', checkAuthForNavigation);
+
 
 /***********Pagina Catalogo ******************/
 // Funzione per generare le stelle in base alla valutazione

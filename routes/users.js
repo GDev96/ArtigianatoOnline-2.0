@@ -110,7 +110,7 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-//FIXME login
+//Login utente - corretto
 router.post('/login', async (req, res) => {
     try {
         const { nome_utente, password } = req.body;
