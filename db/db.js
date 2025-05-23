@@ -2,51 +2,23 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-// Prima connessione al database di default per verificare/creare il nostro database
-async function initializeDatabase() {
-    try {
-        console.log('Verifica esistenza del database...');
-        
-        // Colleghiamoci prima al database di default 'postgres' per controllare se il nostro database esiste
-        const adminPool = new Pool({
-            user: 'postgres',
-            host: 'localhost',
-            database: 'postgres', // Database di default
-            password: 'postgres',
-            port: 5432,
-        });
-
-        // Verifica se il database esiste
-        const dbCheckResult = await adminPool.query(
-            "SELECT 1 FROM pg_database WHERE datname = 'artigianato_online'"
-        );
-
-        // Se il database non esiste, crealo
-        if (dbCheckResult.rows.length === 0) {
-            console.log('Database non trovato. Creazione in corso...');
-            await adminPool.query('CREATE DATABASE artigianato_online');
-            console.log('Database artigianato_online creato con successo');
-        } else {
-            console.log('Database artigianato_online già esistente');
-        }
-
-        await adminPool.end();
-        
-        // Ora possiamo connetterci al nostro database e inizializzarlo
-        return initializeTables();
-    } catch (err) {
-        console.error('Errore durante l\'inizializzazione del database:', err);
-        throw err;
-    }
-}
-
 // Pool di connessione al nostro database
 const pool = new Pool({
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'artigianato_online',
-    password: process.env.DB_PASSWORD || '',
+    password: process.env.DB_PASSWORD || 'postgres',
     port: parseInt(process.env.DB_PORT || '5432'),
+});
+
+// Test connection
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('Error connecting to database:', err);
+        return;
+    }
+    console.log('Successfully connected to database');
+    release();
 });
 
 // Funzione per inizializzare le tabelle e popolare il database
@@ -76,8 +48,43 @@ async function initializeTables() {
     }
 }
 
-// Esportiamo sia il pool che la funzione di inizializzazione
 module.exports = {
     pool,
-    initializeDatabase
+    initializeDatabase: async () => {
+        try {
+            console.log('Verifica esistenza del database...');
+            
+            // Colleghiamoci prima al database di default 'postgres' per controllare se il nostro database esiste
+            const adminPool = new Pool({
+                user: 'postgres',
+                host: 'localhost',
+                database: 'postgres', // Database di default
+                password: 'postgres',
+                port: 5432,
+            });
+
+            // Verifica se il database esiste
+            const dbCheckResult = await adminPool.query(
+                "SELECT 1 FROM pg_database WHERE datname = 'artigianato_online'"
+            );
+
+            // Se il database non esiste, crealo
+            if (dbCheckResult.rows.length === 0) {
+                console.log('Database non trovato. Creazione in corso...');
+                await adminPool.query('CREATE DATABASE artigianato_online');
+                console.log('Database artigianato_online creato con successo');
+            } else {
+                console.log('Database artigianato_online già esistente');
+            }
+
+            await adminPool.end();
+            
+            // Ora possiamo connetterci al nostro database e inizializzarlo
+            return initializeTables();
+        } catch (err) {
+            console.error('Errore durante l\'inizializzazione del database:', err);
+            throw err;
+        }
+    }
 };
+

@@ -1,33 +1,63 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db/db');
-const authorize = require('../middleware/auth');
+const createAuthMiddleware = require('../middleware/auth');
 const multer = require('multer');
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+const requireAuth = createAuthMiddleware();
 
-// GET tutti i prodotti - pubblico - corretto
+// GET tutti i prodotti - pubblico
 router.get('/', async (req, res) => {
   try {
+    // Updated query with proper JOIN conditions and error handling
     const result = await pool.query(`
       SELECT 
         p.*,
-        u.nome AS artigiano_nome,
-        u.cognome AS artigiano_cognome,
+        u.nome as artigiano_nome,
+        u.cognome as artigiano_cognome,
+        t.nome_tipologia,
+        t.tipologia_id,
+        COALESCE(AVG(r.valutazione)::numeric(10,1), 0) as valutazione_media,
+        COUNT(DISTINCT r.recensione_id) as numero_recensioni
+      FROM prodotti p
+      INNER JOIN utente u ON p.artigiano_id = u.id
+      LEFT JOIN tipologia t ON p.tipologia_id = t.tipologia_id
+      LEFT JOIN recensioni r ON u.id = r.artigiano_id 
+        AND r.stato = 'attiva'
+      WHERE u.stato = 'attivo'
+      GROUP BY 
+        p.prodotto_id,
+        p.nome_prodotto,
+        p.descrizione,
+        p.prezzo,
+        p.quantita,
+        p.immagine,
+        u.nome,
+        u.cognome,
         t.nome_tipologia,
         t.tipologia_id
-      FROM prodotti p
-      JOIN utente u ON p.artigiano_id = u.id
-      LEFT JOIN tipologia t ON p.tipologia_id = t.tipologia_id
-      WHERE u.stato = 'attivo'
       ORDER BY p.nome_prodotto ASC
     `);
+
+    console.log('Query executed successfully');
+    console.log('Number of products found:', result.rows.length);
     
     const products = result.rows.map(product => ({
-      ...product,
+      prodotto_id: product.prodotto_id,
+      nome_prodotto: product.nome_prodotto,
+      descrizione: product.descrizione,
+      prezzo: parseFloat(product.prezzo),
+      quantita: parseInt(product.quantita),
       immagine: product.immagine ? product.immagine.toString('base64') : null,
-      prezzo: parseFloat(product.prezzo)
+      artigiano_id: product.artigiano_id,
+      artigiano_nome: product.artigiano_nome,
+      artigiano_cognome: product.artigiano_cognome,
+      tipologia_id: product.tipologia_id,
+      nome_tipologia: product.nome_tipologia,
+      valutazione_media: parseFloat(product.valutazione_media),
+      numero_recensioni: parseInt(product.numero_recensioni)
     }));
 
     res.json({
@@ -36,7 +66,7 @@ router.get('/', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Errore nel recupero dei prodotti:', error);
+    console.error('Database error:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Errore del server',
@@ -45,197 +75,181 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET un prodotto specifico - pubblico
+// GET prodotto specifico
 router.get('/:id', async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const result = await pool.query(
-            `SELECT p.*, a.tipologia_id AS artigiano_tipologia, u.nome_utente AS nome_artigiano
-             FROM prodotti p
-             JOIN artigiani a ON p.artigiano_id = a.artigiano_id
-             JOIN utente u ON a.artigiano_id = u.id
-             WHERE p.prodotto_id = $1`,
-            [id]
-        );
+  try {
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        u.nome as artigiano_nome,
+        u.cognome as artigiano_cognome,
+        t.nome_tipologia,
+        t.tipologia_id,
+        COALESCE(AVG(r.valutazione)::numeric(10,1), 0) as valutazione_media,
+        COUNT(r.recensione_id) as numero_recensioni
+      FROM prodotti p
+      JOIN utente u ON p.artigiano_id = u.id
+      JOIN artigiani a ON u.id = a.artigiano_id
+      LEFT JOIN tipologia t ON p.tipologia_id = t.tipologia_id
+      LEFT JOIN recensioni r ON u.id = r.artigiano_id AND r.stato = 'attiva'
+      WHERE p.prodotto_id = $1 AND u.stato = 'attivo'
+      GROUP BY 
+        p.prodotto_id,
+        p.nome_prodotto,
+        p.descrizione,
+        p.prezzo,
+        p.quantita,
+        p.immagine,
+        u.nome,
+        u.cognome,
+        t.nome_tipologia,
+        t.tipologia_id
+    `, [id]);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Prodotto non trovato' });
-        }
-
-        res.status(200).json(result.rows[0]);
-    } catch (error) {
-        console.error('Errore nel recupero del prodotto:', error);
-        res.status(500).json({ message: 'Errore del server durante il recupero del prodotto.' });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Prodotto non trovato' });
     }
+
+    const product = {
+      ...result.rows[0],
+      immagine: result.rows[0].immagine ? result.rows[0].immagine.toString('base64') : null,
+      prezzo: parseFloat(result.rows[0].prezzo)
+    };
+
+    res.json({
+      success: true,
+      product
+    });
+
+  } catch (error) {
+    console.error('Errore nel recupero del prodotto:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Errore del server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
-// Inserimento di un nuovo prodotto - solo per artigiani
-router.post('/', authorize(2), upload.single('immagine'), async (req, res) => {
-    try {
-        // Log the entire request body for debugging
-        console.log('Request body:', req.body);
-
-        const nome_prodotto = req.body.nome_prodotto || null;
-        const tipologia_id = req.body.tipologia_id || null;
-        const prezzo = req.body.prezzo || null;
-        const descrizione = req.body.descrizione || null;
-        const quant = req.body.quant || 1;
-        const immagine = req.file ? req.file.buffer : null;
-
-        const query = `
-            INSERT INTO prodotti (artigiano_id, nome_prodotto, tipologia_id, prezzo, descrizione, quant, immagine)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING prodotto_id
-        `;
-        const values = [
-            req.user.id, 
-            nome_prodotto, 
-            tipologia_id, 
-            prezzo, 
-            descrizione, 
-            quant, 
-            immagine
-        ];
-
-        const result = await pool.query(query, values);
-
-        res.status(201).json({
-            success: true,
-            message: 'Prodotto inserito con successo.',
-            prodotto_id: result.rows[0].prodotto_id
-        });
-
-    } catch (error) {
-        console.error('Errore nell\'inserimento del prodotto:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Errore del server durante la creazione del prodotto.',
-            error: error.message 
-        });
+// POST nuovo prodotto (solo artigiani)
+router.post('/', requireAuth, upload.single('immagine'), async (req, res) => {
+  try {
+    if (req.user.ruolo_id !== 2) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo gli artigiani possono inserire prodotti'
+      });
     }
+
+    const { nome_prodotto, descrizione, prezzo, tipologia_id, quantita } = req.body;
+    const immagine = req.file ? req.file.buffer : null;
+
+    const query = `
+      INSERT INTO prodotti (
+        artigiano_id,
+        nome_prodotto,
+        descrizione,
+        prezzo,
+        tipologia_id,
+        quantita,
+        immagine
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING prodotto_id
+    `;
+
+    const result = await pool.query(query, [
+      req.user.id,
+      nome_prodotto,
+      descrizione,
+      prezzo,
+      tipologia_id,
+      quantita || 0,
+      immagine
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Prodotto inserito con successo',
+      prodotto_id: result.rows[0].prodotto_id
+    });
+
+  } catch (error) {
+    console.error('Errore nell\'inserimento del prodotto:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Errore del server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
-// Diminuisce di 1 la quantità di un prodotto
-router.patch('/:id/decrement', authorize(1), async (req, res) => {
+// PATCH aggiorna prodotto (solo proprietario o admin)
+router.patch('/:id', requireAuth, upload.single('immagine'), async (req, res) => {
+  try {
     const productId = parseInt(req.params.id);
+    const { nome_prodotto, descrizione, prezzo, tipologia_id, quantita } = req.body;
+    const immagine = req.file ? req.file.buffer : null;
 
-    try {
-        // Controlla che il prodotto esista e abbia almeno 1 quantità disponibile
-        const productResult = await pool.query(
-            'SELECT quant FROM prodotti WHERE prodotto_id = $1',
-            [productId]
-        );
+    // Verifica proprietà del prodotto
+    const productCheck = await pool.query(
+      'SELECT artigiano_id FROM prodotti WHERE prodotto_id = $1',
+      [productId]
+    );
 
-        if (productResult.rows.length === 0) {
-            return res.status(404).json({ message: 'Prodotto non trovato.' });
-        }
-
-        const currentQuantity = productResult.rows[0].quant;
-
-        if (currentQuantity <= 0) {
-            return res.status(400).json({ message: 'Prodotto esaurito.' });
-        }
-
-        // Decrementa la quantità
-        await pool.query(
-            'UPDATE prodotti SET quant = quant - 1 WHERE prodotto_id = $1',
-            [productId]
-        );
-
-        res.status(200).json({ message: 'Quantità del prodotto aggiornata con successo.' });
-
-    } catch (error) {
-        console.error('Errore nel decremento della quantità:', error);
-        res.status(500).json({ message: 'Errore del server durante il decremento del prodotto.' });
+    if (productCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Prodotto non trovato'
+      });
     }
-});
 
-// Modifica un prodotto - tutti i dati - solo per artigiano proprietario o admin
-router.patch('/:id', authorize(2), async (req, res) => {
-    const productId = parseInt(req.params.id);
-    const user = req.user; 
-    const { nome_prodotto, descrizione, prezzo, tipologia_id, quant, immagine } = req.body;
-
-    try {
-        // Controlla che il prodotto esista
-        const productCheck = await pool.query(
-            'SELECT * FROM prodotti WHERE prodotto_id = $1',
-            [productId]
-        );
-
-        if (productCheck.rows.length === 0) {
-            return res.status(404).json({ message: 'Prodotto non trovato.' });
-        }
-
-        const product = productCheck.rows[0];
-
-        // Se utente è artigiano, controlla che il prodotto sia suo
-        if (user.ruolo_id === 2 && product.artigiano_id !== user.id) {
-            return res.status(403).json({ message: 'Non sei autorizzato a modificare questo prodotto.' });
-        }
-
-        // Esegui l'UPDATE solo dei campi forniti
-        const updateQuery = `
-            UPDATE prodotti
-            SET 
-                nome_prodotto = COALESCE($1, nome_prodotto),
-                descrizione = COALESCE($2, descrizione),
-                prezzo = COALESCE($3, prezzo),
-                tipologia_id = COALESCE($4, tipologia_id),
-                quant = COALESCE($5, quant),
-                immagine = COALESCE($6, immagine)
-            WHERE prodotto_id = $7
-        `;
-
-        await pool.query(updateQuery, [
-            nome_prodotto || null,
-            descrizione || null,
-            prezzo || null,
-            tipologia_id || null,
-            quant || null,
-            immagine || null,
-            productId
-        ]);
-
-        res.status(200).json({ message: 'Prodotto aggiornato con successo.' });
-
-    } catch (error) {
-        console.error('Errore durante la modifica del prodotto:', error);
-        res.status(500).json({ message: 'Errore del server durante la modifica del prodotto.' });
+    // Verifica permessi
+    if (req.user.ruolo_id !== 3 && productCheck.rows[0].artigiano_id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Non autorizzato a modificare questo prodotto'
+      });
     }
-});
 
-// DELETE di un prodotto dato l'id - solo per artigiano proprietario o admin
-router.delete('/:id', authorize(2), async (req, res) => {
-    const productId = parseInt(req.params.id);
-    const userId = req.user.id;
-    const userRole = req.user.ruolo_id;
+    const updateQuery = `
+      UPDATE prodotti
+      SET 
+        nome_prodotto = COALESCE($1, nome_prodotto),
+        descrizione = COALESCE($2, descrizione),
+        prezzo = COALESCE($3, prezzo),
+        tipologia_id = COALESCE($4, tipologia_id),
+        quantita = COALESCE($5, quantita),
+        immagine = COALESCE($6, immagine)
+      WHERE prodotto_id = $7
+      RETURNING prodotto_id
+    `;
 
-    try {
-        // Controlla se il prodotto esiste e chi lo ha creato
-        const result = await pool.query('SELECT artigiano_id FROM prodotti WHERE prodotto_id = $1', [productId]);
+    const result = await pool.query(updateQuery, [
+      nome_prodotto,
+      descrizione,
+      prezzo,
+      tipologia_id,
+      quantita,
+      immagine,
+      productId
+    ]);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Prodotto non trovato.' });
-        }
+    res.json({
+      success: true,
+      message: 'Prodotto aggiornato con successo',
+      prodotto_id: result.rows[0].prodotto_id
+    });
 
-        const product = result.rows[0];
-
-        // Controllo permessi: solo l'artigiano proprietario o admin può eliminare
-        if (userRole !== 3 && product.artigiano_id !== userId) {
-            return res.status(403).json({ message: 'Non hai i permessi per eliminare questo prodotto.' });
-        }
-
-        // Elimina il prodotto
-        await pool.query('DELETE FROM prodotti WHERE prodotto_id = $1', [productId]);
-
-        res.status(200).json({ message: 'Prodotto eliminato con successo.' });
-
-    } catch (error) {
-        console.error('Errore durante l\'eliminazione del prodotto:', error);
-        res.status(500).json({ message: 'Errore del server durante l\'eliminazione del prodotto.' });
-    }
+  } catch (error) {
+    console.error('Errore nell\'aggiornamento del prodotto:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Errore del server',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 module.exports = router;
