@@ -114,17 +114,34 @@ function updateArtisansDisplay(artisans, categoryMap) {
         return;
     }
 
-    container.innerHTML = artisans.map(artisan => `
+    container.innerHTML = artisans.map(artisan => {
+        // Convert binary data to base64 if needed
+        let imageSource = '/assets/images/default/artisan-default.jpg';
+        if (artisan.immagine) {
+            // Check if immagine is already base64
+            if (typeof artisan.immagine === 'string') {
+                imageSource = `data:image/jpeg;base64,${artisan.immagine}`;
+            } else {
+                // Convert binary data to base64
+                const uint8Array = new Uint8Array(artisan.immagine.data);
+                const binaryString = uint8Array.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+                const base64String = btoa(binaryString);
+                imageSource = `data:image/jpeg;base64,${base64String}`;
+            }
+        }
+
+        return `
         <div class="col-md-4 mb-4">
             <div class="card">
-                <img src="${artisan.immagine ? 'data:image/jpeg;base64,' + artisan.immagine : '/assets/images/wallpaper2.jpg'}" 
+                <img src="${imageSource}" 
                     class="card-img-top" 
                     alt="${artisan.username}"
-                    onerror="this.src='/assets/images/wallpaper2.jpg'">
+                    onerror="this.src='/assets/images/default/artisan-default.jpg'"
+                    style="object-fit: cover; height: 200px;">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h5 class="card-title">${artisan.nome} ${artisan.cognome}</h5>
-                        <p class="card-text">${artisan.citta}</p>
+                        <p class="card-text">${artisan.citta || ''} </p>
                     </div>
                     <p class="card-category">${categoryMap[artisan.tipologia_id] || 'Categoria non specificata'}</p>
                     <div class="d-flex justify-content-end">
@@ -133,7 +150,8 @@ function updateArtisansDisplay(artisans, categoryMap) {
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function showError(error) {

@@ -69,193 +69,100 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-//Funzione di registrazione
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.querySelector('form');
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
 
-        const passwordInput = document.getElementById('passwordInput');
-        const confirmPasswordInput = document.getElementById('confirmPasswordInput');
-        const passwordError = document.getElementById('passwordError');
-
-        // Reset classi e messaggi d'errore precedenti
-        passwordInput.classList.remove('is-invalid');
-        confirmPasswordInput.classList.remove('is-invalid');
-        passwordError.textContent = '';
-
-        const userCheck = document.getElementById('userCheck');
-        const artisanCheck = document.getElementById('artisanCheck');
-
-        if (!userCheck.checked && !artisanCheck.checked) {
-            userCheck.checked = true;
+async function processImage(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) {
+            resolve(null);
             return;
         }
 
-        const password = passwordInput.value;
-        const confirmPassword = confirmPasswordInput.value;
-
-        // Verifica i criteri della password usando regex
-        const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
-        if (!passwordRegex.test(password)) {
-            passwordInput.classList.add('is-invalid');
-            passwordError.textContent = 'La password deve avere almeno 8 caratteri, una lettera maiuscola, un numero e un simbolo';
-            passwordError.style.display = 'block';
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+        if (!validTypes.includes(file.type)) {
+            reject(new Error('Formato immagine non valido. Sono accettati solo JPEG, JPG e PNG.'));
             return;
-        } else if (password !== confirmPassword) {
-            passwordInput.classList.add('is-invalid');
-            confirmPasswordInput.classList.add('is-invalid');
-            passwordError.textContent = 'Le password non coincidono';
-            passwordError.style.display = 'block';
-            return;
-        } else {
-            passwordInput.classList.remove('is-invalid');
-            confirmPasswordInput.classList.remove('is-invalid');
-            passwordError.textContent = '';
-            passwordError.style.display = 'none';
         }
 
-        // Prepara i dati base dell'utente
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            reject(new Error('L\'immagine è troppo grande. Dimensione massima: 5MB'));
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Errore nella lettura del file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+// Registration function
+document.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    try {
+        // Basic form data
         const formData = {
-            nome_utente: document.getElementById('usernameInput').value,
-            email: document.getElementById('emailInput').value,
-            nome: document.getElementById('nameInput').value,
-            cognome: document.getElementById('surnameInput').value,
-            password: password,
-            indirizzo: document.getElementById('addressInput').value,
-            citta: document.getElementById('cityInput').value,
-            numero_telefono: document.getElementById('phoneNumberInput').value,
-            isArtigiano: artisanCheck.checked
+            nome_utente: document.getElementById('usernameInput').value.trim(),
+            email: document.getElementById('emailInput').value.trim(),
+            nome: document.getElementById('nameInput').value.trim(),
+            cognome: document.getElementById('surnameInput').value.trim(),
+            password: document.getElementById('passwordInput').value,
+            conferma_password: document.getElementById('confirmPasswordInput').value,
+            indirizzo: document.getElementById('addressInput').value.trim(),
+            citta: document.getElementById('cityInput').value.trim(),
+            isArtigiano: document.getElementById('artisanCheck').checked
         };
-      
-        // Aggiungi i dati dell'artigiano se necessario
-        if (artisanCheck.checked) {
-            formData.iban = document.getElementById('vatNumberInput').value;
-            formData.tipologia_id = getCategoryId(document.getElementById('categoryInput').value);
 
-            // Gestione dell'immagine del profilo
-            if (profileImageInput.files && profileImageInput.files[0]) {
-                const file = profileImageInput.files[0];
-                
-                // Controlla dimensione file (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    alert('L\'immagine è troppo grande. Dimensione massima: 5MB');
-                    return;
+        // Validate passwords match
+        if (formData.password !== formData.conferma_password) {
+            throw new Error('Le password non coincidono');
+        }
+
+        // Add artisan specific fields
+        if (formData.isArtigiano) {
+            formData.iban = document.getElementById('vatNumberInput').value.trim();
+            formData.numero_telefono = document.getElementById('phoneNumberInput').value.trim();
+            formData.tipologia_id = document.getElementById('categoryInput').value;
+
+            // Process image if present
+            const imageInput = document.getElementById('profileImageInput');
+            if (imageInput.files[0]) {
+                try {
+                    formData.immagine = await processImage(imageInput.files[0]);
+                } catch (error) {
+                    throw new Error(`Errore immagine: ${error.message}`);
                 }
-            
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    // Comprimi l'immagine prima dell'upload
-                    const img = new Image();
-                    img.src = e.target.result;
-                    
-                    img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-            
-                        // Calcola le nuove dimensioni mantenendo l'aspect ratio
-                        let width = img.width;
-                        let height = img.height;
-                        const maxSize = 800;
-            
-                        if (width > height) {
-                            if (width > maxSize) {
-                                height *= maxSize / width;
-                                width = maxSize;
-                            }
-                        } else {
-                            if (height > maxSize) {
-                                width *= maxSize / height;
-                                height = maxSize;
-                            }
-                        }
-            
-                        canvas.width = width;
-                        canvas.height = height;
-            
-                        // Disegna l'immagine ridimensionata
-                        ctx.drawImage(img, 0, 0, width, height);
-            
-                        // Converti in base64 con qualità ridotta
-                        const compressedImage = canvas.toDataURL('image/jpeg', 0.7);
-                        formData.immagine = compressedImage.split(',')[1];
-                        
-                        sendRegistrationRequest(formData);
-                    };
-                };
-                reader.readAsDataURL(file);
-            } else {
-                await sendRegistrationRequest(formData);
             }
         }
-          
-    // Funzione helper per ottenere l'ID della categoria
-    function getCategoryId(categoryName) {
-        const categoryMap = {
-            'ceramica': 1,
-            'legno': 2,
-            'tessuti': 3,
-            'gioielli': 4,
-            'vetro': 5,
-            'arredamento': 6,
-            'elettronica': 7,
-            'metallo': 8,
-            'decorazioni': 9,
-            'altro': 10
-        };
-        return categoryMap[categoryName.toLowerCase()] || 10;
-    }
-    
-    // Update the sendRegistrationRequest function
-    async function sendRegistrationRequest(formData) {
-        try {
-            // Fix 1: Correct endpoint URL
-            const response = await fetch('/users/signup', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                // Fix 2: Match the expected backend data structure
-                body: JSON.stringify({
-                    username: formData.nome_utente,
-                    email: formData.email,
-                    nome: formData.nome,
-                    cognome: formData.cognome,
-                    password: formData.password,
-                    indirizzo: formData.indirizzo,
-                    citta: formData.citta,
-                    numero_telefono: formData.numero_telefono,
-                    isArtigiano: formData.isArtigiano,
-                    iban: formData.iban,
-                    tipologia_id: parseInt(formData.tipologia_id),
-                    immagine: formData.immagine
-                })
-            });
-    
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Errore durante la registrazione');
-            }
-    
-            const data = await response.json();
-            console.log('Registrazione avvenuta con successo:', data);
-            
-            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-            successModal.show();
-            
-            setTimeout(() => {
-                successModal.hide();
-                window.location.href = '/login.html';
-            }, 5000);
-    
-            document.getElementById('successModal').addEventListener('hidden.bs.modal', function () {
-                window.location.href = '/login.html';
-            });
-    
-        } catch (error) {
-            console.error('Errore durante la registrazione:', error);
-            alert(error.message || 'Errore durante la registrazione. Riprova più tardi.');
+
+        // Send registration request
+        const response = await fetch('/users/signup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Errore durante la registrazione');
         }
+
+        // Show success modal
+        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        successModal.show();
+
+        // Redirect after delay
+        setTimeout(() => {
+            window.location.href = '/login.html';
+        }, 3000);
+
+    } catch (error) {
+        console.error('Errore durante la registrazione:', error);
+        alert(error.message);
     }
-  });
 });

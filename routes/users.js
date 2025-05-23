@@ -5,65 +5,109 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 require('dotenv').config();
 
-// Registrazione nuovo utente
-router.post('/signup', async (req, res) => {
-  let {
-    username, nome, cognome, email, password, isArtigiano, numero_telefono, indirizzo, citta, tipologia_id, iban, immagine 
-  } = req.body;
-
-  // Controllo campi obbligatori
-  if (!username || !nome || !cognome || !email || !password) {
-    return res.status(400).json({ error: 'Tutti i campi obbligatori devono essere compilati.' });
-  }
-
-  // Controllo dati artigiano
-  if (isArtigiano && (!iban || !tipologia_id)) {
-    return res.status(400).json({ error: 'IBAN e tipologia di prodotto sono obbligatori per gli artigiani.' });
-  }
-
-  try {
-    const saltRounds = 10;
-    const hash = await bcrypt.hash(password, saltRounds);
-    const ruolo_id = isArtigiano ? 2 : 1;
-
-    // Inserimento utente
-    const userInsertQuery = `
-      INSERT INTO utente (username, nome, cognome, numero_telefono, indirizzo, citta, email, password_hash, ruolo_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id
-    `;
-    
-    const userValues = [
-      username,
-      nome,
-      cognome,
-      numero_telefono || null,
-      indirizzo || null,
-      citta || null,
-      email,
-      hash,
-      ruolo_id
-    ];
-
-    const result = await pool.query(userInsertQuery, userValues);
-    const userId = result.rows[0].id;
-
-    // Inserimento artigiano
-    if (isArtigiano) {
-      const artisanQuery = `
-        INSERT INTO artigiani (artigiano_id, tipologia_id, iban, immagine)
-        VALUES ($1, $2, $3, $4)
-      `;
-      const artisanValues = [userId, tipologia_id, iban, immagine || null];
-      await pool.query(artisanQuery, artisanValues);
+// Helper function to validate image
+function isValidImageData(base64String) {
+    try {
+        const matches = base64String.match(/^data:image\/(jpeg|jpg|png);base64,/i);
+        return matches !== null;
+    } catch (error) {
+        return false;
     }
+}
 
-    res.status(201).json({ message: 'Utente registrato con successo', userId });
+// Registration endpoint
+router.post('/signup', async (req, res) => {
+    try {
+        let {
+            nome_utente, email, nome, cognome, 
+            password, indirizzo, citta, isArtigiano,
+            numero_telefono, tipologia_id, iban, immagine
+        } = req.body;
 
-  } catch (error) {
-    console.error('Errore registrazione:', error);
-    res.status(500).json({ error: 'Errore del server durante la registrazione' });
-  }
+        // Validate required fields
+        if (!nome_utente || !email || !nome || !cognome || !password) {
+            return res.status(400).json({
+                success: false,
+                error: 'Tutti i campi obbligatori devono essere compilati'
+            });
+        }
+
+        // Process image if present
+        let processedImage = null;
+        if (immagine) {
+            if (!isValidImageData(immagine)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Formato immagine non valido'
+                });
+            }
+
+            // Convert base64 to buffer
+            const base64Data = immagine.replace(/^data:image\/\w+;base64,/, '');
+            processedImage = Buffer.from(base64Data, 'base64');
+        }
+
+        // Generate password hash
+        const saltRounds = 10;
+        const hash = await bcrypt.hash(password, saltRounds);
+
+        // Start transaction
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Insert user
+            const userResult = await client.query(`
+                INSERT INTO utente (
+                    username, email, nome, cognome, 
+                    password_hash, indirizzo, citta, 
+                    numero_telefono, ruolo_id, stato
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                RETURNING id
+            `, [
+                nome_utente, email, nome, cognome,
+                hash, indirizzo, citta,
+                numero_telefono, isArtigiano ? 2 : 1, 'attivo'
+            ]);
+
+            // If artisan, insert additional data
+            if (isArtigiano) {
+                await client.query(`
+                    INSERT INTO artigiani (
+                        artigiano_id, tipologia_id, 
+                        iban, immagine
+                    )
+                    VALUES ($1, $2, $3, $4)
+                `, [
+                    userResult.rows[0].id,
+                    tipologia_id,
+                    iban,
+                    processedImage
+                ]);
+            }
+
+            await client.query('COMMIT');
+            res.status(201).json({
+                success: true,
+                message: 'Utente registrato con successo'
+            });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+
+    } catch (error) {
+        console.error('Errore registrazione:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante la registrazione',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
 });
 
 // Login
@@ -159,19 +203,13 @@ router.get('/artisans', async (req, res) => {
             ORDER BY u.nome, u.cognome
         `);
 
-        if (!artisansResult.rows.length) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Nessun artigiano trovato' 
-            });
-        }
-
-        const artisans = artisansResult.rows.map(artisan => ({
-            ...artisan,
-            immagine: artisan.immagine ? artisan.immagine.toString('base64') : null,
-            valutazione_media: parseFloat(artisan.valutazione_media) || 0,
-            numero_recensioni: parseInt(artisan.numero_recensioni) || 0
+        // Convert binary data to base64
+        const artisans = artisansResult.rows.map(row => ({
+            ...row,
+            // Convert Buffer to base64 string
+            immagine: row.immagine ? Buffer.from(row.immagine).toString('base64') : null
         }));
+
 
         res.json({ 
             success: true, 
