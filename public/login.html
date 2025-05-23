@@ -54,11 +54,9 @@
     <script src="/js/login.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // Check if user is already logged in
-        const user = localStorage.getItem('user');
-        if (user) {
+        // Redirect if already authenticated
+        if (AuthService.checkAuth()) {
             window.location.href = '/index.html';
-            return;
         }
     });
     </script>

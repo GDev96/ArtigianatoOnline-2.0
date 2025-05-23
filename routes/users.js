@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 require('dotenv').config();
 
-// Helper function to validate image
+// Validazione del formato dell'immagine per la registrazione
 function isValidImageData(base64String) {
     try {
         const matches = base64String.match(/^data:image\/(jpeg|jpg|png);base64,/i);
@@ -15,7 +15,7 @@ function isValidImageData(base64String) {
     }
 }
 
-// Registration endpoint
+// Registrazione utente - corretto
 router.post('/signup', async (req, res) => {
     try {
         let {
@@ -110,7 +110,8 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-// Login
+//FIXME login
+// Login endpoint
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -128,7 +129,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Username o password errati' });
     }
 
-    // Payload base
+    // Payload base con timestamp di scadenza
     const payload = {
       id: user.id,
       nome: user.nome,
@@ -138,7 +139,8 @@ router.post('/login', async (req, res) => {
       numero_telefono: user.numero_telefono,
       indirizzo: user.indirizzo,
       citta: user.citta,
-      ruolo_id: user.ruolo_id
+      ruolo_id: user.ruolo_id,
+      exp: Math.floor(Date.now() / 1000) + (30 * 60) // 30 minuti
     };
 
     // Dati extra artigiano
@@ -159,11 +161,12 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30m' });
 
     res.status(200).json({
       token,
-      user: payload
+      user: payload,
+      expiresIn: 30 * 60 * 1000 // 30 minuti in millisecondi
     });
 
   } catch (error) {

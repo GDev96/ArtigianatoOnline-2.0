@@ -16,42 +16,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
-        // Hide any previous error messages
         loginError.classList.add('d-none');
         
-        const username = document.getElementById('usernameInput').value;
-        const password = document.getElementById('passwordInput').value;
-
         try {
-            const response = await fetch('/api/users/login', {
+            const response = await AuthService.fetch('/users/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
-                    nome_utente: username,  // cambiato da username a nome_utente
-                    password: password 
+                    nome_utente: document.getElementById('usernameInput').value.trim(),
+                    password: document.getElementById('passwordInput').value 
                 })
             });
 
             const data = await response.json();
 
-            if (response.ok) {
-                // Store the token and user data
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                
-                // Redirect to home page
-                window.location.href = '/';
-            } else {
-                // Show error message
-                loginError.textContent = data.message || 'Errore durante il login';
-                loginError.classList.remove('d-none');
+            if (!response.ok) {
+                throw new Error(data.message || 'Errore durante il login');
             }
+
+            AuthService.setSession(data.token, data.user, data.expiresIn);
+            window.location.href = '/index.html';
+
         } catch (error) {
             console.error('Errore:', error);
-            loginError.textContent = 'Errore di connessione al server';
+            loginError.textContent = error.message;
             loginError.classList.remove('d-none');
         }
     });

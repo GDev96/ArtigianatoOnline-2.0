@@ -1,13 +1,3 @@
-// Se l'utente è già loggato, reindirizzalo alla home page
-document.addEventListener('DOMContentLoaded', () => {
-        // Check if user is already logged in
-        const user = localStorage.getItem('user');
-        if (user) {
-            window.location.href = '/index.html';
-            return;
-        }
-    });
-
 // Funzione per mostrare/nascondere la sezione artigiano
 function toggleArtisanSection(isArtisan) {
     console.log('funzione chiamata', isArtisan);

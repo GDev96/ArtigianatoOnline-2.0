@@ -1,35 +1,65 @@
 const jwt = require('jsonwebtoken');
 
-// Middleware per autenticazione e autorizzazione
-function authMiddleware(minRole) {
-  return (req, res, next) => {
-    const authHeader = req.headers['authorization'];
+// Export a function that returns the middleware
+module.exports = function createAuthMiddleware() {
+    return function requireAuth(req, res, next) {
+        const publicPaths = [
+            '/',
+            '/index.html',
+            '/login.html',
+            '/signup.html',
+            '/users/login',
+            '/users/signup',
+            '/css/',
+            '/js/',
+            '/assets/',
+            '/categories'
+        ];
 
-    // Controlla che ci sia un token nel formato Bearer
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Token mancante o non valido' });
-    }
+        const currentPath = req.originalUrl || req.url || '';
 
-    const token = authHeader.split(' ')[1];
+        // Skip auth for public paths
+        if (publicPaths.some(path => currentPath.startsWith(path))) {
+            return next();
+        }
 
-    try {
-      // Verifica e decodifica il token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        let token = null;
 
-      // Controllo del ruolo minimo
-      if (decoded.ruolo_id < minRole) {
-        return res.status(403).json({ message: 'Accesso non autorizzato' });
-      }
+        // Get token from different sources
+        if (req.headers?.authorization) {
+            const [bearer, authToken] = req.headers.authorization.split(' ');
+            if (bearer === 'Bearer' && authToken) {
+                token = authToken;
+            }
+        }
 
-      // Salva i dati dell’utente nel request per usarli nei controller
-      req.user = decoded;
-      next();
+        token = token || req.cookies?.token || req.query?.token;
 
-    } catch (err) {
-      console.error('Errore nel middleware auth:', err);
-      res.status(403).json({ message: 'Token non valido o scaduto' });
-    }
-  };
-}
+        if (!token) {
+            const isApiRequest = req.xhr || currentPath.startsWith('/api/');
+            const response = {
+                success: false,
+                error: 'Authentication required'
+            };
 
-module.exports = authMiddleware;
+            if (!isApiRequest) {
+                response.redirect = '/login.html';
+            }
+
+            return res.status(401).json(response);
+        }
+
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            req.user = decoded;
+            return next();
+        } catch (error) {
+            console.error('Token verification error:', error);
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid or expired token',
+                redirect: '/login.html'
+            });
+        }
+    };
+};
