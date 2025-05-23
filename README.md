@@ -12,7 +12,7 @@ Legenda:
 |-----------------------------------------------------------------------------|-----------|-------------|-------------|
 | Aggiungere file vecchio progetto         | Gaia         | main (primo commit)           | ✅ Completato |
 | Cambiare stili              | Gaia        | fixstyles| ✅ Completato |
-| Pagina catalogo             | -         | -          | ❌ Da fare   |
+| Pagina catalogo             | Gaia         | catalogpage          | ⏳ In corso  |
 | Pagina profilo utente             | -         | -          | ❌ Da fare   |
 | Pagina carrello             | -         | -          | ❌ Da fare   |
 | Pagina dashboard             | -         | -          | ❌ Da fare   |
@@ -23,7 +23,7 @@ Legenda:
 ## BACKEND PAGINE HTML
 | Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
 |-----------------------------------------------------------------------------|-----------|-------------|-------------|
-| Correggere API vecchio progetto             | Gaia         | fixAPI          | ⏳ In corso   |
+| Correggere API vecchio progetto             | Gaia         | fixAPI          | ✅ Completato   |
 | -             | -         | -          | ⏳ In corso   |
 | API Utenti             | -         | -          | ❌ Da fare   |
 | API Artigiani             | -         | -          | ❌ Da fare   |
