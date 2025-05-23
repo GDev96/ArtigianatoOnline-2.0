@@ -67,11 +67,11 @@ CREATE TABLE IF NOT EXISTS prodotti (
 
 --crea tabella carrello --tabella temporanea per memorizzare i prodotti selezionati
 CREATE TABLE IF NOT EXISTS carrello (
+    carrello_id SERIAL PRIMARY KEY,
     cliente_id INTEGER NOT NULL,
     prodotto_id INTEGER NOT NULL,
     quantita INTEGER NOT NULL CHECK (quantita > 0),
     prezzo_unitario NUMERIC(10,2) NOT NULL,
-    PRIMARY KEY (cliente_id, prodotto_id),
     CONSTRAINT carrello_cliente_id_fkey FOREIGN KEY (cliente_id)
         REFERENCES utente (id)
         ON UPDATE CASCADE

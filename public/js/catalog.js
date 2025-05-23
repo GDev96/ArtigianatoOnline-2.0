@@ -148,141 +148,154 @@ async function loadProducts(artisanId) {
     }
 }
 
-function updateProductsDisplay(products) {
+async function updateProductsDisplay(products) {
     const productsContainer = document.querySelector('.container.my-5 .row');
     const user = JSON.parse(sessionStorage.getItem('user'));
     
     if (!productsContainer) return;
 
-    productsContainer.innerHTML = products.map(product => `
-        <div class="col-md-4 mb-4">
-            <div class="card h-60">
-                <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/wallpaper3.jpg'}" 
-                    class="card-img-top" 
-                    alt="${product.nome_prodotto}"
-                    style="height: 200px; object-fit: cover;">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">${product.nome_prodotto}</h5>
-                    <div class="mt-auto">
-                        <p class="card-category text-muted mb-2">
-                            <small>${product.nome_tipologia || 'Categoria non specificata'}</small>
-                        </p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">€${parseFloat(product.prezzo).toFixed(2)}</h5>
-                            ${product.quantita > 0 ? 
-                                `<div class="btn-group">
-                                    ${!user ? 
-                                        `<a href="/login.html" class="btn btn-outline-primary">
-                                            <i class="fas fa-sign-in-alt"></i> Accedi
-                                        </a>` :
-                                        `<button class="btn btn-primary add-to-cart" 
-                                            data-product-id="${product.prodotto_id}"
-                                            data-max-quantity="${product.quantita}">
-                                            <i class="fas fa-cart-plus"></i> Aggiungi
-                                        </button>`
-                                    }
-                                </div>` : 
-                                `<span class="badge bg-danger">Non disponibile</span>`
-                            }
+    // Fetch current cart items for the user if logged in
+    let cartItems = [];
+    if (user) {
+        try {
+            const response = await fetch('/cart', {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                cartItems = data.items || [];
+            }
+        } catch (error) {
+            console.error('Error fetching cart:', error);
+        }
+    }
+
+    productsContainer.innerHTML = products.map(product => {
+        const cartItem = cartItems.find(item => item.prodotto_id === product.prodotto_id);
+        const quantity = cartItem ? cartItem.quantita : 0;
+
+        return `
+            <div class="col-md-4 mb-4">
+                <div class="card h-60">
+                    <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/wallpaper3.jpg'}" 
+                        class="card-img-top" 
+                        alt="${product.nome_prodotto}"
+                        style="height: 200px; object-fit: cover;">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">${product.nome_prodotto}</h5>
+                        <div class="mt-auto">
+                            <p class="card-category text-muted mb-2">
+                                <small>${product.nome_tipologia || 'Categoria non specificata'}</small>
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">€${parseFloat(product.prezzo).toFixed(2)}</h5>
+                                ${product.quantita > 0 ? 
+                                    `<div class="btn-group">
+                                        ${!user ? 
+                                            `<a href="/login.html" class="btn btn-outline-primary">
+                                                <i class="fas fa-sign-in-alt"></i> Accedi
+                                            </a>` :
+                                            quantity === 0 ?
+                                            `<button class="btn btn-primary add-to-cart" 
+                                                onclick="addToCart(${product.prodotto_id})">
+                                                <i class="fas fa-cart-plus"></i> Aggiungi
+                                            </button>` :
+                                            `<div class="input-group cart-quantity-group">
+                                                <button class="btn btn-outline-primary" 
+                                                    onclick="updateCartQuantity(${product.prodotto_id}, ${quantity - 1})">
+                                                    <i class="fas fa-minus"></i>
+                                                </button>
+                                                <span class="input-group-text">${quantity}</span>
+                                                <button class="btn btn-outline-primary" 
+                                                    onclick="updateCartQuantity(${product.prodotto_id}, ${quantity + 1}, ${product.quantita})">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>`
+                                        }
+                                    </div>` : 
+                                    `<span class="badge bg-danger">Non disponibile</span>`
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    `).join('');
+            </div>`;
+    }).join('');
+}
 
-    // Add event listeners for add to cart buttons
-    if (user) {
-        document.querySelectorAll('.add-to-cart').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const productId = e.target.closest('button').dataset.productId;
-                const maxQuantity = parseInt(e.target.closest('button').dataset.maxQuantity);
-                showQuantitySelector(productId, maxQuantity);
-            });
+// Add these new functions
+async function addToCart(productId) {
+    try {
+        const response = await fetch('/cart/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                prodotto_id: productId,
+                quantita: 1
+            })
         });
+
+        if (!response.ok) {
+            throw new Error('Errore nell\'aggiunta al carrello');
+        }
+
+        // Refresh the products display
+        await loadProducts(new URLSearchParams(window.location.search).get('id'));
+        showSuccessMessage('Prodotto aggiunto al carrello');
+
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+        showErrorMessage(error.message);
     }
 }
 
-function showQuantitySelector(productId, maxQuantity) {
-    const modalHtml = `
-        <div class="modal fade" id="quantityModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Seleziona quantità</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <input type="number" class="form-control" id="quantityInput" 
-                            min="1" max="${maxQuantity}" value="1">
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                        <button type="button" class="btn btn-primary" onclick="addToCart(${productId})">
-                            Aggiungi al carrello
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>`;
+async function updateCartQuantity(productId, newQuantity, maxQuantity) {
+    if (newQuantity < 0) return;
+    if (maxQuantity && newQuantity > maxQuantity) {
+        showErrorMessage('Quantità non disponibile');
+        return;
+    }
 
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    const modal = new bootstrap.Modal(document.getElementById('quantityModal'));
-    modal.show();
+    try {
+        if (newQuantity === 0) {
+            // Remove from cart
+            await fetch(`/cart/remove/${productId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+        } else {
+            // Update quantity
+            await fetch('/cart/update', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    prodotto_id: productId,
+                    quantita: newQuantity
+                })
+            });
+        }
 
-    // Clean up modal after hiding
-    document.getElementById('quantityModal').addEventListener('hidden.bs.modal', function () {
-        this.remove();
-    });
+        // Refresh the products display
+        await loadProducts(new URLSearchParams(window.location.search).get('id'));
+
+    } catch (error) {
+        console.error('Error updating cart:', error);
+        showErrorMessage(error.message);
+    }
 }
 
 
 
-// FIXME: Pulsante aggiunta prodotto al carrello
-document.addEventListener('DOMContentLoaded', function() {
-    // Controlla se l'utente è loggato
-    const user = JSON.parse(localStorage.getItem('user'));
-    const guestButtons = document.querySelectorAll('.guest-button');
-    const userButtons = document.querySelectorAll('.user-button');
-
-    if (user) {
-        // Utente loggato: mostra i contatori
-        guestButtons.forEach(btn => btn.classList.add('d-none'));
-        userButtons.forEach(btn => btn.classList.remove('d-none'));
-    } else {
-        // Utente non loggato: mostra i pulsanti di login
-        guestButtons.forEach(btn => btn.classList.remove('d-none'));
-        userButtons.forEach(btn => btn.classList.add('d-none'));
-    }
-});
-
-//FIXME
-function addToCart(button) {
-    const card = button.closest('.card');
-    const product = {
-        id: card.dataset.productId,
-        name: card.querySelector('.card-title').textContent,
-        price: card.querySelector('.product-price').textContent,
-        quantity: parseInt(card.querySelector('.quantity-input').value)
-    };
-
-    // Recupera il carrello esistente o crea uno nuovo
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
-    
-    // Controlla se il prodotto è già nel carrello
-    const existingProduct = cart.find(item => item.id === product.id);
-    if (existingProduct) {
-        existingProduct.quantity += product.quantity;
-    } else {
-        cart.push(product);
-    }
-
-    // Salva il carrello aggiornato
-    localStorage.setItem('cart', JSON.stringify(cart));
-
-    // Feedback visivo
-    alert('Prodotto aggiunto al carrello!');
-}
 
 
 // Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato - corretta
@@ -530,24 +543,8 @@ function resetReviewForm() {
     }
 }
 
-// Utility function per mostrare messaggi di successo
-function showSuccessMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.style.zIndex = '1050';
-    alertDiv.innerHTML = `
-        <i class="fas fa-check-circle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(alertDiv);
 
-    // Rimuovi automaticamente dopo 3 secondi
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 3000);
-}
+
 
 // Gestione delle stelle per la valutazione
 document.addEventListener('DOMContentLoaded', function() {
@@ -646,13 +643,14 @@ function showErrorMessage(message) {
 }
 
 
+
+
 // FIXME Segnalazione recensione
 function openReviewReport(reviewId) {
     document.getElementById('reportedReviewId').value = reviewId;
     const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
     modal.show();
 }
-
 
 async function submitArtisanReport() {
     const reason = document.getElementById('reportArtisanReason').value;

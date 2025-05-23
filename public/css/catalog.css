@@ -38,6 +38,22 @@
     color: var(--text-color-light);
 }
 
+.cart-quantity-group {
+    min-width: 120px;
+}
+
+.cart-quantity-group .input-group-text {
+    min-width: 40px;
+    justify-content: center;
+    background-color: white;
+    border-left: none;
+    border-right: none;
+}
+
+.cart-quantity-group .btn {
+    z-index: 0;
+}
+
 /* Rating input styles */
 .rating-input {
     cursor: pointer;
