@@ -48,7 +48,7 @@ router.get('/', requireAuth, async (req, res) => {
     }
 });
 
-// POST /cart/add - Inserisci prodotto nel carrello
+// POST /cart/add - Inserisci prodotto nel carrello - corretta
 router.post('/add', requireAuth, async (req, res) => {
     try {
         const { prodotto_id, quantita } = req.body;
@@ -140,6 +140,13 @@ router.put('/update', requireAuth, async (req, res) => {
             [prodotto_id]
         );
 
+        if (productCheck.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Prodotto non trovato'
+            });
+        }
+
         if (productCheck.rows[0].quantita < quantita) {
             return res.status(400).json({
                 success: false,
@@ -149,8 +156,8 @@ router.put('/update', requireAuth, async (req, res) => {
 
         // Update cart item
         const result = await pool.query(
-            'UPDATE carrello SET quantita = $1 WHERE cliente_id = $2 AND prodotto_id = $3 AND stato = $4 RETURNING *',
-            [quantita, cliente_id, prodotto_id, 'attivo']
+            'UPDATE carrello SET quantita = $1 WHERE cliente_id = $2 AND prodotto_id = $3 RETURNING *',
+            [quantita, cliente_id, prodotto_id]
         );
 
         if (result.rows.length === 0) {
@@ -160,9 +167,24 @@ router.put('/update', requireAuth, async (req, res) => {
             });
         }
 
+        // Get updated cart item with product details
+        const updatedItem = await pool.query(`
+            SELECT 
+                c.carrello_id,
+                c.prodotto_id,
+                c.quantita,
+                c.prezzo_unitario,
+                p.nome_prodotto,
+                p.immagine,
+                p.quantita as disponibilita
+            FROM carrello c
+            JOIN prodotti p ON c.prodotto_id = p.prodotto_id
+            WHERE c.carrello_id = $1
+        `, [result.rows[0].carrello_id]);
+
         res.json({
             success: true,
-            item: result.rows[0]
+            item: updatedItem.rows[0]
         });
 
     } catch (error) {
