@@ -653,6 +653,9 @@ function resetReviewForm() {
     });
 }
 
+
+
+
 function showSuccessMessage(message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
@@ -694,21 +697,26 @@ function openReviewReport(reviewId) {
 }
 
 async function submitArtisanReport() {
-    const reason = document.getElementById('reportArtisanReason').value;
-    const description = document.getElementById('reportArtisanDescription').value;
-    const urlParams = new URLSearchParams(window.location.search);
-    const artisanId = urlParams.get('id');
-
-    if (!reason || !description) {
-        alert('Per favore compila tutti i campi');
-        return;
-    }
-
     try {
-        const response = await fetch('/api/reports/artisan', {
+        const reason = document.getElementById('reportArtisanReason').value;
+        const description = document.getElementById('reportArtisanDescription').value;
+        const urlParams = new URLSearchParams(window.location.search);
+        const artisanId = urlParams.get('id');
+        const token = sessionStorage.getItem('token');
+
+        if (!token) {
+            throw new Error('Devi essere loggato per inviare una segnalazione');
+        }
+
+        if (!reason || !description) {
+            throw new Error('Per favore compila tutti i campi');
+        }
+
+        const response = await fetch('/reports/artisan', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 artisan_id: artisanId,
@@ -717,34 +725,48 @@ async function submitArtisanReport() {
             })
         });
 
-        if (!response.ok) throw new Error('Errore nell\'invio della segnalazione');
+        const data = await response.json();
 
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore nell\'invio della segnalazione');
+        }
+
+        // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('reportArtisanModal'));
         modal.hide();
-        alert('Segnalazione inviata con successo');
+
+        // Reset form
         document.getElementById('reportArtisanForm').reset();
+
+        // Show success message
+        showSuccessMessage('Segnalazione inviata con successo');
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nell\'invio della segnalazione');
+        showErrorMessage(error.message);
     }
 }
 
 async function submitReviewReport() {
-    const reviewId = document.getElementById('reportedReviewId').value;
-    const reason = document.getElementById('reportReviewReason').value;
-    const description = document.getElementById('reportReviewDescription').value;
-
-    if (!reason || !description) {
-        alert('Per favore compila tutti i campi');
-        return;
-    }
-
     try {
-        const response = await fetch('/api/reports/review', {
+        const reviewId = document.getElementById('reportedReviewId').value;
+        const reason = document.getElementById('reportReviewReason').value;
+        const description = document.getElementById('reportReviewDescription').value;
+        const token = sessionStorage.getItem('token');
+
+        if (!token) {
+            throw new Error('Devi essere loggato per inviare una segnalazione');
+        }
+
+        if (!reason || !description) {
+            throw new Error('Per favore compila tutti i campi');
+        }
+
+        const response = await fetch('/reports/review', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 review_id: reviewId,
@@ -753,15 +775,24 @@ async function submitReviewReport() {
             })
         });
 
-        if (!response.ok) throw new Error('Errore nell\'invio della segnalazione');
+        const data = await response.json();
 
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore nell\'invio della segnalazione');
+        }
+
+        // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('reportReviewModal'));
         modal.hide();
-        alert('Segnalazione inviata con successo');
+
+        // Reset form
         document.getElementById('reportReviewForm').reset();
+
+        // Show success message
+        showSuccessMessage('Segnalazione inviata con successo');
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nell\'invio della segnalazione');
+        showErrorMessage(error.message);
     }
 }
