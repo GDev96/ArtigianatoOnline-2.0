@@ -12,9 +12,9 @@ Legenda:
 |-----------------------------------------------------------------------------|-----------|-------------|-------------|
 | Aggiungere file vecchio progetto         | Gaia         | main (primo commit)           | ✅ Completato |
 | Cambiare stili              | Gaia        | fixstyles| ✅ Completato |
-| Pagina catalogo             | Gaia         | catalogpage          | ⏳ In corso  |
+| Pagina catalogo             | Gaia         | catalogpage          | ✅ Completato  |
 | Pagina profilo utente             | -         | -          | ❌ Da fare   |
-| Pagina carrello             | -         | -          | ❌ Da fare   |
+| Pagina carrello             | Gaia         | cartpage          | ⏳ In corso    |
 | Pagina dashboard             | -         | -          | ❌ Da fare   |
 | Pagina admin             | -         | -          | ❌ Da fare   |
 | -             | -         | -          | ❌ Da fare   |

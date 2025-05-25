@@ -655,41 +655,7 @@ function resetReviewForm() {
 
 
 
-
-function showSuccessMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        <i class="fas fa-check-circle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(alertDiv);
-
-    // Auto remove after 3 seconds
-    setTimeout(() => alertDiv.remove(), 3000);
-}
-
-function showErrorMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        <i class="fas fa-exclamation-circle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(alertDiv);
-
-    // Auto remove after 5 seconds
-    setTimeout(() => alertDiv.remove(), 5000);
-}
-
-
-
-
-// FIXME Segnalazione recensione
+//Funzioni per segnalazioni - funzionano tutti
 function openReviewReport(reviewId) {
     document.getElementById('reportedReviewId').value = reviewId;
     const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
@@ -795,4 +761,36 @@ async function submitReviewReport() {
         console.error('Error:', error);
         showErrorMessage(error.message);
     }
+}
+
+
+// Messaggi di successo e errore
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => alertDiv.remove(), 5000);
 }
