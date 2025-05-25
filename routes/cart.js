@@ -9,6 +9,13 @@ const requireAuth = createAuthMiddleware();
 // GET /cart - Visualizza i prodotti nel carrello
 router.get('/', requireAuth, async (req, res) => {
     try {
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Utente non autenticato'
+            });
+        }
+
         const userId = req.user.id;
 
         const query = `
@@ -16,22 +23,19 @@ router.get('/', requireAuth, async (req, res) => {
                 c.carrello_id,
                 c.prodotto_id,
                 c.quantita,
+                c.prezzo_unitario,
                 p.nome_prodotto,
-                p.prezzo,
                 p.immagine,
-                p.quantita as disponibilita,
-                a.nome as artigiano_nome,
-                a.cognome as artigiano_cognome
+                p.quantita as disponibilita
             FROM carrello c
             JOIN prodotti p ON c.prodotto_id = p.prodotto_id
-            JOIN utente a ON p.artigiano_id = a.id
-            WHERE c.cliente_id = $1 AND c.stato = 'attivo'`;
+            WHERE c.cliente_id = $1`;
 
         const result = await pool.query(query, [userId]);
 
         res.json({
             success: true,
-            items: result.rows
+            items: result.rows || []
         });
 
     } catch (error) {
@@ -44,7 +48,7 @@ router.get('/', requireAuth, async (req, res) => {
     }
 });
 
-//TODO: POST /cart/add - Inserisci prodotto nel carrello
+// POST /cart/add - Inserisci prodotto nel carrello
 router.post('/add', requireAuth, async (req, res) => {
     try {
         const { prodotto_id, quantita } = req.body;
@@ -58,9 +62,9 @@ router.post('/add', requireAuth, async (req, res) => {
             });
         }
 
-        // Check product availability
+        // Check product availability and price
         const productCheck = await pool.query(
-            'SELECT quantita FROM prodotti WHERE prodotto_id = $1',
+            'SELECT quantita, prezzo FROM prodotti WHERE prodotto_id = $1',
             [prodotto_id]
         );
 
@@ -71,7 +75,9 @@ router.post('/add', requireAuth, async (req, res) => {
             });
         }
 
-        if (productCheck.rows[0].quantita < quantita) {
+        const { quantita: disponibilita, prezzo } = productCheck.rows[0];
+
+        if (disponibilita < quantita) {
             return res.status(400).json({
                 success: false,
                 message: 'Quantità richiesta non disponibile'
@@ -80,8 +86,8 @@ router.post('/add', requireAuth, async (req, res) => {
 
         // Check if product already in cart
         const cartCheck = await pool.query(
-            'SELECT carrello_id, quantita FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2 AND stato = $3',
-            [cliente_id, prodotto_id, 'attivo']
+            'SELECT carrello_id, quantita FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2',
+            [cliente_id, prodotto_id]
         );
 
         let result;
@@ -95,8 +101,8 @@ router.post('/add', requireAuth, async (req, res) => {
         } else {
             // Insert new cart item
             result = await pool.query(
-                'INSERT INTO carrello (cliente_id, prodotto_id, quantita, stato) VALUES ($1, $2, $3, $4) RETURNING *',
-                [cliente_id, prodotto_id, quantita, 'attivo']
+                'INSERT INTO carrello (cliente_id, prodotto_id, quantita, prezzo_unitario) VALUES ($1, $2, $3, $4) RETURNING *',
+                [cliente_id, prodotto_id, quantita, prezzo]
             );
         }
 
@@ -109,8 +115,7 @@ router.post('/add', requireAuth, async (req, res) => {
         console.error('Error adding to cart:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore nell\'aggiunta al carrello',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: 'Errore nell\'aggiunta al carrello'
         });
     }
 });

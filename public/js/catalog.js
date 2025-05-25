@@ -225,14 +225,18 @@ async function updateProductsDisplay(products) {
     }).join('');
 }
 
-// Add these new functions
 async function addToCart(productId) {
     try {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            throw new Error('Utente non autenticato');
+        }
+
         const response = await fetch('/cart/add', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 prodotto_id: productId,
@@ -241,11 +245,48 @@ async function addToCart(productId) {
         });
 
         if (!response.ok) {
-            throw new Error('Errore nell\'aggiunta al carrello');
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nell\'aggiunta al carrello');
         }
 
-        // Refresh the products display
-        await loadProducts(new URLSearchParams(window.location.search).get('id'));
+        const cartResponse = await fetch('/cart', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!cartResponse.ok) {
+            throw new Error('Errore nel recupero del carrello');
+        }
+
+        const cartData = await cartResponse.json();
+        
+        if (!cartData.success) {
+            throw new Error(cartData.message || 'Errore nel recupero del carrello');
+        }
+
+        const cartItem = cartData.items.find(item => item.prodotto_id === productId);
+        
+        // Update UI
+        const addButton = document.querySelector(`button[onclick="addToCart(${productId})"]`);
+        if (addButton && cartItem) {
+            const btnGroup = addButton.closest('.btn-group');
+            if (btnGroup) {
+                btnGroup.innerHTML = `
+                    <div class="input-group cart-quantity-group">
+                        <button class="btn btn-outline-primary" 
+                            onclick="updateCartQuantity(${productId}, ${cartItem.quantita - 1})">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <span class="input-group-text">${cartItem.quantita}</span>
+                        <button class="btn btn-outline-primary" 
+                            onclick="updateCartQuantity(${productId}, ${cartItem.quantita + 1})">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>`;
+            }
+        }
+
         showSuccessMessage('Prodotto aggiunto al carrello');
 
     } catch (error) {
