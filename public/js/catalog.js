@@ -86,7 +86,6 @@ function showError(message) {
 
 
 
-// Popola i prodotti dell'artigiano
 async function loadProducts(artisanId) {
     try {
         const headers = {
@@ -94,46 +93,53 @@ async function loadProducts(artisanId) {
             'Content-Type': 'application/json'
         };
 
-        // Add debug logging
         console.log('Fetching products for artisan:', artisanId);
 
-        // Fetch products with proper error handling
-        const productsResponse = await fetch('/products', {
+        const response = await fetch('/products', { 
             headers,
             method: 'GET'
         });
 
-        // Log response status
-        console.log('Products response status:', productsResponse.status);
-
-        if (!productsResponse.ok) {
-            const errorData = await productsResponse.json().catch(() => ({}));
-            console.error('Server error response:', errorData);
-            throw new Error(
-                errorData.message || 
-                `Errore nel caricamento dei prodotti (${productsResponse.status})`
-            );
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Server error details:', errorData);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const productsData = await productsResponse.json();
-        console.log('Products data received:', productsData);
-
-        if (!productsData.success || !productsData.products) {
+        const data = await response.json();
+        console.log('Products data received:', data);
+        
+        if (!data.success || !data.products) {
             throw new Error('Formato dati prodotti non valido');
         }
 
-        // Filter products by artisan
-        const artisanProducts = productsData.products.filter(product => 
+        // Filter products by artisan ID
+        const artisanProducts = data.products.filter(product => 
             product.artigiano_id && product.artigiano_id.toString() === artisanId
         );
 
-        console.log('Filtered products:', artisanProducts);
-
         if (artisanProducts.length === 0) {
-            showError('Nessun prodotto disponibile per questo artigiano');
+            const container = document.querySelector('.container.my-5 .row');
+            if (container) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="card text-center p-5">
+                            <div class="card-body">
+                                <h3 class="card-title text-muted">
+                                    <i class="fas fa-box-open mb-3 d-block" style="font-size: 3rem;"></i>
+                                    Nessun prodotto disponibile
+                                </h3>
+                                <p class="card-text text-muted">
+                                    Questo artigiano non ha ancora inserito prodotti.
+                                </p>
+                            </div>
+                        </div>
+                    </div>`;
+            }
             return;
         }
 
+        // Update display with fetched products
         updateProductsDisplay(artisanProducts);
 
     } catch (error) {
@@ -142,154 +148,198 @@ async function loadProducts(artisanId) {
     }
 }
 
-// Applicazione dei filtri sui prodotti
-function applyFilters(products) {
-    const selectedCategory = document.getElementById('filterCategory').value;
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const minPrice = parseFloat(document.getElementById('rangeMin').value) || 0;
-    const maxPrice = parseFloat(document.getElementById('rangeMax').value) || Infinity;
-    const onlyAvailable = document.getElementById('onlyAvailabily').checked;
-
-    return products.filter(product => {
-        const matchSearch = !searchTerm || 
-            product.nome_prodotto.toLowerCase().includes(searchTerm) || 
-            (product.descrizione && product.descrizione.toLowerCase().includes(searchTerm));
-        
-        const matchCategory = !selectedCategory || 
-            selectedCategory === 'placeholdercategory' || 
-            product.tipologia_id.toString() === selectedCategory;
-
-        const productPrice = parseFloat(product.prezzo);
-        const matchPrice = (!minPrice || productPrice >= minPrice) && 
-                         (!maxPrice || productPrice <= maxPrice);
-
-        const matchAvailability = !onlyAvailable || product.quantita > 0;
-
-        return matchCategory && matchSearch && matchPrice && matchAvailability;
-    });
-}
-
-// Funzione per aggiornare la visualizzazione dei prodotti
-function updateProductsDisplay(products) {
+async function updateProductsDisplay(products) {
     const productsContainer = document.querySelector('.container.my-5 .row');
+    const user = JSON.parse(sessionStorage.getItem('user'));
     
-    if (!products || products.length === 0) {
-        productsContainer.innerHTML = `
-            <div class="col-12">
-                <div class="card text-center p-5">
-                    <div class="card-body">
-                        <h3 class="card-title text-muted">
-                            <i class="fas fa-box-open mb-3 d-block" style="font-size: 3rem;"></i>
-                            Nessun prodotto disponibile
-                        </h3>
-                        <p class="card-text text-muted">
-                            Non sono stati trovati prodotti.
-                        </p>
+    if (!productsContainer) return;
+
+    // Fetch current cart items for the user if logged in
+    let cartItems = [];
+    if (user) {
+        try {
+            const response = await fetch('/cart', {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                cartItems = data.items || [];
+            }
+        } catch (error) {
+            console.error('Error fetching cart:', error);
+        }
+    }
+
+    productsContainer.innerHTML = products.map(product => {
+        const cartItem = cartItems.find(item => item.prodotto_id === product.prodotto_id);
+        const quantity = cartItem ? cartItem.quantita : 0;
+
+        return `
+            <div class="col-md-4 mb-4">
+                <div class="card h-60">
+                    <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/wallpaper3.jpg'}" 
+                        class="card-img-top" 
+                        alt="${product.nome_prodotto}"
+                        style="height: 200px; object-fit: cover;">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">${product.nome_prodotto}</h5>
+                        <div class="mt-auto">
+                            <p class="card-category text-muted mb-2">
+                                <small>${product.nome_tipologia || 'Categoria non specificata'}</small>
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">€${parseFloat(product.prezzo).toFixed(2)}</h5>
+                                ${product.quantita > 0 ? 
+                                    `<div class="btn-group">
+                                        ${!user ? 
+                                            `<a href="/login.html" class="btn btn-outline-primary">
+                                                <i class="fas fa-sign-in-alt"></i> Accedi
+                                            </a>` :
+                                            quantity === 0 ?
+                                            `<button class="btn btn-primary add-to-cart" 
+                                                onclick="addToCart(${product.prodotto_id})">
+                                                <i class="fas fa-cart-plus"></i> Aggiungi
+                                            </button>` :
+                                            `<div class="input-group cart-quantity-group">
+                                                <button class="btn btn-outline-primary" 
+                                                    onclick="updateCartQuantity(${product.prodotto_id}, ${quantity - 1})">
+                                                    <i class="fas fa-minus"></i>
+                                                </button>
+                                                <span class="input-group-text">${quantity}</span>
+                                                <button class="btn btn-outline-primary" 
+                                                    onclick="updateCartQuantity(${product.prodotto_id}, ${quantity + 1}, ${product.quantita})">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>`
+                                        }
+                                    </div>` : 
+                                    `<span class="badge bg-danger">Non disponibile</span>`
+                                }
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>`;
+    }).join('');
+}
+
+async function addToCart(productId) {
+    try {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            throw new Error('Utente non autenticato');
+        }
+
+        const response = await fetch('/cart/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                prodotto_id: productId,
+                quantita: 1
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nell\'aggiunta al carrello');
+        }
+
+        const cartResponse = await fetch('/cart', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!cartResponse.ok) {
+            throw new Error('Errore nel recupero del carrello');
+        }
+
+        const cartData = await cartResponse.json();
+        
+        if (!cartData.success) {
+            throw new Error(cartData.message || 'Errore nel recupero del carrello');
+        }
+
+        const cartItem = cartData.items.find(item => item.prodotto_id === productId);
+        
+        // Update UI
+        const addButton = document.querySelector(`button[onclick="addToCart(${productId})"]`);
+        if (addButton && cartItem) {
+            const btnGroup = addButton.closest('.btn-group');
+            if (btnGroup) {
+                btnGroup.innerHTML = `
+                    <div class="input-group cart-quantity-group">
+                        <button class="btn btn-outline-primary" 
+                            onclick="updateCartQuantity(${productId}, ${cartItem.quantita - 1})">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                        <span class="input-group-text">${cartItem.quantita}</span>
+                        <button class="btn btn-outline-primary" 
+                            onclick="updateCartQuantity(${productId}, ${cartItem.quantita + 1})">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>`;
+            }
+        }
+
+        showSuccessMessage('Prodotto aggiunto al carrello');
+
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+        showErrorMessage(error.message);
+    }
+}
+
+async function updateCartQuantity(productId, newQuantity, maxQuantity) {
+    if (newQuantity < 0) return;
+    if (maxQuantity && newQuantity > maxQuantity) {
+        showErrorMessage('Quantità non disponibile');
         return;
     }
 
-    productsContainer.innerHTML = products.map(product => `
-        <div class="col-md-4 mb-4">
-            <div class="card" data-product-id="${product.prodotto_id}">
-                <img src="data:image/jpeg;base64,${product.immagine}" 
-                    class="card-img-top" 
-                    alt="${product.nome_prodotto}"
-                    onerror="this.src='/assets/images/wallpaper3.jpg'">
-                <div class="card-body">
-                    <h5 class="card-title">${product.nome_prodotto}</h5>
-                    <p class="card-text">${product.descrizione || ''}</p>
-                    <p class="card-category">${product.nome_tipologia || 'Categoria non specificata'}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <p class="m-0 me-1">€${parseFloat(product.prezzo).toFixed(2)}</p>
-                        ${product.quantita > 0 ? 
-                            `<div class="d-flex">
-                                <a class="btn guest-button" href="/login.html">
-                                    <i class="fas fa-sign-in-alt"></i> Accedi
-                                </a>
-                                <div class="quantity-counter d-none user-button">
-                                    <button class="btn" onclick="showQuantityInput(this)">
-                                        <i class="fas fa-cart-plus"></i> Aggiungi
-                                    </button>
-                                    <div class="quantity-controls" style="display: none;">
-                                        <input type="number" class="quantity-input" value="1" min="1" max="${product.quantita}">
-                                        <button class="btn ms-2" onclick="updateCart(this)">
-                                            <i class="fas fa-check"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>` : 
-                            `<span class="text-danger">Non disponibile</span>`
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-    `).join('');
+    try {
+        if (newQuantity === 0) {
+            // Remove from cart
+            await fetch(`/cart/remove/${productId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+        } else {
+            // Update quantity
+            await fetch('/cart/update', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    prodotto_id: productId,
+                    quantita: newQuantity
+                })
+            });
+        }
 
-    // Update button visibility based on authentication
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    const guestButtons = document.querySelectorAll('.guest-button');
-    const userButtons = document.querySelectorAll('.user-button');
+        // Refresh the products display
+        await loadProducts(new URLSearchParams(window.location.search).get('id'));
 
-    if (user) {
-        guestButtons.forEach(btn => btn.classList.add('d-none'));
-        userButtons.forEach(btn => btn.classList.remove('d-none'));
+    } catch (error) {
+        console.error('Error updating cart:', error);
+        showErrorMessage(error.message);
     }
 }
 
 
 
-// FIXME: Pulsante aggiunta prodotto al carrello
-document.addEventListener('DOMContentLoaded', function() {
-    // Controlla se l'utente è loggato
-    const user = JSON.parse(localStorage.getItem('user'));
-    const guestButtons = document.querySelectorAll('.guest-button');
-    const userButtons = document.querySelectorAll('.user-button');
-
-    if (user) {
-        // Utente loggato: mostra i contatori
-        guestButtons.forEach(btn => btn.classList.add('d-none'));
-        userButtons.forEach(btn => btn.classList.remove('d-none'));
-    } else {
-        // Utente non loggato: mostra i pulsanti di login
-        guestButtons.forEach(btn => btn.classList.remove('d-none'));
-        userButtons.forEach(btn => btn.classList.add('d-none'));
-    }
-});
-
-//FIXME
-function addToCart(button) {
-    const card = button.closest('.card');
-    const product = {
-        id: card.dataset.productId,
-        name: card.querySelector('.card-title').textContent,
-        price: card.querySelector('.product-price').textContent,
-        quantity: parseInt(card.querySelector('.quantity-input').value)
-    };
-
-    // Recupera il carrello esistente o crea uno nuovo
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
-    
-    // Controlla se il prodotto è già nel carrello
-    const existingProduct = cart.find(item => item.id === product.id);
-    if (existingProduct) {
-        existingProduct.quantity += product.quantity;
-    } else {
-        cart.push(product);
-    }
-
-    // Salva il carrello aggiornato
-    localStorage.setItem('cart', JSON.stringify(cart));
-
-    // Feedback visivo
-    alert('Prodotto aggiunto al carrello!');
-}
 
 
-// Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato
+// Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato - corretta
 document.addEventListener('DOMContentLoaded', function() {
     const user = JSON.parse(sessionStorage.getItem('user'));
     const addReviewButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#addReviewModal"]');
@@ -313,35 +363,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-// Update the review display function to conditionally show report buttons
-function updateReviewsDisplay(reviews) {
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    const reviewsContainer = document.querySelector('.container-review .row');
-    
-    reviewsContainer.innerHTML = reviews.map(review => `
-        <div class="col-9 mb-4">
-            <div class="card w-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
-                        ${user ? 
-                            `<button class="btn btn-outline-danger btn-sm" onclick="openReviewReport(${review.recensione_id})">
-                                <i class="fas fa-flag"></i>
-                            </button>` : 
-                            ''
-                        }
-                    </div>
-                    <div class="stars mb-2 d-flex justify-content-between align-items-center">
-                        ${generateStars(review.valutazione)}
-                        <small class="text-muted ms-2">${new Date(review.data_recensione).toLocaleDateString()}</small>
-                    </div>
-                    <p class="card-text">${review.descrizione}</p>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-// Popolare recensioni
+
+// Popola le recensioni - corretta
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
@@ -419,7 +442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Popola le recensioni
         reviewsContainer.innerHTML = artisanReviews.map(review => `
             <div class="col-9 mb-4">
-                <div class="card w-100">
+                <div class="card bg-light w-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between">
                             <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
@@ -427,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <i class="fas fa-flag"></i>
                             </button>
                         </div>
-                        <div class="stars mb-2 d-flex justify-content-between align-items-center">
+                        <div class="stars mb-2 d-flex align-items-center">
                             ${generateStars(review.valutazione)}
                             <small class="text-muted ms-2">${new Date(review.data_recensione).toLocaleDateString()}</small>
                         </div>
@@ -478,102 +501,188 @@ function updateAverageRating(averageRating, totalReviews) {
 }
 
 // Aggiungere nuova recensione al db
-function submitReview() {
-    const rating = document.getElementById('ratingValue').value;
-    const reviewText = document.getElementById('reviewText').value;
-    const urlParams = new URLSearchParams(window.location.search);
-    const artisanId = urlParams.get('id');
-    const user = JSON.parse(sessionStorage.getItem('user'));
+async function submitReview() {
+    try {
+        const rating = document.getElementById('ratingValue').value;
+        const reviewText = document.getElementById('reviewText').value;
+        const urlParams = new URLSearchParams(window.location.search);
+        const artisanId = urlParams.get('id');
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        const token = sessionStorage.getItem('token');
 
-    if (!user) {
-        alert('Devi essere loggato per lasciare una recensione');
-        return;
-    }
-    if (!rating) {
-        alert('Per favore seleziona una valutazione');
-        return;
-    }
-    if (!reviewText.trim()) {
-        alert('Per favore scrivi una recensione');
-        return;
-    }
-
-    // Prepara i dati della recensione
-    const reviewData = {
-        cliente_id: user.id,
-        artigiano_id: parseInt(artisanId),
-        valutazione: parseInt(rating),
-        descrizione: reviewText
-    };
-
-    // Invia la recensione al server
-    fetch('/reviews', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-        },
-        body: JSON.stringify(reviewData)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Errore nel salvataggio della recensione');
+        // Validazione input e controllo autenticazione
+        if (!user || !token) {
+            throw new Error('Devi essere loggato per lasciare una recensione');
         }
-        return response.json();
-    })
-    .then(data => {
-        if (!data.success) {
+        if (!rating) {
+            throw new Error('Per favore seleziona una valutazione');
+        }
+        if (!reviewText.trim()) {
+            throw new Error('Per favore scrivi una recensione');
+        }
+        if (!artisanId) {
+            throw new Error('ID artigiano non valido');
+        }
+
+        // Prepara i dati della recensione
+        const reviewData = {
+            artigiano_id: parseInt(artisanId),
+            valutazione: parseInt(rating),
+            descrizione: reviewText.trim()
+        };
+
+        // Invia la recensione al server
+        const response = await fetch('/reviews', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(reviewData)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
             throw new Error(data.message || 'Errore nel salvataggio della recensione');
         }
 
         // Chiudi il modale
-        const modal = bootstrap.Modal.getInstance(document.getElementById('addReviewModal'));
-        modal.hide();
+        const reviewModal = document.getElementById('addReviewModal');
+        const modalInstance = bootstrap.Modal.getInstance(reviewModal);
+        modalInstance.hide();
 
         // Reset form
-        document.getElementById('reviewForm').reset();
+        resetReviewForm();
+
+        // Mostra messaggio di successo
+        showSuccessMessage('Recensione pubblicata con successo!');
+
+        // Ricarica la pagina dopo un breve delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Errore nella sottomissione della recensione:', error);
+        showErrorMessage(error.message);
+    }
+}
+
+function resetReviewForm() {
+    const form = document.getElementById('reviewForm');
+    if (form) {
+        form.reset();
         document.getElementById('ratingValue').value = '';
-        const ratingStars = document.querySelectorAll('.rating-input .fa-star');
-        ratingStars.forEach(star => {
-            star.classList.remove('fas', 'hover');
+        
+        // Reset stars
+        const stars = document.querySelectorAll('.rating-input .fa-star');
+        stars.forEach(star => {
+            star.classList.remove('fas');
             star.classList.add('far');
         });
+    }
+}
 
-        // Ricarica le recensioni
-        location.reload();
-    })
-    .catch(error => {
-        console.error('Errore:', error);
-        alert('Si è verificato un errore nel salvataggio della recensione');
+
+
+
+// Gestione delle stelle per la valutazione
+document.addEventListener('DOMContentLoaded', function() {
+    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
+    const ratingValue = document.getElementById('ratingValue');
+
+    // Gestione hover
+    ratingStars.forEach(star => {
+        star.addEventListener('mouseover', function() {
+            const rating = this.dataset.rating;
+            highlightStars(rating);
+        });
+
+        star.addEventListener('mouseout', function() {
+            const currentRating = ratingValue.value;
+            highlightStars(currentRating);
+        });
+
+        // Gestione click
+        star.addEventListener('click', function() {
+            const rating = this.dataset.rating;
+            ratingValue.value = rating;
+            highlightStars(rating);
+        });
+    });
+
+    // Funzione per evidenziare le stelle
+    function highlightStars(rating) {
+        ratingStars.forEach(star => {
+            const starRating = star.dataset.rating;
+            if (starRating <= rating) {
+                star.classList.remove('far');
+                star.classList.add('fas');
+            } else {
+                star.classList.remove('fas');
+                star.classList.add('far');
+            }
+        });
+    }
+});
+
+// Aggiorna anche la funzione resetReviewForm esistente
+function resetReviewForm() {
+    document.getElementById('reviewForm').reset();
+    document.getElementById('ratingValue').value = '';
+    
+    // Reset stelle
+    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
+    ratingStars.forEach(star => {
+        star.classList.remove('fas');
+        star.classList.add('far');
+    });
+}
+
+function resetReviewForm() {
+    // Reset form
+    document.getElementById('reviewForm').reset();
+    document.getElementById('ratingValue').value = '';
+    
+    // Reset stars
+    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
+    ratingStars.forEach(star => {
+        star.classList.remove('fas', 'hover');
+        star.classList.add('far');
     });
 }
 
 
 
-// FIXME Segnalazione recensione
+//Funzioni per segnalazioni - funzionano tutti
 function openReviewReport(reviewId) {
     document.getElementById('reportedReviewId').value = reviewId;
     const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
     modal.show();
 }
 
-
 async function submitArtisanReport() {
-    const reason = document.getElementById('reportArtisanReason').value;
-    const description = document.getElementById('reportArtisanDescription').value;
-    const urlParams = new URLSearchParams(window.location.search);
-    const artisanId = urlParams.get('id');
-
-    if (!reason || !description) {
-        alert('Per favore compila tutti i campi');
-        return;
-    }
-
     try {
-        const response = await fetch('/api/reports/artisan', {
+        const reason = document.getElementById('reportArtisanReason').value;
+        const description = document.getElementById('reportArtisanDescription').value;
+        const urlParams = new URLSearchParams(window.location.search);
+        const artisanId = urlParams.get('id');
+        const token = sessionStorage.getItem('token');
+
+        if (!token) {
+            throw new Error('Devi essere loggato per inviare una segnalazione');
+        }
+
+        if (!reason || !description) {
+            throw new Error('Per favore compila tutti i campi');
+        }
+
+        const response = await fetch('/reports/artisan', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 artisan_id: artisanId,
@@ -582,34 +691,48 @@ async function submitArtisanReport() {
             })
         });
 
-        if (!response.ok) throw new Error('Errore nell\'invio della segnalazione');
+        const data = await response.json();
 
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore nell\'invio della segnalazione');
+        }
+
+        // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('reportArtisanModal'));
         modal.hide();
-        alert('Segnalazione inviata con successo');
+
+        // Reset form
         document.getElementById('reportArtisanForm').reset();
+
+        // Show success message
+        showSuccessMessage('Segnalazione inviata con successo');
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nell\'invio della segnalazione');
+        showErrorMessage(error.message);
     }
 }
 
 async function submitReviewReport() {
-    const reviewId = document.getElementById('reportedReviewId').value;
-    const reason = document.getElementById('reportReviewReason').value;
-    const description = document.getElementById('reportReviewDescription').value;
-
-    if (!reason || !description) {
-        alert('Per favore compila tutti i campi');
-        return;
-    }
-
     try {
-        const response = await fetch('/api/reports/review', {
+        const reviewId = document.getElementById('reportedReviewId').value;
+        const reason = document.getElementById('reportReviewReason').value;
+        const description = document.getElementById('reportReviewDescription').value;
+        const token = sessionStorage.getItem('token');
+
+        if (!token) {
+            throw new Error('Devi essere loggato per inviare una segnalazione');
+        }
+
+        if (!reason || !description) {
+            throw new Error('Per favore compila tutti i campi');
+        }
+
+        const response = await fetch('/reports/review', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 review_id: reviewId,
@@ -618,15 +741,56 @@ async function submitReviewReport() {
             })
         });
 
-        if (!response.ok) throw new Error('Errore nell\'invio della segnalazione');
+        const data = await response.json();
 
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore nell\'invio della segnalazione');
+        }
+
+        // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('reportReviewModal'));
         modal.hide();
-        alert('Segnalazione inviata con successo');
+
+        // Reset form
         document.getElementById('reportReviewForm').reset();
+
+        // Show success message
+        showSuccessMessage('Segnalazione inviata con successo');
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nell\'invio della segnalazione');
+        showErrorMessage(error.message);
     }
+}
+
+
+// Messaggi di successo e errore
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => alertDiv.remove(), 3000);
+}
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => alertDiv.remove(), 5000);
 }

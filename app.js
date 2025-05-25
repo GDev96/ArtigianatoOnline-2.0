@@ -23,20 +23,38 @@ const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const productsRouter = require('./routes/products');
+const cartRouter = require('./routes/cart');
+const ordersRouter = require('./routes/orders');
 const reviewsRouter = require('./routes/reviews');
+const reportsRouter = require('./routes/reports');
 
-// Public routes
+// Only use routes that are properly defined
 app.use('/', indexRouter);
 app.use('/auth', authRouter);
-app.use('/users', usersRouter);
-app.use('/products', productsRouter);
-app.use('/reviews', reviewsRouter);
-app.use('/categories', indexRouter);
 
-// Protected routes
-app.use('/profile.html', requireAuth);
-app.use('/cart.html', requireAuth);
-app.use('/dashboard.html', requireAuth);
+// Add checks before using each router
+if (productsRouter) app.use('/products', productsRouter);
+if (cartRouter) app.use('/cart', cartRouter);
+if (ordersRouter) app.use('/orders', ordersRouter);
+if (reviewsRouter) app.use('/reviews', reviewsRouter);
+if (reportsRouter) app.use('/reports', reportsRouter);
+if (usersRouter) app.use('/users', usersRouter);
+
+app.get('/profile.html', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/profile.html'));
+});
+
+app.get('/cart.html', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/cart.html'));
+});
+
+app.get('/dashboard.html', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/dashboard.html'));
+});
+
+app.get('/admin.html', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/admin.html'));
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -85,7 +103,7 @@ async function startServer() {
 startServer();
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
 
 module.exports = app;
