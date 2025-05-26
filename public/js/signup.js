@@ -81,7 +81,29 @@ async function processImage(file) {
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
+        
+        reader.onload = () => {
+            // Add proper image data prefix based on file type
+            let prefix;
+            switch (file.type) {
+                case 'image/jpeg':
+                case 'image/jpg':
+                    prefix = 'data:image/jpeg;base64,';
+                    break;
+                case 'image/png':
+                    prefix = 'data:image/png;base64,';
+                    break;
+                default:
+                    reject(new Error('Formato immagine non supportato'));
+                    return;
+            }
+            
+            // Get base64 part only
+            const base64 = reader.result.split(',')[1];
+            // Return complete data URL
+            resolve(prefix + base64);
+        };
+
         reader.onerror = () => reject(new Error('Errore nella lettura del file'));
         reader.readAsDataURL(file);
     });
@@ -100,7 +122,7 @@ document.querySelector('form').addEventListener('submit', async (e) => {
             password: document.getElementById('passwordInput').value,
             indirizzo: document.getElementById('addressInput').value.trim(),
             citta: document.getElementById('cityInput').value.trim(),
-            ruolo_id: document.getElementById('artisanCheck').checked ? 2 : 3 // 2 for artisan, 3 for customer
+            isArtigiano: document.getElementById('artisanCheck').checked
         };
 
         // Validate password confirmation
@@ -109,19 +131,21 @@ document.querySelector('form').addEventListener('submit', async (e) => {
         }
 
         // Add artisan specific fields if artisan registration
-        if (document.getElementById('artisanCheck').checked) {
+        if (formData.isArtigiano) {
             const artisanData = {
                 iban: document.getElementById('vatNumberInput').value.trim(),
                 numero_telefono: document.getElementById('phoneNumberInput').value.trim(),
-                tipologia_id: parseInt(document.getElementById('categoryInput').value),
+                tipologia_id: parseInt(document.getElementById('categoryInput').value)
             };
 
             // Process profile image
             const imageFile = document.getElementById('profileImageInput').files[0];
             if (imageFile) {
                 try {
-                    const base64Image = await processImage(imageFile);
-                    artisanData.immagine = base64Image.split(',')[1]; // Remove data:image/... prefix
+                    const imageData = await processImage(imageFile);
+                    if (imageData) {
+                        formData.immagine = imageData;
+                    }
                 } catch (error) {
                     throw new Error(`Errore immagine: ${error.message}`);
                 }
