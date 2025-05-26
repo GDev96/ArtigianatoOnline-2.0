@@ -1,18 +1,13 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const rawUser = sessionStorage.getItem('user');
-    if (!rawUser) {
+document.addEventListener('DOMContentLoaded', async () => {
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    if (!user || user.ruolo_id !== 1) {
         window.location.href = '/login.html';
         return;
     }
-
-    try {
-        const user = JSON.parse(rawUser);
-        // Continue with cart initialization...
-    } catch (error) {
-        console.error('Error loading cart:', error);
-        sessionStorage.clear();
-        window.location.href = '/login.html';
-    }
+    
+    await loadUserData();
+    await loadOrders();
+    await loadUserReports();
 });
 
 //Compila i dati dell'utente nel profilo

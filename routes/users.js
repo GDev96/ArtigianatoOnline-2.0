@@ -5,9 +5,10 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 require('dotenv').config();
 
-//TODO: API per visualizzare tutti gli utenti - admin
+//TODO: API per visualizzare tutti gli utenti
 
-//TODO: Get tutti gli artigiani - pubblica
+
+// Get tutti gli artigiani - pubblica
 router.get('/artisans', async (req, res) => {
     try {
         const query = `
@@ -66,8 +67,62 @@ router.get('/artisans', async (req, res) => {
     }
 });
 
+// API per aggiornare i dati dell'utente
+router.put('/update/:id', async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { nome, cognome, email, telefono, indirizzo, citta } = req.body;
 
-//TODO: Api per modificare un utente - admin
+        // Validazione dei dati in ingresso
+        if (!nome || !cognome || !email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Nome, cognome ed email sono campi obbligatori'
+            });
+        }
+
+        const query = `
+            UPDATE utente 
+            SET nome = $1, 
+                cognome = $2, 
+                email = $3, 
+                numero_telefono = $4, 
+                indirizzo = $5, 
+                citta = $6
+            WHERE id = $7
+            RETURNING id, username, nome, cognome, email, numero_telefono, indirizzo, citta, ruolo_id, stato`;
+
+        const result = await pool.query(query, [
+            nome,
+            cognome,
+            email,
+            telefono,
+            indirizzo,
+            citta,
+            userId
+        ]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Utente non trovato'
+            });
+        }
+
+        res.json({
+            success: true,
+            user: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nell\'aggiornamento del profilo'
+        });
+    }
+});
+
 
 //TODO: API per modificare un artigiano - admin
 
