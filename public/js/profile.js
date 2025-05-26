@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     await loadUserData();
     await loadOrders();
+    await loadUserReviews();
     await loadUserReports();
 });
 
@@ -326,10 +327,7 @@ async function submitOrderReport() {
         showErrorMessage(error.message);
     }
 }
-
-
-
-
+// Funzioni per gestire i colori e i testi degli stati degli ordini
 function getStatusColor(status) {
     const colors = {
         'pending': 'warning',
@@ -340,7 +338,6 @@ function getStatusColor(status) {
     };
     return colors[status] || 'secondary';
 }
-
 function getStatusText(status) {
     const texts = {
         'pending': 'In attesa',
@@ -354,13 +351,94 @@ function getStatusText(status) {
 
 
 
+/*************Tabella recensioni *************/
+// Carica le recensioni dell'utente
+async function loadUserReviews() {
+    try {
+        const response = await fetch('/reviews/user', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Errore nel caricamento delle recensioni');
+        
+        const reviews = await response.json();
+        const tbody = document.getElementById('reviewsTableBody');
+        
+        if (!tbody) {
+            console.error('Reviews table body element not found');
+            return;
+        }
+
+        if (reviews.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        Nessuna recensione scritta
+                    </td>
+                </tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = reviews.map(review => `
+            <tr>
+                <td>
+                    <a href="/catalog.html?id=${review.artigiano_id}" class="text-decoration-none">
+                        ${review.nome_artigiano} ${review.cognome_artigiano}
+                    </a>
+                </td>
+                <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
+                <td class="text-center">${review.valutazione}/5</td>
+                <td>${review.descrizione}</td>
+                <td>
+                    <span class="badge bg-${getReviewStatusColor(review.stato)}">
+                        ${getReviewStatus(review.stato)}
+                    </span>
+                </td>
+            </tr>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error:', error);
+        const tbody = document.getElementById('reviewsTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        Errore nel caricamento delle recensioni
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+// Helper function per i colori dello stato recensione
+function getReviewStatusColor(status) {
+    const colors = {
+        'attiva': 'success',
+        'sospesa': 'warning',
+        'eliminata': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+function getReviewStatus(status) {
+    const statuses = {
+        'attiva': 'Attiva',
+        'sospesa': 'In revisione',
+        'eliminata': 'Eliminata'
+    };
+    return statuses[status] || status;
+}
+
+
 /**********Tabella segnalazioni************* */
 //Carica le segnalazioni dell'utente
 async function loadUserReports() {
     try {
         const response = await fetch('/reports/user', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
         
@@ -369,19 +447,29 @@ async function loadUserReports() {
         const reports = await response.json();
         const tbody = document.getElementById('reportsTableBody');
         
+        if (!tbody) {
+            console.error('Reports table body element not found');
+            return;
+        }
+
+        if (reports.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted">
+                        Nessuna segnalazione effettuata
+                    </td>
+                </tr>`;
+            return;
+        }
+        
         tbody.innerHTML = reports.map(report => `
             <tr>
-                <td>
-                    <a href="#" onclick="viewOrderDetails(${report.ordine_id}); return false;"
-                       class="text-primary text-decoration-underline">
-                        #${report.ordine_id}
-                    </a>
-                </td>
+                <td>${report.ordine_id ? `#${report.ordine_id}` : 'N/A'}</td>
                 <td>${new Date(report.data_segnalazione).toLocaleDateString()}</td>
-                <td>${getReportReason(report.motivo)}</td>
+                <td>${getReportReasonText(report.motivazione)}</td>
                 <td>
-                    <span class="badge bg-${getReportStatusColor(report.stato)}">
-                        ${getReportStatus(report.stato)}
+                    <span class="badge bg-${getReportStatusColor(report.stato_segnalazione)}">
+                        ${getReportStatusText(report.stato_segnalazione)}
                     </span>
                 </td>
             </tr>
@@ -389,55 +477,44 @@ async function loadUserReports() {
 
     } catch (error) {
         console.error('Error:', error);
-        document.getElementById('reportsTableBody').innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-muted">
-                    Errore nel caricamento delle segnalazioni
-                </td>
-            </tr>
-        `;
+        const tbody = document.getElementById('reportsTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center text-muted">
+                        Errore nel caricamento delle segnalazioni
+                    </td>
+                </tr>
+            `;
+        }
     }
 }
-
-
-
-//Funzioni per le segnalazioni
-function getReportType(type) {
-    const types = {
-        'order': 'Ordine',
-        'artisan': 'Artigiano',
-        'review': 'Recensione'
+// Helper functions for report status and reason
+function getReportStatusColor(status) {
+    const colors = {
+        'in attesa': 'warning',
+        'in lavorazione': 'info',
+        'risolta': 'success',
+        'chiusa': 'secondary',
+        'rifiutata': 'danger'
     };
-    return types[type] || type;
+    return colors[status] || 'secondary';
 }
-
-function getReportReason(reason) {
-    const reasons = {
-        'delivery': 'Problemi di consegna',
-        'product': 'Prodotto danneggiato/difettoso',
-        'fake': 'Contenuto falso',
-        'inappropriate': 'Contenuto inappropriato',
-        'other': 'Altro'
-    };
-    return reasons[reason] || reason;
-}
-
-function getReportStatus(status) {
+function getReportStatusText(status) {
     const statuses = {
-        'open': 'Aperta',
-        'processing': 'In elaborazione',
-        'closed': 'Chiusa',
-        'resolved': 'Risolta'
+        'in attesa': 'In attesa',
+        'in lavorazione': 'In lavorazione',
+        'risolta': 'Risolta',
+        'chiusa': 'Chiusa',
+        'rifiutata': 'Rifiutata'
     };
     return statuses[status] || status;
 }
-
-function getReportStatusColor(status) {
-    const colors = {
-        'open': 'warning',
-        'processing': 'info',
-        'closed': 'secondary',
-        'resolved': 'success'
+function getReportReasonText(reason) {
+    const reasons = {
+        'delivery': 'Problemi di consegna',
+        'product': 'Prodotto danneggiato/difettoso',
+        'other': 'Altro'
     };
-    return colors[status] || 'secondary';
+    return reasons[reason] || reason;
 }

@@ -8,7 +8,32 @@ const requireAuth = createAuthMiddleware();
 
 //TODO: GET tutte le recensioni - admin
 
+// Get segnalazioni dell'utente
+router.get('/user', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                s.segnalazione_id,
+                s.data_segnalazione,
+                s.ordine_id,
+                s.testo,
+                s.motivazione,
+                s.stato_segnalazione
+            FROM segnalazioni s
+            WHERE s.utente_id = $1
+            ORDER BY s.data_segnalazione DESC`;
 
+        const result = await pool.query(query, [req.user.id]);
+        res.json(result.rows);
+
+    } catch (error) {
+        console.error('Error fetching user reports:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero delle segnalazioni'
+        });
+    }
+});
 
 // POST /reports/artisan - Create artisan report
 router.post('/artisan', requireAuth, async (req, res) => {
