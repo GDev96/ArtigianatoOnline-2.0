@@ -40,4 +40,44 @@ class AuthService {
 
         return true;
     }
+
+    static handleAuthError() {
+        this.logout();
+        window.location.href = '/login.html';
+    }
+
+    static checkTokenExpiration(response) {
+        if (response.status === 401) {
+            this.handleAuthError();
+            return false;
+        }
+        return true;
+    }
+
+    static async fetchWithAuth(url, options = {}) {
+        const token = this.getToken();
+        if (!token) {
+            this.handleAuthError();
+            return null;
+        }
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!this.checkTokenExpiration(response)) {
+                return null;
+            }
+
+            return response;
+        } catch (error) {
+            console.error('Fetch error:', error);
+            throw error;
+        }
+    }
 }
