@@ -231,5 +231,7 @@ router.delete('/remove/:id', requireAuth, async (req, res) => {
     }
 });
 
+//TOOD : Implement a route to clear the cart
+
 module.exports = router;
 

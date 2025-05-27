@@ -5,7 +5,7 @@ window.fetch = async function(...args) {
         const [resource, config = {}] = args;
         
         // Don't add token for login/signup/public routes
-        const publicRoutes = ['/auth/login', '/auth/signup', '/categories', '/users/artisans'];
+        const publicRoutes = ['/', '/index.html', '/auth/login', '/auth/signup', '/categories', '/users/artisans'];
         const isPublicRoute = publicRoutes.some(route => resource.includes(route));
         
         if (!isPublicRoute) {
@@ -38,7 +38,6 @@ window.fetch = async function(...args) {
         throw error;
     }
 };
-
 
 // Array di immagini per lo sfondo
 const backgroundImages = [
@@ -88,6 +87,20 @@ async function initNavbar() {
         const userMenu = document.getElementById('userMenu');
         const guestMenu = document.getElementById('guestMenu');
         const username = document.querySelector('#username');
+        const logoutButton = document.getElementById('logoutButton'); // Add this line
+
+        // Add logout handler after navbar is loaded
+        logoutButton?.addEventListener('click', async function(e) {
+            e.preventDefault();
+            try {
+                sessionStorage.clear();
+                console.log('Logout successful');
+                window.location.href = '/login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Errore durante il logout. Riprova più tardi.');
+            }
+        });
 
         // Get user from session storage
         const rawUser = sessionStorage.getItem('user');

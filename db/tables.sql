@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS ordini (
         REFERENCES utente (id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
-    CONSTRAINT ordini_stato_check CHECK (stato IN ('in spedizione', 'controversia aperta', 'consegnato'))
+    CONSTRAINT ordini_stato_check CHECK (stato IN ('in preparazione', 'spedito', 'controversia aperta', 'consegnato'))
 );
 
 -- crea tabella dettagli_ordine

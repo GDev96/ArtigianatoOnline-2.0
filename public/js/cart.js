@@ -40,10 +40,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function updateUserHeader(user) {
-    // Update name and username
-    document.getElementById('profileName').textContent = `${user.nome} ${user.cognome}`;
-    document.getElementById('username').textContent = user.username;
+    // Update profile name and username in header
+    const profileNameEl = document.getElementById('profileName');
+    const headerUsernameEl = document.querySelector('#profile-header .username'); // More specific selector
 
+    if (profileNameEl) {
+        profileNameEl.textContent = `${user.nome} ${user.cognome}`;
+    }
+    
+    if (headerUsernameEl) {
+        headerUsernameEl.textContent = user.username;
+    }
     // Update address card
     const addressElement = document.querySelector('.card-address p');
     if (addressElement) {
@@ -65,12 +72,18 @@ function updateUserHeader(user) {
     }
 
     // Update modal shipping info
-    document.getElementById('modalShippingName').textContent = user.nome;
-    document.getElementById('modalShippingSurname').textContent = user.cognome;
-    document.getElementById('modalShippingAddress').textContent = user.indirizzo || 'Non salvato';
-    document.getElementById('modalShippingCity').textContent = user.citta || 'Non salvato';
-}
+    const modalElements = {
+        name: document.getElementById('modalShippingName'),
+        surname: document.getElementById('modalShippingSurname'),
+        address: document.getElementById('modalShippingAddress'),
+        city: document.getElementById('modalShippingCity')
+    };
 
+    if (modalElements.name) modalElements.name.textContent = user.nome;
+    if (modalElements.surname) modalElements.surname.textContent = user.cognome;
+    if (modalElements.address) modalElements.address.textContent = user.indirizzo || 'Non salvato';
+    if (modalElements.city) modalElements.city.textContent = user.citta || 'Non salvato';
+}
 function showError(error) {
     const container = document.querySelector('.container');
     if (container) {
@@ -158,6 +171,8 @@ async function loadCartContent() {
 
 function updateCartTable(items) {
     const tbody = document.querySelector('.table tbody');
+    const modalOpenButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#confirmOrder"]');
+    
     if (!tbody) return;
 
     // If cart is empty
@@ -168,7 +183,21 @@ function updateCartTable(items) {
                     Il tuo carrello è vuoto
                 </td>
             </tr>`;
+
+        // Disable modal open button
+        if (modalOpenButton) {
+            modalOpenButton.disabled = true;
+            modalOpenButton.classList.add('opacity-50');
+            modalOpenButton.title = 'Aggiungi prodotti al carrello per procedere all\'ordine';
+        }
         return;
+    }
+
+    // Enable modal open button if cart has items
+    if (modalOpenButton) {
+        modalOpenButton.disabled = false;
+        modalOpenButton.classList.remove('opacity-50');
+        modalOpenButton.title = 'Procedi all\'ordine';
     }
 
     // Update existing tbody with cart items
@@ -202,6 +231,8 @@ function updateCartTable(items) {
             </tr>
         `;
     }).join('');
+
+    updateOrderModal(items);
 }
 
 function updateTotalAmount(items) {
@@ -265,4 +296,105 @@ async function removeFromCart(productId) {
         console.error('Error removing item:', error);
         showError(error);
     }
+}
+
+//Modale di invio ordine
+function updateOrderModal(items) {
+    const modalTbody = document.querySelector('#confirmOrder .table tbody');
+    const modalTfoot = document.querySelector('#confirmOrder .table tfoot');
+    
+    if (!modalTbody || !modalTfoot) return;
+
+    if (!items || items.length === 0) {
+        modalTbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center">
+                    Il carrello è vuoto
+                </td>
+            </tr>`;
+        modalTfoot.innerHTML = `
+            <tr>
+                <th colspan="3" class="text-end">Totale:</th>
+                <th>€0.00</th>
+            </tr>`;
+        return;
+    }
+
+    // Update items list
+    modalTbody.innerHTML = items.map(item => {
+        const price = parseFloat(item.prezzo_unitario);
+        const quantity = parseInt(item.quantita);
+        const total = price * quantity;
+        
+        return `
+            <tr>
+                <td>${item.nome_prodotto}</td>
+                <td>${quantity}</td>
+                <td>€${price.toFixed(2)}</td>
+                <td>€${total.toFixed(2)}</td>
+            </tr>`;
+    }).join('');
+
+    // Calculate and update total
+    const orderTotal = items.reduce((sum, item) => 
+        sum + (parseFloat(item.prezzo_unitario) * parseInt(item.quantita)), 0);
+
+    modalTfoot.innerHTML = `
+        <tr>
+            <th colspan="3" class="text-end">Totale:</th>
+            <th>€${orderTotal.toFixed(2)}</th>
+        </tr>`;
+}
+
+// Add event listener for order confirmation
+document.querySelector('#confirmOrder .btn-success').addEventListener('click', async function() {
+    try {
+        const response = await fetch('/orders/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.message || 'Errore nella creazione dell\'ordine');
+        }
+
+        const data = await response.json();
+
+        // Close payment modal
+        const orderModal = bootstrap.Modal.getInstance(document.getElementById('confirmOrder'));
+        orderModal.hide();
+
+        // Show success message
+        showMessage('Ordine creato con successo!', 'success');
+
+        // Reload cart page after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error creating order:', error);
+        showError(error);
+    }
+});
+
+// Add helper function for showing messages
+function showMessage(message, type = 'success') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+    alertDiv.role = 'alert';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
 }
