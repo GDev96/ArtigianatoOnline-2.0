@@ -76,98 +76,70 @@ function loadComponent(selector, file, callback) {
     .catch(error => console.error('Errore nel caricamento:', error));
 }
 
-// Initialize navbar
+// Update updateNavbar function to include user ID in profile link
+function updateNavbar(user) {
+    if (!user) return;
+
+    // Update cart and profile links with user ID
+    const navLinks = {
+        cart: document.querySelector('.client-only a[href="/cart.html"]'),
+        profile: document.querySelector('.client-only a[href="/profile.html"]'),
+        dashboard: document.querySelector('.artisan-only a[href="/dashboard.html"]'),
+        admin: document.querySelector('.admin-only a[href="/admin.html"]')
+    };
+
+    if (user.ruolo_id === 1) {
+        if (navLinks.cart) navLinks.cart.href = `/cart.html?id=${user.id}`;
+        if (navLinks.profile) navLinks.profile.href = `/profile.html?id=${user.id}`;
+    } else if (user.ruolo_id === 2 && navLinks.dashboard) {
+        navLinks.dashboard.href = `/dashboard.html?id=${user.id}`;
+    } else if (user.ruolo_id === 3 && navLinks.admin) {
+        navLinks.admin.href = `/admin.html?id=${user.id}`;
+    }
+
+    // Update username in navbar
+    const usernameElement = document.querySelector('#username');
+    if (usernameElement) {
+        usernameElement.textContent = user.username;
+    }
+}
+
+// Update initNavbar function
 async function initNavbar() {
     try {
-        // Load navbar content
         const navbarResponse = await fetch('/components/navbar.html');
         const navbarHtml = await navbarResponse.text();
         document.getElementById('navbar').innerHTML = navbarHtml;
 
-        const userMenu = document.getElementById('userMenu');
-        const guestMenu = document.getElementById('guestMenu');
-        const username = document.querySelector('#username');
-        const logoutButton = document.getElementById('logoutButton'); // Add this line
-
-        // Add logout handler after navbar is loaded
-        logoutButton?.addEventListener('click', async function(e) {
-            e.preventDefault();
-            try {
-                sessionStorage.clear();
-                console.log('Logout successful');
-                window.location.href = '/login.html';
-            } catch (error) {
-                console.error('Logout error:', error);
-                alert('Errore durante il logout. Riprova più tardi.');
-            }
-        });
-
-        // Get user from session storage
         const rawUser = sessionStorage.getItem('user');
-        console.log('[Navbar Init] Session user:', rawUser);
-
         if (rawUser) {
-            try {
-                const user = JSON.parse(rawUser);
-                if (user.username) {
-                    // Show user menu, hide guest menu
-                    userMenu?.classList.remove('d-none');
-                    guestMenu?.classList.add('d-none');
-                    
-                    // Set username if element exists
-                    if (username) {
-                        username.textContent = `${user.nome} ${user.cognome}`;
-                    }
+            const user = JSON.parse(rawUser);
+            updateNavbar(user);
 
-                    // Update navigation links
-                    const clientLinks = document.querySelectorAll('.client-only');
-                    const artisanLinks = document.querySelectorAll('.artisan-only');
-                    const adminLinks = document.querySelectorAll('.admin-only');
+            // Show appropriate menu
+            const userMenu = document.getElementById('userMenu');
+            const guestMenu = document.getElementById('guestMenu');
+            
+            if (userMenu && guestMenu) {
+                userMenu.classList.remove('d-none');
+                guestMenu.classList.add('d-none');
 
-                    if (user.ruolo_id === 1) {
-                        clientLinks.forEach(link => link.classList.remove('d-none'));
-                    } else if (user.ruolo_id === 2) {
-                        artisanLinks.forEach(link => link.classList.remove('d-none'));
-                    } else if (user.ruolo_id === 3) {
-                        adminLinks.forEach(link => link.classList.remove('d-none'));
-                    }
+                // Update navigation links visibility
+                const clientLinks = document.querySelectorAll('.client-only');
+                const artisanLinks = document.querySelectorAll('.artisan-only');
+                const adminLinks = document.querySelectorAll('.admin-only');
+
+                if (user.ruolo_id === 1) {
+                    clientLinks.forEach(link => link.classList.remove('d-none'));
+                } else if (user.ruolo_id === 2) {
+                    artisanLinks.forEach(link => link.classList.remove('d-none'));
+                } else if (user.ruolo_id === 3) {
+                    adminLinks.forEach(link => link.classList.remove('d-none'));
                 }
-            } catch (e) {
-                console.error('Errore parsing user:', e);
-                sessionStorage.clear();
-                userMenu?.classList.add('d-none');
-                guestMenu?.classList.remove('d-none');
             }
         }
     } catch (error) {
         console.error('Error initializing navbar:', error);
-    }
-}
-
-// Add this new function
-function updateNavbar(user) {
-    // Update cart link with user ID
-    const cartLink = document.querySelector('.client-only a[href="/cart.html"]');
-    if (cartLink && user && user.ruolo_id === 1) {
-        cartLink.href = `/cart.html?id=${user.id}`;
-    }
-
-    // Update profile link
-    const profileLink = document.querySelector('.client-only a[href="/profile.html"]');
-    if (profileLink && user && user.ruolo_id === 1) {
-        profileLink.href = `/profile.html?id=${user.id}`;
-    }
-
-    // Update dashboard link for artisans
-    const dashboardLink = document.querySelector('.artisan-only a[href="/dashboard.html"]');
-    if (dashboardLink && user && user.ruolo_id === 2) {
-        dashboardLink.href = `/dashboard.html?id=${user.id}`;
-    }
-
-    // Update admin link
-    const adminLink = document.querySelector('.admin-only a[href="/admin.html"]');
-    if (adminLink && user && user.ruolo_id === 3) {
-        adminLink.href = `/admin.html?id=${user.id}`;
     }
 }
 

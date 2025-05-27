@@ -90,7 +90,8 @@ router.get('/:id', requireAuth, async (req, res) => {
                 json_agg(json_build_object(
                     'nome', p.nome_prodotto,
                     'quantita', det.quantita,
-                    'prezzo', det.prezzo_unitario
+                    'prezzo', det.prezzo_unitario,
+                    'artigiano_id', p.artigiano_id  -- Add this line
                 )) as prodotti
             FROM ordini o
             INNER JOIN dettagli_ordine det ON o.ordine_id = det.ordine_id
