@@ -374,7 +374,7 @@ async function loadUserReviews() {
         if (reviews.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="text-center text-muted">
+                    <td colspan="6" class="text-center text-muted">
                         Nessuna recensione scritta
                     </td>
                 </tr>`;
@@ -396,21 +396,86 @@ async function loadUserReviews() {
                         ${getReviewStatus(review.stato)}
                     </span>
                 </td>
+                <td>
+                    <button class="btn btn-sm btn-primary me-1" onclick="editReview(${JSON.stringify(review).replace(/"/g, '&quot;')})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteReview(${review.recensione_id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
             </tr>
         `).join('');
 
     } catch (error) {
         console.error('Error:', error);
-        const tbody = document.getElementById('reviewsTableBody');
-        if (tbody) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center text-muted">
-                        Errore nel caricamento delle recensioni
-                    </td>
-                </tr>
-            `;
-        }
+        document.getElementById('reviewsTableBody').innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted">
+                    Errore nel caricamento delle recensioni
+                </td>
+            </tr>
+        `;
+    }
+}
+function editReview(review) {
+    document.getElementById('editReviewId').value = review.recensione_id;
+    document.getElementById('editReviewRating').value = review.valutazione;
+    document.getElementById('editReviewText').value = review.descrizione;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
+    modal.show();
+}
+async function updateReview() {
+    try {
+        const reviewId = document.getElementById('editReviewId').value;
+        const data = {
+            valutazione: document.getElementById('editReviewRating').value,
+            descrizione: document.getElementById('editReviewText').value
+        };
+
+        const response = await fetch(`/reviews/${reviewId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'aggiornamento della recensione');
+
+        // Chiudi il modale
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editReviewModal'));
+        modal.hide();
+
+        // Ricarica le recensioni
+        await loadUserReviews();
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nell\'aggiornamento della recensione');
+    }
+}
+async function deleteReview(reviewId) {
+    if (!confirm('Sei sicuro di voler eliminare questa recensione?')) return;
+
+    try {
+        const response = await fetch(`/reviews/${reviewId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'eliminazione della recensione');
+
+        // Ricarica le recensioni
+        await loadUserReviews();
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nell\'eliminazione della recensione');
     }
 }
 // Helper function per i colori dello stato recensione
@@ -455,7 +520,7 @@ async function loadUserReports() {
         if (reports.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-center text-muted">
+                    <td colspan="5" class="text-center text-muted">
                         Nessuna segnalazione effettuata
                     </td>
                 </tr>`;
@@ -472,21 +537,44 @@ async function loadUserReports() {
                         ${getReportStatusText(report.stato_segnalazione)}
                     </span>
                 </td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deleteReport(${report.segnalazione_id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
             </tr>
         `).join('');
 
     } catch (error) {
         console.error('Error:', error);
-        const tbody = document.getElementById('reportsTableBody');
-        if (tbody) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="text-center text-muted">
-                        Errore nel caricamento delle segnalazioni
-                    </td>
-                </tr>
-            `;
-        }
+        document.getElementById('reportsTableBody').innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted">
+                    Errore nel caricamento delle segnalazioni
+                </td>
+            </tr>
+        `;
+    }
+}
+async function deleteReport(reportId) {
+    if (!confirm('Sei sicuro di voler eliminare questa segnalazione?')) return;
+
+    try {
+        const response = await fetch(`/reports/${reportId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'eliminazione della segnalazione');
+
+        // Ricarica le segnalazioni
+        await loadUserReports();
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nell\'eliminazione della segnalazione');
     }
 }
 // Helper functions for report status and reason

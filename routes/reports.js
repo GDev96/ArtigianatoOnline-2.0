@@ -184,7 +184,41 @@ router.post('/order', requireAuth, async (req, res) => {
 
 //TODO: PUT modifica segnalazione - admin
 
-//TODO: DELETE elimina segnalazione
+
+// DELETE elimina segnalazione - solo utente che ha fatto la segnalazione
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user_id = req.user.id;
+
+        // Verifica proprietà della segnalazione
+        const reportCheck = await pool.query(
+            'SELECT segnalazione_id FROM segnalazioni WHERE segnalazione_id = $1 AND utente_id = $2',
+            [id, user_id]
+        );
+
+        if (reportCheck.rows.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorizzato a eliminare questa segnalazione'
+            });
+        }
+
+        await pool.query('DELETE FROM segnalazioni WHERE segnalazione_id = $1', [id]);
+
+        res.json({
+            success: true,
+            message: 'Segnalazione eliminata con successo'
+        });
+
+    } catch (error) {
+        console.error('Error deleting report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nell\'eliminazione della segnalazione'
+        });
+    }
+});
 
 
 

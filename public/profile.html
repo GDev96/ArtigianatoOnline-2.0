@@ -17,8 +17,8 @@
             <div class="flex-grow-1 ms-md-4">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-3">
                 <div class="d-flex flex-column flex-md-row justify-content-start align-items-center mb-3 mb-md-0">
-                    <h1 id="profileName" class="display-6 mb-2"></h1>
-                    <p class="username lead ms-md-2 mb-1">@<span id="username"></span></p>
+                    <h1 id="profileName" class="fw-normal fs-4 mb-2"></h1>
+                    <p class="username lead ms-md-2 mb-1">@<span id="username" class="username"></span></p>
                 </div>
                 <button class="btn" data-bs-toggle="modal" data-bs-target="#editProfileModal">Modifica Profilo</button>
             </div>
@@ -125,7 +125,7 @@
 
             <!-- Recensioni -->
             <div class="row mt-4">
-                <div class="col-6">
+                <div class="col-12">
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title mb-4">Le mie Recensioni</h5>
@@ -138,6 +138,7 @@
                                             <th>Valutazione</th>
                                             <th>Recensione</th>
                                             <th>Stato</th>
+                                            <th>Azioni</th>
                                         </tr>
                                     </thead>
                                     <tbody id="reviewsTableBody">
@@ -148,9 +149,11 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Segnalazioni -->
-                <div class="col-6">
+            <!-- Segnalazioni -->
+            <div class="row mt-4">
+                <div class="col-12">
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title mb-4">Le mie Segnalazioni</h5>
@@ -162,6 +165,7 @@
                                             <th>Data</th>
                                             <th>Motivo</th>
                                             <th>Stato</th>
+                                            <th>Azioni</th>
                                         </tr>
                                     </thead>
                                     <tbody id="reportsTableBody">
@@ -175,6 +179,41 @@
             </div>
 
             
+        </div>
+    </div>
+    
+    <!-- Modale modifica recensione -->
+    <div class="modal fade" id="editReviewModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Modifica Recensione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editReviewForm">
+                        <input type="hidden" id="editReviewId">
+                        <div class="mb-3">
+                            <label class="form-label">Valutazione</label>
+                            <select class="form-select" id="editReviewRating" required>
+                                <option value="1">1 stella</option>
+                                <option value="2">2 stelle</option>
+                                <option value="3">3 stelle</option>
+                                <option value="4">4 stelle</option>
+                                <option value="5">5 stelle</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Recensione</label>
+                            <textarea class="form-control" id="editReviewText" rows="3" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-primary" onclick="updateReview()">Salva</button>
+                </div>
+            </div>
         </div>
     </div>
 

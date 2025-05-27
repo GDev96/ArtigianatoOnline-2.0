@@ -156,6 +156,90 @@ router.post('/', requireAuth, async (req, res) => {
     }
 });
 
-// TODO: PUT modifica recensione - solo cliente che ha scritto la recensione e admin
+// PUT modifica recensione - solo cliente che ha scritto la recensione
+router.put('/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { valutazione, descrizione } = req.body;
+        const cliente_id = req.user.id;
+
+        // Validazione input
+        if (!valutazione || !descrizione) {
+            return res.status(400).json({
+                success: false,
+                message: 'Dati recensione incompleti'
+            });
+        }
+
+        // Verifica proprietà della recensione
+        const reviewCheck = await pool.query(
+            'SELECT recensione_id FROM recensioni WHERE recensione_id = $1 AND cliente_id = $2',
+            [id, cliente_id]
+        );
+
+        if (reviewCheck.rows.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorizzato a modificare questa recensione'
+            });
+        }
+
+        // Aggiorna la recensione
+        const query = `
+            UPDATE recensioni 
+            SET valutazione = $1, descrizione = $2
+            WHERE recensione_id = $3
+            RETURNING *`;
+
+        const result = await pool.query(query, [valutazione, descrizione, id]);
+
+        res.json({
+            success: true,
+            review: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error updating review:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nella modifica della recensione'
+        });
+    }
+});
+
+// DELETE elimina recensione - solo cliente che ha scritto la recensione
+router.delete('/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const cliente_id = req.user.id;
+
+        // Verifica proprietà della recensione
+        const reviewCheck = await pool.query(
+            'SELECT recensione_id FROM recensioni WHERE recensione_id = $1 AND cliente_id = $2',
+            [id, cliente_id]
+        );
+
+        if (reviewCheck.rows.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorizzato a eliminare questa recensione'
+            });
+        }
+
+        await pool.query('DELETE FROM recensioni WHERE recensione_id = $1', [id]);
+
+        res.json({
+            success: true,
+            message: 'Recensione eliminata con successo'
+        });
+
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nell\'eliminazione della recensione'
+        });
+    }
+});
 
 module.exports = router;
