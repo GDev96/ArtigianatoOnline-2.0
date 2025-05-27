@@ -51,6 +51,9 @@ function initNavbar() {
         try {
             const user = JSON.parse(rawUser);
             if (user.username) {
+                // Update navbar with user data
+                updateNavbar(user);
+
                 // Show user menu, hide guest menu
                 userMenu?.classList.remove('d-none');
                 guestMenu?.classList.add('d-none');
@@ -94,7 +97,35 @@ function initNavbar() {
         userMenu?.classList.add('d-none');
         guestMenu?.classList.remove('d-none');
     }
-    
+}
+
+// Add this new function
+function updateNavbar(user) {
+    // Update cart link with user ID
+    const cartLink = document.querySelector('.client-only a[href="/cart.html"]');
+    if (cartLink && user && user.ruolo_id === 1) {
+        cartLink.href = `/cart.html?id=${user.id}`;
+    }
+
+    // Update profile link
+    const profileLink = document.querySelector('.client-only a[href="/profile.html"]');
+    if (profileLink && user && user.ruolo_id === 1) {
+        profileLink.href = `/profile.html?id=${user.id}`;
+    }
+
+    // Update dashboard link for artisans
+    const dashboardLink = document.querySelector('.artisan-only a[href="/dashboard.html"]');
+    if (dashboardLink && user && user.ruolo_id === 2) {
+        dashboardLink.href = `/dashboard.html?id=${user.id}`;
+    }
+
+    // Update admin link
+    const adminLink = document.querySelector('.admin-only a[href="/admin.html"]');
+    if (adminLink && user && user.ruolo_id === 3) {
+        adminLink.href = `/admin.html?id=${user.id}`;
+    }
+}
+
     // Handle logout
     document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
         e.preventDefault();
@@ -161,7 +192,7 @@ function initNavbar() {
             }
         });
     });
-}
+
 
 //Gestione dei permessi di navigazione
 function checkAuthForNavigation() {

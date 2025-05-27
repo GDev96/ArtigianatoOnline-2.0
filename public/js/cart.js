@@ -1,198 +1,82 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    if (!user || user.ruolo_id !== 1) {
-        window.location.href = '/login.html';
-        return;
+    try {
+        // Get session user first
+        const sessionUser = JSON.parse(sessionStorage.getItem('user'));
+        if (!sessionUser || sessionUser.ruolo_id !== 1) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        // Get user ID from URL parameters or session
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id') || sessionUser.id;
+
+        // Check if URL ID matches session user
+        if (parseInt(userId) !== sessionUser.id) {
+            throw new Error('Accesso non autorizzato');
+        }
+
+        // Fetch complete user data from backend
+        const response = await fetch(`/users/api/${userId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error('Errore nel recupero dei dati utente');
+        }
+
+        // Update header with user data
+        updateUserHeader(data.user);
+        
+    } catch (error) {
+        console.error('Error initializing cart:', error);
+        showError(error);
     }
-    
-    await loadUserData();
-    await loadOrders();
-    await loadUserReports();
 });
 
-//Compila i dati dell'utente nel profilo
-document.addEventListener('DOMContentLoaded', function() {
-    // Recupera i dati utente dal localStorage
-    const user = JSON.parse(localStorage.getItem('user'));
+function updateUserHeader(user) {
+    // Update name and username
+    document.getElementById('profileName').textContent = `${user.nome} ${user.cognome}`;
+    document.getElementById('username').textContent = user.username;
 
-        document.getElementById('profileName').textContent = `${user.nome} ${user.cognome}`;
-        document.getElementById('username').textContent = user.nome_utente;
-
-        const addressElement = document.querySelector('.card-address p');
-        const phoneElement = document.querySelector('.card-phone p');
-        const emailElement = document.querySelector('.card-mail p');
-        
-        const fullAddress = user.indirizzo && user.citta ? `${user.indirizzo} - ${user.citta}` : 'Non salvato';
-        
-        addressElement.textContent = fullAddress || 'Non salvato';
-        phoneElement.textContent = user.telefono || 'Non salvato';
-        emailElement.textContent = user.email;
-
-        document.getElementById('editNameInput').value = user.nome;
-        document.getElementById('editSurnameInput').value = user.cognome;
-        document.getElementById('editEmailInput').value = user.email;
-        document.getElementById('editPhoneInput').value = user.telefono || '';
-        document.getElementById('editAddressInput').value = user.indirizzo || '';
-        document.getElementById('editCityInput').value = user.citta || '';
-});
-
-
-
-// Funzione per aggiornare la visualizzazione del carrello
-function updateCartDisplay() {
-    const cart = getCartFromLocal();
-    const tableBody = document.querySelector('tbody');
-    const totalElement = document.querySelector('.totalOrder h4');
-    
-    if (!tableBody) return;
-
-    if (cart.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center">
-                    <div class="card text-center p-5">
-                        <div class="card-body">
-                            <h3 class="card-title text-muted">
-                                <i class="fas fa-shopping-cart mb-3 d-block" style="font-size: 3rem;"></i>
-                                Carrello vuoto
-                            </h3>
-                            <p class="card-text text-muted">
-                                Non hai ancora aggiunto prodotti al carrello.
-                            </p>
-                            <a href="/index.html" class="btn btn-brown">
-                                <i class="fas fa-shopping-bag me-2"></i>Inizia lo shopping
-                            </a>
-                        </div>
-                    </div>
-                </td>
-            </tr>`;
-        return;
+    // Update address card
+    const addressElement = document.querySelector('.card-address p');
+    if (addressElement) {
+        addressElement.textContent = user.indirizzo && user.citta 
+            ? `${user.indirizzo} - ${user.citta}` 
+            : 'Non salvato';
     }
 
-    let total = 0;
-    tableBody.innerHTML = cart.map(item => {
-        const itemTotal = item.prezzo * item.quantity;
-        total += itemTotal;
-        return `
-            <tr data-product-id="${item.prodotto_id}">
-                <td>${item.nome_prodotto}</td>
-                <td>€${item.prezzo.toFixed(2)}</td>
-                <td>
-                    <input type="number" class="form-control w-50" 
-                           value="${item.quantity}" min="1" 
-                           onchange="updateQuantity(${item.prodotto_id}, this.value)">
-                </td>
-                <td>€${itemTotal.toFixed(2)}</td>
-                <td>
-                    <button class="btn btn-danger btn-sm" 
-                            onclick="removeFromCart(${item.prodotto_id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>`;
-    }).join('');
+    // Update phone card
+    const phoneElement = document.querySelector('.card-phone p');
+    if (phoneElement) {
+        phoneElement.textContent = user.numero_telefono || 'Non salvato';
+    }
 
-    totalElement.textContent = `Totale provvisorio: €${total.toFixed(2)}`;
+    // Update email card
+    const emailElement = document.querySelector('.card-mail p');
+    if (emailElement) {
+        emailElement.textContent = user.email || 'Non salvato';
+    }
+
+    // Update modal shipping info
+    document.getElementById('modalShippingName').textContent = user.nome;
+    document.getElementById('modalShippingSurname').textContent = user.cognome;
+    document.getElementById('modalShippingAddress').textContent = user.indirizzo || 'Non salvato';
+    document.getElementById('modalShippingCity').textContent = user.citta || 'Non salvato';
 }
 
-// Funzione per il modale di conferma ordine
-document.addEventListener('DOMContentLoaded', () => {
-    const confirmAndPayButton = document.querySelector('.btn-success');
-    const paymentSuccessModal = new bootstrap.Modal(document.getElementById('paymentSuccessModal'));
-    const confirmOrderModal = document.getElementById('confirmOrder');
-
-    // Add event listener for modal show
-    confirmOrderModal.addEventListener('show.bs.modal', () => {
-        // Populate shipping details
-        const user = JSON.parse(localStorage.getItem('user'));
-        if (user) {
-            document.getElementById('modalShippingName').textContent = user.nome || 'Non specificato';
-            document.getElementById('modalShippingSurname').textContent = user.cognome || 'Non specificato';
-            document.getElementById('modalShippingAddress').textContent = user.indirizzo || 'Non specificato';
-            document.getElementById('modalShippingCity').textContent = user.citta || 'Non specificata';
-        }
-
-        // Populate order summary
-        const cart = JSON.parse(localStorage.getItem('shoppingCart')) || [];
-        const tbody = confirmOrderModal.querySelector('tbody');
-        let total = 0;
-
-        tbody.innerHTML = cart.map(item => {
-            const itemTotal = item.prezzo * item.quantity;
-            total += itemTotal;
-            return `
-                <tr>
-                    <td>${item.nome_prodotto}</td>
-                    <td>${item.quantity}</td>
-                    <td>€${item.prezzo.toFixed(2)}</td>
-                    <td>€${itemTotal.toFixed(2)}</td>
-                </tr>
-            `;
-        }).join('');
-
-        // Update total
-        confirmOrderModal.querySelector('tfoot th:last-child').textContent = `€${total.toFixed(2)}`;
-    });
-
-    confirmAndPayButton.addEventListener('click', async () => {
-        const success = await saveOrderToDatabase();
-        
-        if (success) {
-            const confirmOrderModalInstance = bootstrap.Modal.getInstance(confirmOrderModal);
-            if (confirmOrderModalInstance) {
-                confirmOrderModalInstance.hide();
-            }
-            paymentSuccessModal.show();
-        } else {
-            alert('Si è verificato un errore durante il salvataggio dell\'ordine.');
-        }
-    });
-});
-
-//Salva l'ordine nel database
-async function saveOrderToDatabase() {
-    const cart = getCartFromLocal();
-    const user = JSON.parse(localStorage.getItem('user'));
-    
-    if (!user) {
-        window.location.href = '/login.html';
-        return;
-    }
-
-    const orderData = {
-        cliente_id: user.id,
-        prodotti: cart.map(item => ({
-            prodotto_id: item.prodotto_id,
-            quantita: item.quantity,
-            prezzo_unitario: item.prezzo
-        })),
-        indirizzo_spedizione: {
-            nome: document.getElementById('shippingName').value,
-            cognome: document.getElementById('shippingSurname').value,
-            indirizzo: document.getElementById('shippingAddress').value,
-            citta: document.getElementById('shippingCity').value,
-            cap: document.getElementById('shippingPostalCode').value
-        },
-        metodo_pagamento: document.querySelector('input[name="paymentMethod"]:checked').value
-    };
-
-    try {
-        const response = await fetch('/api/orders', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(orderData)
-        });
-
-        if (response.ok) {
-            // Svuota il carrello locale solo dopo conferma dell'ordine
-            localStorage.removeItem('shoppingCart');
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Errore nel salvataggio dell\'ordine:', error);
-        return false;
+function showError(error) {
+    const container = document.querySelector('.container');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-danger" role="alert">
+                <h4 class="alert-heading">Errore!</h4>
+                <p>${error.message}</p>
+                <hr>
+                <p class="mb-0">Torna alla <a href="/" class="alert-link">home page</a>.</p>
+            </div>`;
     }
 }

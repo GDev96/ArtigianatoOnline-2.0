@@ -7,6 +7,38 @@ require('dotenv').config();
 
 //TODO: API per visualizzare tutti gli utenti
 
+// Get user by ID
+router.get('/api/:id', async (req, res) => {
+    try {
+        const userId = req.params.id;
+        
+        const query = `
+            SELECT id, username, nome, cognome, email, numero_telefono, indirizzo, citta, ruolo_id, stato
+            FROM utente 
+            WHERE id = $1 AND stato = 'attivo'`;
+            
+        const result = await pool.query(query, [userId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Utente non trovato'
+            });
+        }
+
+        res.json({
+            success: true,
+            user: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero dei dati utente'
+        });
+    }
+});
 
 // Get tutti gli artigiani - pubblica
 router.get('/artisans', async (req, res) => {
