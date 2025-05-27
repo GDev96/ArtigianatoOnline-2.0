@@ -1,3 +1,42 @@
+// Controllo della valitità del token JWT
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    try {
+        const [resource, config = {}] = args;
+        
+        // Don't add token for login/signup/public routes
+        const publicRoutes = ['/auth/login', '/auth/signup', '/categories', '/users/artisans'];
+        const isPublicRoute = publicRoutes.some(route => resource.includes(route));
+        
+        if (!isPublicRoute) {
+            const token = sessionStorage.getItem('token');
+            if (!token) {
+                AuthService.handleAuthError();
+                return null;
+            }
+
+            // Add token to headers
+            config.headers = {
+                ...config.headers,
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        const response = await originalFetch(resource, config);
+
+        // Check for authentication errors
+        if (response.status === 401) {
+            AuthService.handleAuthError();
+            return null;
+        }
+
+        return response;
+    } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+    }
+};
+
 // Array di immagini per lo sfondo
 const backgroundImages = [
   '/assets/images/wallpaper1.jpg',
