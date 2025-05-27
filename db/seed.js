@@ -126,7 +126,7 @@ async function seed() {
         console.log('Inserimento ordini...');
         const ordini = [
             { cliente_id: clientiRes.rows[0].id, stato: 'consegnato' },
-            { cliente_id: clientiRes.rows[1].id, stato: 'in spedizione' },
+            { cliente_id: clientiRes.rows[1].id, stato: 'spedito' },
             { cliente_id: clientiRes.rows[2].id, stato: 'controversia aperta' }
         ];
 

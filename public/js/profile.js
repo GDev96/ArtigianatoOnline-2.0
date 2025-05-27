@@ -1,117 +1,102 @@
-document.addEventListener('DOMContentLoaded', async () => {
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    if (!user || user.ruolo_id !== 1) {
-        window.location.href = '/login.html';
-        return;
-    }
-    
-    await loadUserData();
-    await loadOrders();
-    await loadUserReviews();
-    await loadUserReports();
-});
-
 /***********Header dati utente ******************/
-//Carica i dati dell'utente al caricamento della pagina - funziona
-async function loadUserData() {
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    
-    if (!user) {
-        console.error('No user data found in session');
-        window.location.href = '/login.html';
-        return;
-    }
-
-    console.log('Loading user data:', user);
-
-    try {
-        // Update header information
-        const profileNameEl = document.getElementById('profileName');
-        const usernameEl = document.getElementById('username');
-
-        if (!profileNameEl || !usernameEl) {
-            console.error('Header elements not found:', {
-                profileName: !!profileNameEl,
-                username: !!usernameEl
-            });
-            throw new Error('Header elements not found');
-        }
-
-        profileNameEl.textContent = `${user.nome} ${user.cognome}`;
-        usernameEl.textContent = user.username;
-        
-        // Create formatted address string
-        const fullAddress = user.indirizzo && user.citta ? 
-            `${user.indirizzo} - ${user.citta}` : 
-            'Non specificato';
-        
-        // Update info cards with error handling
-        const cards = {
-            'card-address': { value: fullAddress },
-            'card-phone': { value: user.numero_telefono || 'Non specificato' },
-            'card-mail': { value: user.email || 'Non specificato' }
-        };
-
-        Object.entries(cards).forEach(([cardClass, data]) => {
-            const card = document.querySelector(`.${cardClass} p`);
-            if (card) {
-                card.textContent = data.value;
-            } else {
-                console.error(`Card element .${cardClass} not found`);
-            }
-        });
-
-        // Update form fields for editing
-        const formFields = {
-            'editNameInput': user.nome,
-            'editSurnameInput': user.cognome,
-            'editEmailInput': user.email,
-            'editPhoneInput': user.numero_telefono || '',
-            'editAddressInput': user.indirizzo || '',
-            'editCityInput': user.citta || ''
-        };
-
-        Object.entries(formFields).forEach(([fieldId, value]) => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.value = value;
-            } else {
-                console.error(`Form field #${fieldId} not found`);
-            }
-        });
-
-    } catch (error) {
-        console.error('Error loading user data:', error);
-        console.log('Errore nel caricamento dei dati utente');
+// Add error handling functions at the top
+function showError(error) {
+    const container = document.querySelector('.container');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-danger" role="alert">
+                <h4 class="alert-heading">Errore!</h4>
+                <p>${error.message}</p>
+                <hr>
+                <p class="mb-0">Torna alla <a href="/" class="alert-link">home page</a>.</p>
+            </div>`;
     }
 }
-// Funzione per aggiornare il profilo utente - funziona
-async function updateProfile(event) {
-    event.preventDefault(); // Previene il submit del form
 
-    const currentUser = JSON.parse(sessionStorage.getItem('user'));
-    if (!currentUser) {
-        console.log('Sessione utente non valida');
-        return;
+function updateUserProfile(user) {
+    console.log('Updating user profile with:', user);
+
+    // Update profile name and username in header
+    const profileNameEl = document.getElementById('profileName');
+    const usernameEl = document.querySelector('#username .username'); // Changed selector
+
+    if (profileNameEl) {
+        profileNameEl.textContent = `${user.nome} ${user.cognome}`;
     }
     
-    const formData = {
-        nome: document.getElementById('editNameInput').value.trim(),
-        cognome: document.getElementById('editSurnameInput').value.trim(),
-        email: document.getElementById('editEmailInput').value.trim(),
-        telefono: document.getElementById('editPhoneInput').value.trim(),
-        indirizzo: document.getElementById('editAddressInput').value.trim(),
-        citta: document.getElementById('editCityInput').value.trim()
-    };
-
-    // Validazione base
-    if (!formData.nome || !formData.cognome || !formData.email) {
-        console.log('Nome, cognome ed email sono campi obbligatori');
-        return;
+    if (usernameEl) {
+        usernameEl.textContent = user.username; // Username will be after @ in HTML
     }
 
+    // Update info cards
+    const cards = {
+        'card-address': { value: user.indirizzo && user.citta ? `${user.indirizzo} - ${user.citta}` : 'Non specificato' },
+        'card-phone': { value: user.numero_telefono || 'Non specificato' },
+        'card-mail': { value: user.email || 'Non specificato' }
+    };
+
+    Object.entries(cards).forEach(([cardClass, data]) => {
+        const card = document.querySelector(`.${cardClass} p`);
+        if (card) {
+            card.textContent = data.value;
+        }
+    });
+
+    // Update form fields
+    const formFields = {
+        'editNameInput': user.nome,
+        'editSurnameInput': user.cognome,
+        'editEmailInput': user.email,
+        'editPhoneInput': user.numero_telefono || '',
+        'editAddressInput': user.indirizzo || '',
+        'editCityInput': user.citta || ''
+    };
+
+    Object.entries(formFields).forEach(([fieldId, value]) => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.value = value;
+        }
+    });
+}
+// Add error message function at the top with other message functions
+function showErrorMessage(message) {
+    const container = document.createElement('div');
+    container.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    container.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(container);
+    
+    setTimeout(() => {
+        container.remove();
+    }, 3000);
+}
+
+// Update the updateProfile function
+async function updateProfile(event) {
+    event.preventDefault();
+    
     try {
-        const response = await fetch(`/users/update/${currentUser.id}`, {
+        const userId = new URLSearchParams(window.location.search).get('id');
+        const formData = {
+            nome: document.getElementById('editNameInput').value.trim() || null,
+            cognome: document.getElementById('editSurnameInput').value.trim() || null,
+            email: document.getElementById('editEmailInput').value.trim() || null,
+            numero_telefono: document.getElementById('editPhoneInput').value.trim() || null,
+            indirizzo: document.getElementById('editAddressInput').value.trim() || null,
+            citta: document.getElementById('editCityInput').value.trim() || null
+        };
+
+        // Filter out null values
+        Object.keys(formData).forEach(key => 
+            formData[key] === null && delete formData[key]
+        );
+
+        console.log('Sending update with data:', formData);
+
+        const response = await fetch(`/users/update/${userId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -121,37 +106,100 @@ async function updateProfile(event) {
         });
 
         if (!response.ok) {
-            throw new Error('Errore nell\'aggiornamento del profilo');
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nell\'aggiornamento del profilo');
         }
 
-        const result = await response.json();
+        const data = await response.json();
         
-        if (result.success) {
-            // Aggiorna i dati utente nella sessione
-            sessionStorage.setItem('user', JSON.stringify(result.user));
-            
-            // Chiudi il modale
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
-            modal.hide();
-            
-            // Ricarica i dati del profilo
-            await loadUserData();
-            
-            // Mostra messaggio di successo
-            console.log('Profilo aggiornato con successo');
-        } else {
-            throw new Error(result.message || 'Errore nell\'aggiornamento del profilo');
-        }
-        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+        modal.hide();
+
+        // Update the profile display with new data
+        updateUserProfile(data.user);
+
+        // Show success message
+        showSuccessMessage('Profilo aggiornato con successo');
+
     } catch (error) {
-        console.error('Error:', error);
-        console.log(error.message);
+        console.error('Error updating profile:', error);
+        showErrorMessage(error.message || 'Errore nell\'aggiornamento del profilo');
     }
 }
+// Add a success message function
+function showSuccessMessage(message) {
+    const container = document.createElement('div');
+    container.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    container.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(container);
+    
+    setTimeout(() => {
+        container.remove();
+    }, 3000);
+}
+// Update the DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Get user ID from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id');
+
+        if (!userId) {
+            throw new Error('ID utente non specificato');
+        }
+
+        // Get session user for authorization check
+        const sessionUser = JSON.parse(sessionStorage.getItem('user'));
+        if (!sessionUser) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        // Check if user is authorized to view this profile
+        if (parseInt(userId) !== sessionUser.id) {
+            throw new Error('Non autorizzato a visualizzare questo profilo');
+        }
+
+        // Load user data using the ID from URL
+        const response = await fetch(`/users/api/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error('Errore nel recupero dei dati utente');
+        }
+
+        // Update profile with user data
+        updateUserProfile(data.user);
+        
+        // Load additional data
+        await loadOrders();
+        await loadUserReviews();
+        await loadUserReports();
+
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        showError(error);
+    }
+});
 
 
 
-//********Tabella visualizzazione ordini********** */
+
+//********Tabella visualizzazione ordini********** 
+
+
 async function loadOrders() {
     try {
         const response = await fetch('/orders/user', {
@@ -184,7 +232,6 @@ async function loadOrders() {
             <tr>
                 <td>#${order.ordine_id}</td>
                 <td>${new Date(order.data_ordine).toLocaleDateString()}</td>
-                <td>${order.nome_artigiano} ${order.cognome_artigiano}</td>
                 <td>€${order.totale.toFixed(2)}</td>
                 <td>
                     <span class="badge bg-${getStatusColor(order.stato)}">
@@ -229,6 +276,57 @@ async function viewOrderDetails(orderId) {
 
         const order = await response.json();
         
+        // For each product in order, fetch artisan details
+        if (order.prodotti && order.prodotti.length > 0) {
+            const productsWithArtisans = await Promise.all(order.prodotti.map(async product => {
+                if (!product.artigiano_id) {
+                    console.warn('Product without artisan ID:', product);
+                    return {
+                        ...product,
+                        nome_artigiano: 'Non disponibile',
+                        cognome_artigiano: ''
+                    };
+                }
+
+                try {
+                    const artisanResponse = await fetch(`/users/api/artisan/${product.artigiano_id}`, {
+                        headers: {
+                            'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                        }
+                    });
+                    
+                    if (!artisanResponse.ok) {
+                        console.error(`Failed to fetch artisan details for ID: ${product.artigiano_id}`);
+                        return {
+                            ...product,
+                            nome_artigiano: 'Non disponibile',
+                            cognome_artigiano: ''
+                        };
+                    }
+
+                    const artisan = await artisanResponse.json();
+                    if (!artisan.success) {
+                        throw new Error('Invalid artisan data');
+                    }
+
+                    return {
+                        ...product,
+                        nome_artigiano: artisan.artisan.nome,
+                        cognome_artigiano: artisan.artisan.cognome
+                    };
+                } catch (error) {
+                    console.error(`Error fetching artisan ${product.artigiano_id}:`, error);
+                    return {
+                        ...product,
+                        nome_artigiano: 'Non disponibile',
+                        cognome_artigiano: ''
+                    };
+                }
+            }));
+
+            order.prodotti = productsWithArtisans;
+        }
+
         // Update modal content with proper number parsing
         const modalElements = {
             'orderDetailId': order.ordine_id,
@@ -258,6 +356,7 @@ async function viewOrderDetails(orderId) {
                 return `
                     <tr>
                         <td>${product.nome}</td>
+                        <!--<td>${product.nome_artigiano} ${product.cognome_artigiano}</td>-->
                         <td>${quantita}</td>
                         <td>€${prezzo.toFixed(2)}</td>
                         <td>€${subtotale.toFixed(2)}</td>

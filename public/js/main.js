@@ -1,3 +1,44 @@
+// Add fetch interceptor for authentication
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    try {
+        const [resource, config = {}] = args;
+        
+        // Don't add token for login/signup/public routes
+        const publicRoutes = ['/', '/index.html', '/auth/login', '/auth/signup', '/categories', '/users/artisans'];
+        const isPublicRoute = publicRoutes.some(route => resource.includes(route));
+        
+        if (!isPublicRoute) {
+            const token = sessionStorage.getItem('token');
+            if (!token) {
+                sessionStorage.clear();
+                window.location.href = '/login.html';
+                return null;
+            }
+
+            // Add token to headers
+            config.headers = {
+                ...config.headers,
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        const response = await originalFetch(resource, config);
+
+        // Check for authentication errors
+        if (response.status === 401) {
+            sessionStorage.clear();
+            window.location.href = '/login.html';
+            return null;
+        }
+
+        return response;
+    } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+    }
+};
+
 // Array di immagini per lo sfondo
 const backgroundImages = [
   '/assets/images/wallpaper1.jpg',
@@ -35,133 +76,140 @@ function loadComponent(selector, file, callback) {
     .catch(error => console.error('Errore nel caricamento:', error));
 }
 
-function initNavbar() {
-    const userMenu = document.getElementById('userMenu');
-    const guestMenu = document.getElementById('guestMenu');
-    const username = document.getElementById('username');
-    const clientMenuItems = document.querySelectorAll('.client-only');
-    const artisanMenuItems = document.querySelectorAll('.artisan-only');
-    const adminMenuItems = document.querySelectorAll('.admin-only');
+// Update updateNavbar function to include user ID in profile link
+function updateNavbar(user) {
+    if (!user) return;
 
-    // Get user from session storage
-    const rawUser = sessionStorage.getItem('user');
-    console.log('[Navbar Init] Session user:', rawUser);
+    // Update cart and profile links with user ID
+    const navLinks = {
+        cart: document.querySelector('.client-only a[href="/cart.html"]'),
+        profile: document.querySelector('.client-only a[href="/profile.html"]'),
+        dashboard: document.querySelector('.artisan-only a[href="/dashboard.html"]'),
+        admin: document.querySelector('.admin-only a[href="/admin.html"]')
+    };
 
-    if (rawUser) {
-        try {
-            const user = JSON.parse(rawUser);
-            if (user.username) {
-                // Show user menu, hide guest menu
-                userMenu?.classList.remove('d-none');
-                guestMenu?.classList.add('d-none');
-                username.textContent = `${user.nome} ${user.cognome}`;
-
-                // Hide all role-specific menu items first
-                clientMenuItems.forEach(item => item.classList.add('d-none'));
-                artisanMenuItems.forEach(item => item.classList.add('d-none'));
-                adminMenuItems.forEach(item => item.classList.add('d-none'));
-
-                // Show menu items based on user role
-                switch (user.ruolo_id) {
-                    case 1: // Cliente
-                        clientMenuItems.forEach(item => {
-                            item.classList.remove('d-none');
-                            item.classList.add('d-flex');
-                        });
-                        break;
-                    case 2: // Artigiano
-                        artisanMenuItems.forEach(item => {
-                            item.classList.remove('d-none');
-                            item.classList.add('d-flex');
-                        });
-                        break;
-                    case 3: // Admin
-                        adminMenuItems.forEach(item => {
-                            item.classList.remove('d-none');
-                            item.classList.add('d-flex');
-                        });
-                        break;
-                }
-            }
-        } catch (e) {
-            console.error('Errore parsing user:', e);
-            sessionStorage.clear();
-            userMenu?.classList.add('d-none');
-            guestMenu?.classList.remove('d-none');
-        }
-    } else {
-        // No user in session, show guest menu
-        userMenu?.classList.add('d-none');
-        guestMenu?.classList.remove('d-none');
+    if (user.ruolo_id === 1) {
+        if (navLinks.cart) navLinks.cart.href = `/cart.html?id=${user.id}`;
+        if (navLinks.profile) navLinks.profile.href = `/profile.html?id=${user.id}`;
+    } else if (user.ruolo_id === 2 && navLinks.dashboard) {
+        navLinks.dashboard.href = `/dashboard.html?id=${user.id}`;
+    } else if (user.ruolo_id === 3 && navLinks.admin) {
+        navLinks.admin.href = `/admin.html?id=${user.id}`;
     }
-    
-    // Handle logout
-    document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
-        e.preventDefault();
-        try {
-            const response = await fetch('/auth/logout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-    
-            if (!response.ok) {
-                throw new Error('Errore durante il logout');
-            }
-    
-            // Clear session storage
-            sessionStorage.clear();
-            console.log('Logout successful');
-            
-            // Redirect to login page
-            window.location.href = '/login.html';
-        } catch (error) {
-            console.error('Logout error:', error);
-            alert('Errore durante il logout. Riprova più tardi.');
-        }
-    });
 
-    // Add navigation handlers
-    document.querySelectorAll('a[href]').forEach(link => {
-        link.addEventListener('click', function(e) {
-            const path = this.getAttribute('href');
-            const protectedPaths = ['profile.html', 'dashboard.html', 'admin.html', 'cart.html'];
+    // Update username in navbar
+    const usernameElement = document.querySelector('#username');
+    if (usernameElement) {
+        usernameElement.textContent = user.username;
+    }
+}
+
+// Update initNavbar function
+async function initNavbar() {
+    try {
+        const navbarResponse = await fetch('/components/navbar.html');
+        const navbarHtml = await navbarResponse.text();
+        document.getElementById('navbar').innerHTML = navbarHtml;
+
+        const rawUser = sessionStorage.getItem('user');
+        if (rawUser) {
+            const user = JSON.parse(rawUser);
+            updateNavbar(user);
+
+            // Show appropriate menu
+            const userMenu = document.getElementById('userMenu');
+            const guestMenu = document.getElementById('guestMenu');
             
-            if (protectedPaths.some(p => path.includes(p))) {
-                e.preventDefault();
-                const rawUser = sessionStorage.getItem('user');
-                
-                if (!rawUser) {
-                    window.location.href = '/login.html';
+            if (userMenu && guestMenu) {
+                userMenu.classList.remove('d-none');
+                guestMenu.classList.add('d-none');
+
+                // Update navigation links visibility
+                const clientLinks = document.querySelectorAll('.client-only');
+                const artisanLinks = document.querySelectorAll('.artisan-only');
+                const adminLinks = document.querySelectorAll('.admin-only');
+
+                if (user.ruolo_id === 1) {
+                    clientLinks.forEach(link => link.classList.remove('d-none'));
+                } else if (user.ruolo_id === 2) {
+                    artisanLinks.forEach(link => link.classList.remove('d-none'));
+                } else if (user.ruolo_id === 3) {
+                    adminLinks.forEach(link => link.classList.remove('d-none'));
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error initializing navbar:', error);
+    }
+}
+
+// Handle logout
+document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
+    e.preventDefault();
+    try {
+        const response = await fetch('/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore durante il logout');
+        }
+
+        // Clear session storage
+        sessionStorage.clear();
+        console.log('Logout successful');
+        
+        // Redirect to login page
+        window.location.href = '/login.html';
+    } catch (error) {
+        console.error('Logout error:', error);
+        alert('Errore durante il logout. Riprova più tardi.');
+    }
+});
+
+// Add navigation handlers
+document.querySelectorAll('a[href]').forEach(link => {
+    link.addEventListener('click', function(e) {
+        const path = this.getAttribute('href');
+        const protectedPaths = ['profile.html', 'dashboard.html', 'admin.html', 'cart.html'];
+        
+        if (protectedPaths.some(p => path.includes(p))) {
+            e.preventDefault();
+            const rawUser = sessionStorage.getItem('user');
+            
+            if (!rawUser) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                const user = JSON.parse(rawUser);
+                // Always allow cart for authenticated users
+                if (path.includes('cart.html')) {
+                    window.location.href = path;
                     return;
                 }
 
-                try {
-                    const user = JSON.parse(rawUser);
-                    // Always allow cart for authenticated users
-                    if (path.includes('cart.html')) {
-                        window.location.href = path;
-                        return;
-                    }
-
-                    // Check role-based access
-                    if ((path.includes('profile.html') && user.ruolo_id === 1) ||
-                        (path.includes('dashboard.html') && user.ruolo_id === 2) ||
-                        (path.includes('admin.html') && user.ruolo_id === 3)) {
-                        window.location.href = path;
-                    } else {
-                        window.location.href = '/index.html';
-                    }
-                } catch (error) {
-                    console.error('Navigation error:', error);
-                    sessionStorage.clear();
-                    window.location.href = '/login.html';
+                // Check role-based access
+                if ((path.includes('profile.html') && user.ruolo_id === 1) ||
+                    (path.includes('dashboard.html') && user.ruolo_id === 2) ||
+                    (path.includes('admin.html') && user.ruolo_id === 3)) {
+                    window.location.href = path;
+                } else {
+                    window.location.href = '/index.html';
                 }
+            } catch (error) {
+                console.error('Navigation error:', error);
+                sessionStorage.clear();
+                window.location.href = '/login.html';
             }
-        });
+        }
     });
-}
+});
+
 
 //Gestione dei permessi di navigazione
 function checkAuthForNavigation() {
@@ -223,6 +271,11 @@ loadComponent('#footer', '/components/footer.html');
 // Add this line after loadComponent calls
 document.addEventListener('DOMContentLoaded', checkAuthForNavigation);
 
+// Initialize page
+document.addEventListener('DOMContentLoaded', () => {
+    initNavbar();
+});
+
 
 /***********Pagina Catalogo ******************/
 // Funzione per generare le stelle in base alla valutazione
@@ -267,80 +320,6 @@ function loadReviews(containerSelector, jsonFile) {
     })
     .catch((error) => console.error('Errore nel caricamento delle recensioni:', error));
 }
-
-
-/**************Dashboard *************/
-//Caricamento immagine profilo
-function uploadProfilePicture(event) {
-  const file = event.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      // Aggiorna l'immagine profilo con l'anteprima
-      document.getElementById('profilePicture').src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-
-    // TODO: Salva il file nel db
-    console.log('Immagine caricata:', file.name);
-  }
-}
-
-//Gestione dei grafici
-document.addEventListener('DOMContentLoaded', () => {
-  // Grafico vendite
-  const ctx = document.getElementById('salesChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
-      datasets: [{
-        label: 'Vendite Mensili (€)',
-        data: [500, 700, 1000, 800, 1200, 1500, 1300, 1600, 1400, 1700, 1900, 2000],
-        borderColor: 'rgba(139, 94, 60, 1)',
-        backgroundColor: 'rgba(139, 94, 60, 0.1)',
-        fill: true,
-        tension: 0.4
-      }]
-    }
-  });
-
-  // Grafico delle recensioni
-  const reviewCtx = document.getElementById('reviewsChart').getContext('2d');
-  new Chart(reviewCtx, {
-    type: 'doughnut',
-    data: {
-      labels: ['5 stelle', '4 stelle', '3 stelle', '2 stelle', '1 stella'],
-      datasets: [{
-        label: 'Valutazioni',
-        data: [50, 25, 15, 7, 3], // Esempio di distribuzione %
-        backgroundColor: [
-          '#A97B5D', // 5 stelle - marrone chiaro
-          '#C2A385', // 4 stelle - beige
-          '#D6BFAF', // 3 stelle - beige chiaro
-          '#E8D7C8', // 2 stelle - sabbia
-          '#F5EFE9'  // 1 stella - quasi bianco
-        ],
-        borderColor: '#ffffff',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      cutout: '50%', // Effetto "ciambella"
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: '#5C3D2E',
-            font: {
-              size: 14
-            }
-          }
-        }
-      }
-    }
-  });
-});
 
 
 /************** Modale Conferma ordine **************/

@@ -74,6 +74,78 @@ async function loadArtisanProfile() {
     }
 }
 
+//Caricamento immagine profilo
+function uploadProfilePicture(event) {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      // Aggiorna l'immagine profilo con l'anteprima
+      document.getElementById('profilePicture').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // TODO: Salva il file nel db
+    console.log('Immagine caricata:', file.name);
+  }
+}
+
+//Gestione dei grafici
+document.addEventListener('DOMContentLoaded', () => {
+  // Grafico vendite
+  const ctx = document.getElementById('salesChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
+      datasets: [{
+        label: 'Vendite Mensili (€)',
+        data: [500, 700, 1000, 800, 1200, 1500, 1300, 1600, 1400, 1700, 1900, 2000],
+        borderColor: 'rgba(139, 94, 60, 1)',
+        backgroundColor: 'rgba(139, 94, 60, 0.1)',
+        fill: true,
+        tension: 0.4
+      }]
+    }
+  });
+
+  // Grafico delle recensioni
+  const reviewCtx = document.getElementById('reviewsChart').getContext('2d');
+  new Chart(reviewCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['5 stelle', '4 stelle', '3 stelle', '2 stelle', '1 stella'],
+      datasets: [{
+        label: 'Valutazioni',
+        data: [50, 25, 15, 7, 3], // Esempio di distribuzione %
+        backgroundColor: [
+          '#A97B5D', // 5 stelle - marrone chiaro
+          '#C2A385', // 4 stelle - beige
+          '#D6BFAF', // 3 stelle - beige chiaro
+          '#E8D7C8', // 2 stelle - sabbia
+          '#F5EFE9'  // 1 stella - quasi bianco
+        ],
+        borderColor: '#ffffff',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      cutout: '50%', // Effetto "ciambella"
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#5C3D2E',
+            font: {
+              size: 14
+            }
+          }
+        }
+      }
+    }
+  });
+});
+
 document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
