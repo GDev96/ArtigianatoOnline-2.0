@@ -184,7 +184,6 @@ router.post('/order', requireAuth, async (req, res) => {
 
 //TODO: PUT modifica segnalazione - admin
 
-
 // DELETE elimina segnalazione - solo utente che ha fatto la segnalazione
 router.delete('/:id', requireAuth, async (req, res) => {
     try {

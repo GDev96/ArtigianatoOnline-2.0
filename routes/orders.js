@@ -118,4 +118,10 @@ router.get('/:id', requireAuth, async (req, res) => {
     }
 });
 
+// TODO: Implementa la creazione di un nuovo ordine
+
+// TODO: Implementa l'aggiornamento dello stato di un ordine
+
+// TODO: Implementa la cancellazione di un ordine
+
 module.exports = router;

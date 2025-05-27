@@ -1,3 +1,45 @@
+// Add fetch interceptor for authentication
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    try {
+        const [resource, config = {}] = args;
+        
+        // Don't add token for login/signup/public routes
+        const publicRoutes = ['/auth/login', '/auth/signup', '/categories', '/users/artisans'];
+        const isPublicRoute = publicRoutes.some(route => resource.includes(route));
+        
+        if (!isPublicRoute) {
+            const token = sessionStorage.getItem('token');
+            if (!token) {
+                sessionStorage.clear();
+                window.location.href = '/login.html';
+                return null;
+            }
+
+            // Add token to headers
+            config.headers = {
+                ...config.headers,
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        const response = await originalFetch(resource, config);
+
+        // Check for authentication errors
+        if (response.status === 401) {
+            sessionStorage.clear();
+            window.location.href = '/login.html';
+            return null;
+        }
+
+        return response;
+    } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+    }
+};
+
+
 // Array di immagini per lo sfondo
 const backgroundImages = [
   '/assets/images/wallpaper1.jpg',
@@ -35,67 +77,57 @@ function loadComponent(selector, file, callback) {
     .catch(error => console.error('Errore nel caricamento:', error));
 }
 
-function initNavbar() {
-    const userMenu = document.getElementById('userMenu');
-    const guestMenu = document.getElementById('guestMenu');
-    const username = document.getElementById('username');
-    const clientMenuItems = document.querySelectorAll('.client-only');
-    const artisanMenuItems = document.querySelectorAll('.artisan-only');
-    const adminMenuItems = document.querySelectorAll('.admin-only');
+// Initialize navbar
+async function initNavbar() {
+    try {
+        // Load navbar content
+        const navbarResponse = await fetch('/components/navbar.html');
+        const navbarHtml = await navbarResponse.text();
+        document.getElementById('navbar').innerHTML = navbarHtml;
 
-    // Get user from session storage
-    const rawUser = sessionStorage.getItem('user');
-    console.log('[Navbar Init] Session user:', rawUser);
+        const userMenu = document.getElementById('userMenu');
+        const guestMenu = document.getElementById('guestMenu');
+        const username = document.querySelector('#username');
 
-    if (rawUser) {
-        try {
-            const user = JSON.parse(rawUser);
-            if (user.username) {
-                // Update navbar with user data
-                updateNavbar(user);
+        // Get user from session storage
+        const rawUser = sessionStorage.getItem('user');
+        console.log('[Navbar Init] Session user:', rawUser);
 
-                // Show user menu, hide guest menu
-                userMenu?.classList.remove('d-none');
-                guestMenu?.classList.add('d-none');
-                username.textContent = `${user.nome} ${user.cognome}`;
+        if (rawUser) {
+            try {
+                const user = JSON.parse(rawUser);
+                if (user.username) {
+                    // Show user menu, hide guest menu
+                    userMenu?.classList.remove('d-none');
+                    guestMenu?.classList.add('d-none');
+                    
+                    // Set username if element exists
+                    if (username) {
+                        username.textContent = `${user.nome} ${user.cognome}`;
+                    }
 
-                // Hide all role-specific menu items first
-                clientMenuItems.forEach(item => item.classList.add('d-none'));
-                artisanMenuItems.forEach(item => item.classList.add('d-none'));
-                adminMenuItems.forEach(item => item.classList.add('d-none'));
+                    // Update navigation links
+                    const clientLinks = document.querySelectorAll('.client-only');
+                    const artisanLinks = document.querySelectorAll('.artisan-only');
+                    const adminLinks = document.querySelectorAll('.admin-only');
 
-                // Show menu items based on user role
-                switch (user.ruolo_id) {
-                    case 1: // Cliente
-                        clientMenuItems.forEach(item => {
-                            item.classList.remove('d-none');
-                            item.classList.add('d-flex');
-                        });
-                        break;
-                    case 2: // Artigiano
-                        artisanMenuItems.forEach(item => {
-                            item.classList.remove('d-none');
-                            item.classList.add('d-flex');
-                        });
-                        break;
-                    case 3: // Admin
-                        adminMenuItems.forEach(item => {
-                            item.classList.remove('d-none');
-                            item.classList.add('d-flex');
-                        });
-                        break;
+                    if (user.ruolo_id === 1) {
+                        clientLinks.forEach(link => link.classList.remove('d-none'));
+                    } else if (user.ruolo_id === 2) {
+                        artisanLinks.forEach(link => link.classList.remove('d-none'));
+                    } else if (user.ruolo_id === 3) {
+                        adminLinks.forEach(link => link.classList.remove('d-none'));
+                    }
                 }
+            } catch (e) {
+                console.error('Errore parsing user:', e);
+                sessionStorage.clear();
+                userMenu?.classList.add('d-none');
+                guestMenu?.classList.remove('d-none');
             }
-        } catch (e) {
-            console.error('Errore parsing user:', e);
-            sessionStorage.clear();
-            userMenu?.classList.add('d-none');
-            guestMenu?.classList.remove('d-none');
         }
-    } else {
-        // No user in session, show guest menu
-        userMenu?.classList.add('d-none');
-        guestMenu?.classList.remove('d-none');
+    } catch (error) {
+        console.error('Error initializing navbar:', error);
     }
 }
 
@@ -126,72 +158,72 @@ function updateNavbar(user) {
     }
 }
 
-    // Handle logout
-    document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
-        e.preventDefault();
-        try {
-            const response = await fetch('/auth/logout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-    
-            if (!response.ok) {
-                throw new Error('Errore durante il logout');
+// Handle logout
+document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
+    e.preventDefault();
+    try {
+        const response = await fetch('/auth/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             }
-    
-            // Clear session storage
-            sessionStorage.clear();
-            console.log('Logout successful');
-            
-            // Redirect to login page
-            window.location.href = '/login.html';
-        } catch (error) {
-            console.error('Logout error:', error);
-            alert('Errore durante il logout. Riprova più tardi.');
-        }
-    });
+        });
 
-    // Add navigation handlers
-    document.querySelectorAll('a[href]').forEach(link => {
-        link.addEventListener('click', function(e) {
-            const path = this.getAttribute('href');
-            const protectedPaths = ['profile.html', 'dashboard.html', 'admin.html', 'cart.html'];
+        if (!response.ok) {
+            throw new Error('Errore durante il logout');
+        }
+
+        // Clear session storage
+        sessionStorage.clear();
+        console.log('Logout successful');
+        
+        // Redirect to login page
+        window.location.href = '/login.html';
+    } catch (error) {
+        console.error('Logout error:', error);
+        alert('Errore durante il logout. Riprova più tardi.');
+    }
+});
+
+// Add navigation handlers
+document.querySelectorAll('a[href]').forEach(link => {
+    link.addEventListener('click', function(e) {
+        const path = this.getAttribute('href');
+        const protectedPaths = ['profile.html', 'dashboard.html', 'admin.html', 'cart.html'];
+        
+        if (protectedPaths.some(p => path.includes(p))) {
+            e.preventDefault();
+            const rawUser = sessionStorage.getItem('user');
             
-            if (protectedPaths.some(p => path.includes(p))) {
-                e.preventDefault();
-                const rawUser = sessionStorage.getItem('user');
-                
-                if (!rawUser) {
-                    window.location.href = '/login.html';
+            if (!rawUser) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                const user = JSON.parse(rawUser);
+                // Always allow cart for authenticated users
+                if (path.includes('cart.html')) {
+                    window.location.href = path;
                     return;
                 }
 
-                try {
-                    const user = JSON.parse(rawUser);
-                    // Always allow cart for authenticated users
-                    if (path.includes('cart.html')) {
-                        window.location.href = path;
-                        return;
-                    }
-
-                    // Check role-based access
-                    if ((path.includes('profile.html') && user.ruolo_id === 1) ||
-                        (path.includes('dashboard.html') && user.ruolo_id === 2) ||
-                        (path.includes('admin.html') && user.ruolo_id === 3)) {
-                        window.location.href = path;
-                    } else {
-                        window.location.href = '/index.html';
-                    }
-                } catch (error) {
-                    console.error('Navigation error:', error);
-                    sessionStorage.clear();
-                    window.location.href = '/login.html';
+                // Check role-based access
+                if ((path.includes('profile.html') && user.ruolo_id === 1) ||
+                    (path.includes('dashboard.html') && user.ruolo_id === 2) ||
+                    (path.includes('admin.html') && user.ruolo_id === 3)) {
+                    window.location.href = path;
+                } else {
+                    window.location.href = '/index.html';
                 }
+            } catch (error) {
+                console.error('Navigation error:', error);
+                sessionStorage.clear();
+                window.location.href = '/login.html';
             }
-        });
+        }
     });
+});
 
 
 //Gestione dei permessi di navigazione
@@ -253,6 +285,11 @@ loadComponent('#footer', '/components/footer.html');
 
 // Add this line after loadComponent calls
 document.addEventListener('DOMContentLoaded', checkAuthForNavigation);
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', () => {
+    initNavbar();
+});
 
 
 /***********Pagina Catalogo ******************/

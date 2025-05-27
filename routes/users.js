@@ -155,7 +155,6 @@ router.put('/update/:id', async (req, res) => {
     }
 });
 
-
 //TODO: API per modificare un artigiano - admin
 
 //TODO: API per eliminare un utente - admin
