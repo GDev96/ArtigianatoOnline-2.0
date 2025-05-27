@@ -1,77 +1,189 @@
+// Keep only one initialization event
 document.addEventListener('DOMContentLoaded', async () => {
-    const rawUser = sessionStorage.getItem('user');
-    if (!rawUser) {
-        window.location.href = '/login.html';
-        return;
-    }
-
     try {
+        // Get session user for authorization check
+        const rawUser = sessionStorage.getItem('user');
+        if (!rawUser) {
+            window.location.href = '/login.html';
+            return;
+        }
+
         const user = JSON.parse(rawUser);
         if (user.ruolo_id !== 2) {
             window.location.href = '/index.html';
             return;
         }
-        // Continue with dashboard initialization...
+
+        // Initialize dashboard
+        await Promise.all([
+            loadArtisanProfile(user),
+            loadArtisanProducts(),
+            loadCategories()
+        ]);
+
     } catch (error) {
-        console.error('Error loading dashboard:', error);
-        sessionStorage.clear();
+        console.error('Error initializing dashboard:', error);
         window.location.href = '/login.html';
     }
 });
 
-// Initialization
-document.addEventListener('DOMContentLoaded', async () => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user || user.ruolo_id !== 2) {
-        window.location.href = '/login.html';
-        return;
-    }
-
-    await Promise.all([
-        loadArtisanProfile(),
-        loadArtisanProducts(),
-        loadCategories()
-    ]);
-});
-
-// --- GESTIONE ARTIGIANO ---
-async function loadArtisanProfile() {
+// Update loadArtisanProfile to use passed user data
+async function loadArtisanProfile(user) {
     try {
-        const user = JSON.parse(localStorage.getItem('user'));
-        
-        // Carica i dati del profilo
-        document.getElementById('profilePicture').src = user.immagine || '/assets/images/wallpaper1.jpg';
-        document.getElementById('profileName').textContent = `${user.nome} ${user.cognome}`;
-        
-        // Aggiungi la categoria dell'artigiano
-        const categoryBadge = document.getElementById('artisanCategory');
-        if (user.tipologia_id) {
-            categoryBadge.textContent = getCategoryName(user.tipologia_id);
-            categoryBadge.style.display = 'inline-block';
-        } else {
-            categoryBadge.style.display = 'none';
+        // Fetch complete artisan data
+        const response = await fetch(`/users/api/artisan/${user.id}`, {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore nel recupero dei dati artigiano');
         }
 
-        // Aggiorna le card con i dati dell'utente
-        const cards = document.querySelectorAll('.card p');
-        cards[0].textContent = user.indirizzo || 'Non specificato';
-        cards[1].textContent = user.citta || 'Non specificata';
-        cards[2].textContent = user.numero_telefono || 'Non specificato';
-        cards[3].textContent = user.email || 'Non specificata';
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error('Dati artigiano non validi');
+        }
 
-        // Precompila i campi del form di modifica
-        document.getElementById('editNameInput').value = user.nome || '';
-        document.getElementById('editSurnameInput').value = user.cognome || '';
-        document.getElementById('editEmailInput').value = user.email || '';
-        document.getElementById('editPhoneInput').value = user.numero_telefono || '';
-        document.getElementById('editAddressInput').value = user.indirizzo || '';
-        document.getElementById('editCityInput').value = user.citta || '';
-        document.getElementById('editIbanInput').value = user.iban || '';
-        document.getElementById('editCategoryInput').value = user.tipologia_id || '';
+        const artisan = data.artisan;
+
+        // Update profile image
+        const profilePicture = document.getElementById('profilePicture');
+        if (profilePicture) {
+            profilePicture.src = artisan.immagine 
+                ? `data:image/jpeg;base64,${artisan.immagine}`
+                : '/assets/images/wallpaper1.jpg';
+        }
+
+        // Update profile name and category
+        const profileNameEl = document.getElementById('profileName');
+        if (profileNameEl) {
+            profileNameEl.textContent = `${artisan.nome} ${artisan.cognome}`;
+        }
+
+        // Update category badge
+        const categoryBadge = document.getElementById('artisanCategory');
+        if (categoryBadge) {
+            if (artisan.tipologia_id) {
+                categoryBadge.textContent = artisan.nome_tipologia;
+                categoryBadge.classList.remove('d-none');
+            } else {
+                categoryBadge.classList.add('d-none');
+            }
+        }
+
+        // Update info cards
+        const cards = document.querySelectorAll('.card p');
+        if (cards.length >= 4) {
+            cards[0].textContent = artisan.indirizzo || 'Non specificato';
+            cards[1].textContent = artisan.citta || 'Non specificata';
+            cards[2].textContent = artisan.numero_telefono || 'Non specificato';
+            cards[3].textContent = artisan.email || 'Non specificato';
+        }
+
+        // Populate form fields
+        const formFields = {
+            'editNameInput': artisan.nome,
+            'editSurnameInput': artisan.cognome,
+            'editEmailInput': artisan.email,
+            'editPhoneInput': artisan.numero_telefono || '',
+            'editAddressInput': artisan.indirizzo || '',
+            'editCityInput': artisan.citta || '',
+            'editCategoryInput': artisan.tipologia_id || ''
+        };
+
+        Object.entries(formFields).forEach(([fieldId, value]) => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.value = value;
+            }
+        });
 
     } catch (error) {
-        console.error('Errore nel caricamento del profilo:', error);
+        console.error('Error loading artisan profile:', error);
+        throw error;
     }
+}
+
+// Update other functions to use sessionStorage instead of localStorage
+document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+        const userId = new URLSearchParams(window.location.search).get('id');
+        const formData = {
+            nome: document.getElementById('editNameInput').value.trim() || null,
+            cognome: document.getElementById('editSurnameInput').value.trim() || null,
+            email: document.getElementById('editEmailInput').value.trim() || null,
+            numero_telefono: document.getElementById('editPhoneInput').value.trim() || null,
+            indirizzo: document.getElementById('editAddressInput').value.trim() || null,
+            citta: document.getElementById('editCityInput').value.trim() || null,
+            tipologia_id: document.getElementById('editCategoryInput').value || null
+        };
+
+        // Filter out null values
+        Object.keys(formData).forEach(key => 
+            formData[key] === null && delete formData[key]
+        );
+
+        const response = await fetch(`/users/update/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            },
+            body: JSON.stringify(formData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nell\'aggiornamento del profilo');
+        }
+
+        const data = await response.json();
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+        modal.hide();
+
+        // Update session user data
+        const sessionUser = JSON.parse(sessionStorage.getItem('user'));
+        const updatedUser = { ...sessionUser, ...data.user };
+        sessionStorage.setItem('user', JSON.stringify(updatedUser));
+
+        // Reload artisan profile
+        await loadArtisanProfile(updatedUser);
+
+        // Show success message
+        showSuccessMessage('Profilo aggiornato con successo');
+
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showErrorMessage(error.message || 'Errore nell\'aggiornamento del profilo');
+    }
+});
+
+function showSuccessMessage(message) {
+    const container = document.createElement('div');
+    container.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    container.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(container);
+    setTimeout(() => container.remove(), 3000);
+}
+
+function showErrorMessage(message) {
+    const container = document.createElement('div');
+    container.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    container.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(container);
+    setTimeout(() => container.remove(), 3000);
 }
 
 //Caricamento immagine profilo
@@ -89,6 +201,8 @@ function uploadProfilePicture(event) {
     console.log('Immagine caricata:', file.name);
   }
 }
+
+
 
 //Gestione dei grafici
 document.addEventListener('DOMContentLoaded', () => {
@@ -146,43 +260,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const updatedProfile = {
-        nome: document.getElementById('editNameInput').value,
-        cognome: document.getElementById('editSurnameInput').value,
-        email: document.getElementById('editEmailInput').value,
-        numero_telefono: document.getElementById('editPhoneInput').value,
-        indirizzo: document.getElementById('editAddressInput').value,
-        citta: document.getElementById('editCityInput').value,
-        iban: document.getElementById('editIbanInput').value,
-        tipologia_id: document.getElementById('editCategoryInput').value
-    };
-
-    try {
-        const response = await fetch('/api/profile', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify(updatedProfile)
-        });
-
-        if (response.ok) {
-            const user = JSON.parse(localStorage.getItem('user'));
-            const updatedUser = { ...user, ...updatedProfile };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            
-            await loadArtisanProfile();
-            bootstrap.Modal.getInstance(document.getElementById('editProfileModal')).hide();
-        }
-    } catch (error) {
-        console.error('Errore durante l\'aggiornamento del profilo:', error);
-    }
-});
-
 document.getElementById('profilePictureInput').addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -212,20 +289,32 @@ document.getElementById('profilePictureInput').addEventListener('change', async 
     }
 });
 
+
+
 // --- GESTIONE CATEGORIE ---
 async function loadCategories() {
     try {
-        const response = await fetch('/api/categories');
+        // Change endpoint to match the one in index.js
+        const response = await fetch('/categories', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
         if (!response.ok) {
             throw new Error('Errore nel recupero delle categorie');
         }
 
         const data = await response.json();
+        if (!data.categories) {
+            throw new Error('Formato dati categorie non valido');
+        }
+
+        // Get all select elements that need categories
         const selectElements = [
             document.getElementById('productCategoryInput'),
-            document.getElementById('editProductModal').querySelector('#productCategoryInput'),
-            document.getElementById('editCategoryInput') // Aggiunto il select del form artigiano
-        ];
+            document.getElementById('editCategoryInput')
+        ].filter(Boolean);
         
         const options = [
             '<option value="">Seleziona una categoria</option>',
@@ -234,15 +323,25 @@ async function loadCategories() {
             )
         ];
 
-        // Popola tutti i select con le stesse opzioni
+        // Populate all select elements with the same options
         selectElements.forEach(select => {
             if (select) {
                 select.innerHTML = options.join('');
             }
         });
 
+        // Set the current artisan's category if available
+        const artisan = JSON.parse(sessionStorage.getItem('user'));
+        if (artisan?.tipologia_id) {
+            const editCategorySelect = document.getElementById('editCategoryInput');
+            if (editCategorySelect) {
+                editCategorySelect.value = artisan.tipologia_id;
+            }
+        }
+
     } catch (error) {
         console.error('Errore nel caricamento delle categorie:', error);
+        showErrorMessage('Errore nel caricamento delle categorie');
     }
 }
 
