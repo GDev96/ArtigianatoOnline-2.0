@@ -14,8 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 document.addEventListener('DOMContentLoaded', function() {
     // Recupera i dati utente dal localStorage
     const user = JSON.parse(localStorage.getItem('user'));
-    
-    if (user) {
+
         document.getElementById('profileName').textContent = `${user.nome} ${user.cognome}`;
         document.getElementById('username').textContent = user.nome_utente;
 
@@ -35,10 +34,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('editPhoneInput').value = user.telefono || '';
         document.getElementById('editAddressInput').value = user.indirizzo || '';
         document.getElementById('editCityInput').value = user.citta || '';
-    } else {
-        // Reindirizza alla pagina di login se l'utente non è autenticato
-        window.location.href = '/login.html';
-    }
 });
 
 
