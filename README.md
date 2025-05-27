@@ -31,6 +31,9 @@ Legenda:
 | API recensioni             | -         | -          | ❌ Da fare   |
 | API segnalazioni             | -         | -          | ❌ Da fare   |
 | API Ordini             | -         | -          | ❌ Da fare   |
+| Correzione logout token             | -         | -          | ❌ Da fare   |
+| Recupero password             | -         | -          | ❌ Da fare   |
+| Docker             | -         | -          | ❌ Da fare   |
 
 ## DATABASE
 

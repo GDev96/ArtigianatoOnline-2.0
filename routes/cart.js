@@ -203,9 +203,10 @@ router.delete('/remove/:id', requireAuth, async (req, res) => {
         const prodotto_id = req.params.id;
         const cliente_id = req.user.id;
 
+        // Rimuovi il check dello stato dalla query
         const result = await pool.query(
-            'DELETE FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2 AND stato = $3 RETURNING *',
-            [cliente_id, prodotto_id, 'attivo']
+            'DELETE FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2 RETURNING *',
+            [cliente_id, prodotto_id]
         );
 
         if (result.rows.length === 0) {
@@ -229,6 +230,8 @@ router.delete('/remove/:id', requireAuth, async (req, res) => {
         });
     }
 });
+
+//TOOD : Implement a route to clear the cart
 
 module.exports = router;
 
