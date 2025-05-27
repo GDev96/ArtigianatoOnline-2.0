@@ -337,8 +337,6 @@ async function updateCartQuantity(productId, newQuantity, maxQuantity) {
 
 
 
-
-
 // Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato - corretta
 document.addEventListener('DOMContentLoaded', function() {
     const user = JSON.parse(sessionStorage.getItem('user'));
@@ -405,7 +403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (artisanReviews.length === 0) {
             const user = JSON.parse(sessionStorage.getItem('user'));
-
+            //TODO: aggiungi pulsante per modificare ed per eliminare recensione se l'id dell'utente loggato corrisponde a quello dell'utente che ha scritto la recensione
             reviewsContainer.innerHTML = `
                 <div class="col-9">
                     <div class="card text-center p-5">

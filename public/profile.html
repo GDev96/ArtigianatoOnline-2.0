@@ -15,28 +15,28 @@
         <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center">
             <!-- Dettagli profilo -->
             <div class="flex-grow-1 ms-md-4">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-3">
-                    <div class="d-flex flex-column flex-md-row justify-content-start align-items-center mb-3 mb-md-0">
-                        <h1 class="h3 text-center text-md-start mb-md-0"><span id="profileName">Nome e cognome</span></h1>
-                        <h5 class="username text-center text-md-start ms-md-2 mb-3 mb-md-0">@<span id="username">nome_utente</span></h5>
-                    </div>
-                    <button class="btn" data-bs-toggle="modal" data-bs-target="#editProfileModal">Modifica Profilo</button>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-3">
+                <div class="d-flex flex-column flex-md-row justify-content-start align-items-center mb-3 mb-md-0">
+                    <h1 id="profileName" class="fw-normal fs-4 mb-2"></h1>
+                    <p class="username lead ms-md-2 mb-1">@<span id="username" class="username"></span></p>
                 </div>
+                <button class="btn" data-bs-toggle="modal" data-bs-target="#editProfileModal">Modifica Profilo</button>
+            </div>
                 <div class="row justify-content-between">
                     <div class="col-12 col-md-6 col-lg-3 mb-3" style="width: auto;">
-                        <div class="card card-address p-3 text-center mx-1">
+                        <div class="card bg-light card-address p-3 text-center mx-1">
                             <h6>Indirizzo di spedizione</h6>
                             <p></p>
                         </div>
                     </div>
                     <div class="col-12 col-md-6 col-lg-3 mb-3">
-                        <div class="card card-phone p-3 text-center mx-1">
+                        <div class="card bg-light card-phone p-3 text-center mx-1">
                             <h6>Telefono</h6>
                             <p></p>
                         </div>
                     </div>
                     <div class="col-12 col-md-6 col-lg-3 mb-3">
-                        <div class="card card-mail p-3 text-center mx-1">
+                        <div class="card bg-light card-mail p-3 text-center mx-1">
                             <h6>Email</h6>
                             <p></p>
                         </div>
@@ -55,7 +55,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <form id="editProfileForm">
+          <form id="editProfileForm" onsubmit="updateProfile(event)">
             <div class="row">
               <div class="col-12 col-md-6 mb-3">
                 <label for="editNameInput" class="form-label">Nome</label>
@@ -107,6 +107,7 @@
                                         <tr>
                                             <th>ID Ordine</th>
                                             <th>Data</th>
+                                            <th>Artigiano</th>
                                             <th>Totale</th>
                                             <th>Stato</th>
                                             <th>Azioni</th>
@@ -114,6 +115,34 @@
                                     </thead>
                                     <tbody id="ordersTableBody">
                                         <!-- Populated via JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recensioni -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title mb-4">Le mie Recensioni</h5>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Artigiano</th>
+                                            <th>Data</th>
+                                            <th>Valutazione</th>
+                                            <th>Recensione</th>
+                                            <th>Stato</th>
+                                            <th>Azioni</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reviewsTableBody">
+                                        <!-- Popola recensioni tramite js -->
                                     </tbody>
                                 </table>
                             </div>
@@ -136,6 +165,7 @@
                                             <th>Data</th>
                                             <th>Motivo</th>
                                             <th>Stato</th>
+                                            <th>Azioni</th>
                                         </tr>
                                     </thead>
                                     <tbody id="reportsTableBody">
@@ -147,38 +177,41 @@
                     </div>
                 </div>
             </div>
+
+            
         </div>
     </div>
-
-    <!-- Modale Segnalazione Ordine -->
-    <div class="modal fade" id="reportOrderModal" tabindex="-1">
+    
+    <!-- Modale modifica recensione -->
+    <div class="modal fade" id="editReviewModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Segnala Ordine</h5>
+                    <h5 class="modal-title">Modifica Recensione</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="reportOrderForm">
-                        <input type="hidden" id="reportOrderId">
+                    <form id="editReviewForm">
+                        <input type="hidden" id="editReviewId">
                         <div class="mb-3">
-                            <label class="form-label">Motivo della segnalazione</label>
-                            <select class="form-select" id="reportReason" required>
-                                <option value="">Seleziona un motivo</option>
-                                <option value="delivery">Problemi di consegna</option>
-                                <option value="product">Prodotto danneggiato/difettoso</option>
-                                <option value="other">Altro</option>
+                            <label class="form-label">Valutazione</label>
+                            <select class="form-select" id="editReviewRating" required>
+                                <option value="1">1 stella</option>
+                                <option value="2">2 stelle</option>
+                                <option value="3">3 stelle</option>
+                                <option value="4">4 stelle</option>
+                                <option value="5">5 stelle</option>
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Descrizione</label>
-                            <textarea class="form-control" id="reportDescription" rows="3" required></textarea>
+                            <label class="form-label">Recensione</label>
+                            <textarea class="form-control" id="editReviewText" rows="3" required></textarea>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                    <button type="button" class="btn btn-danger" onclick="submitOrderReport()">Invia segnalazione</button>
+                    <button type="button" class="btn btn-primary" onclick="updateReview()">Salva</button>
                 </div>
             </div>
         </div>
@@ -224,6 +257,42 @@
             </div>
         </div>
     </div>
+
+    <!-- Modale Segnalazione Ordine -->
+    <div class="modal fade" id="reportOrderModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Segnala Ordine</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reportOrderForm">
+                        <input type="hidden" id="reportOrderId">
+                        <div class="mb-3">
+                            <label class="form-label">Motivo della segnalazione</label>
+                            <select class="form-select" id="reportReason" required>
+                                <option value="">Seleziona un motivo</option>
+                                <option value="delivery">Problemi di consegna</option>
+                                <option value="product">Prodotto danneggiato/difettoso</option>
+                                <option value="other">Altro</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descrizione</label>
+                            <textarea class="form-control" id="reportDescription" rows="3" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-danger" onclick="submitOrderReport()">Invia segnalazione</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
 
 
     <div id="footer"></div>
