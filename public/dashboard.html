@@ -132,7 +132,7 @@
         <div class="col-md-6 mb-3">
           <div class="card m-0 p-3 h-100">
             <h4>Andamento Vendite</h4>
-            <canvas id="salesChart" height="250"></canvas><!--I valori nel grafico devono essere presi da db-->
+            <canvas id="salesChart" height="250"></canvas>
           </div>
         </div>
 
@@ -176,7 +176,6 @@
             </div>
             <div class="modal-body">
               <form id="addProductForm">
-                                <!-- Replace the select element in the add product form -->
                 <div class="mb-3">
                     <label for="productNameInput" class="form-label">Nome Prodotto*</label>
                     <input type="text" class="form-control" id="productNameInput" 
@@ -195,11 +194,6 @@
                            placeholder="Inserisci il prezzo" required min="0" step="0.01">
                 </div>
                 <div class="mb-3">
-                    <label for="productDescriptionInput" class="form-label">Descrizione</label>
-                    <textarea class="form-control" id="productDescriptionInput" 
-                              rows="3" placeholder="Inserisci una descrizione"></textarea>
-                </div>
-                <div class="mb-3">
                     <label for="productQuantityInput" class="form-label">Quantità</label>
                     <input type="number" class="form-control" id="productQuantityInput" 
                            placeholder="Inserisci la quantità" min="1" value="1" required>
@@ -215,49 +209,44 @@
             </div>
           </div>
         </div>
-      </div>
+    </div>
 
-      <!-- Modale per modificare un prodotto -->
-    <div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
+    <!-- Modale per modificare un prodotto -->
+    <div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addProductModalLabel">Aggiungi Prodotto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-              <form id="editProductForm">
-                  <div class="mb-3">
-                      <label for="productNameInput" class="form-label">Nome Prodotto</label>
-                      <input type="text" class="form-control" id="productNameInput" placeholder="Inserisci il nome del prodotto">
-                  </div>
-                  <div class="mb-3">
-                      <label for="productCategoryInput" class="form-label">Categoria</label>
-                      <select class="form-control" id="productCategoryInput">
-                          <!-- Le categorie verranno caricate dinamicamente -->
-                      </select>
-                  </div>
-                  <div class="mb-3">
-                      <label for="productPriceInput" class="form-label">Prezzo</label>
-                      <input type="number" class="form-control" id="productPriceInput" placeholder="Inserisci il prezzo" min="0" step="0.01">
-                  </div>
-                  <div class="mb-3">
-                      <label for="productQuantityInput" class="form-label">Quantità</label>
-                      <input type="number" class="form-control" id="productQuantityInput" placeholder="Inserisci la quantità" min="0">
-                  </div>
-                  <div class="mb-3">
-                      <label for="productDescriptionInput" class="form-label">Descrizione</label>
-                      <textarea class="form-control" id="productDescriptionInput" rows="3" placeholder="Inserisci una descrizione"></textarea>
-                  </div>
-                  <div class="d-flex justify-content-center align-items-center mb-3">
-                      <label for="productImageInput" class="form-label">Carica immagine</label>
-                      <input type="file" class="form-control" id="productImageInput" accept="image/*">
-                  </div>
-                  <div class="d-flex justify-content-end align-items-center mb-3">
-                      <button type="submit" class="btn">Modifica</button>
-                  </div>
-              </form>
-            </div>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProductModalLabel">Modifica Prodotto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProductForm">
+                        <div class="mb-3">
+                            <label for="editProductNameInput" class="form-label">Nome prodotto</label>
+                            <input type="text" class="form-control" id="editProductNameInput" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductCategoryInput" class="form-label">Categoria</label>
+                            <select class="form-control" id="editProductCategoryInput" required>
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductPriceInput" class="form-label">Prezzo</label>
+                            <input type="number" step="0.01" class="form-control" id="editProductPriceInput" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductQuantityInput" class="form-label">Quantità</label>
+                            <input type="number" class="form-control" id="editProductQuantityInput" min="0" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editProductImageInput" class="form-label">Immagine</label>
+                            <input type="file" class="form-control" id="editProductImageInput" accept="image/*">
+                            <img id="editProductImagePreview" class="mt-2 d-none" style="max-width: 200px;">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Salva modifiche</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

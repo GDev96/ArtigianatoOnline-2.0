@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         await Promise.all([
             loadArtisanProfile(user),
             loadArtisanProducts(),
-            loadCategories()
+            loadCategories(),
+            loadSalesChart(),
+            loadArtisanReviews()
         ]);
 
     } catch (error) {
@@ -201,66 +203,8 @@ function uploadProfilePicture(event) {
     console.log('Immagine caricata:', file.name);
   }
 }
-
-
-
-//Gestione dei grafici
-document.addEventListener('DOMContentLoaded', () => {
-  // Grafico vendite
-  const ctx = document.getElementById('salesChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
-      datasets: [{
-        label: 'Vendite Mensili (€)',
-        data: [500, 700, 1000, 800, 1200, 1500, 1300, 1600, 1400, 1700, 1900, 2000],
-        borderColor: 'rgba(139, 94, 60, 1)',
-        backgroundColor: 'rgba(139, 94, 60, 0.1)',
-        fill: true,
-        tension: 0.4
-      }]
-    }
-  });
-
-  // Grafico delle recensioni
-  const reviewCtx = document.getElementById('reviewsChart').getContext('2d');
-  new Chart(reviewCtx, {
-    type: 'doughnut',
-    data: {
-      labels: ['5 stelle', '4 stelle', '3 stelle', '2 stelle', '1 stella'],
-      datasets: [{
-        label: 'Valutazioni',
-        data: [50, 25, 15, 7, 3], // Esempio di distribuzione %
-        backgroundColor: [
-          '#A97B5D', // 5 stelle - marrone chiaro
-          '#C2A385', // 4 stelle - beige
-          '#D6BFAF', // 3 stelle - beige chiaro
-          '#E8D7C8', // 2 stelle - sabbia
-          '#F5EFE9'  // 1 stella - quasi bianco
-        ],
-        borderColor: '#ffffff',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      cutout: '50%', // Effetto "ciambella"
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            color: '#5C3D2E',
-            font: {
-              size: 14
-            }
-          }
-        }
-      }
-    }
-  });
-});
-
-document.getElementById('profilePictureInput').addEventListener('change', async (event) => {
+// Update the profile image upload endpoint //FIXME: non salva l'immagine nuova a db
+document.getElementById('profilePictureInput')?.addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -268,33 +212,149 @@ document.getElementById('profilePictureInput').addEventListener('change', async 
     formData.append('profileImage', file);
 
     try {
-        const response = await fetch('/api/profile/image', {
+        const response = await fetch('/users/profile/image', { // Update endpoint path
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}` // Use sessionStorage
             },
             body: formData
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            document.getElementById('profilePicture').src = data.imageUrl;
-            
-            const user = JSON.parse(localStorage.getItem('user'));
-            user.immagine = data.imageUrl;
-            localStorage.setItem('user', JSON.stringify(user));
-        }
+        // ...rest of the function...
     } catch (error) {
         console.error('Errore durante l\'upload dell\'immagine:', error);
+        showErrorMessage('Errore durante l\'upload dell\'immagine'); // Use showErrorMessage
     }
 });
+
+
+
+// --- GESTIONE GRAFICI E STATISTICHE ---
+//Gestione dei grafici
+async function loadSalesChart() {
+    try {
+        const response = await fetch('/orders/artisan/sales', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore nel recupero dei dati delle vendite');
+        }
+
+        const data = await response.json();
+        
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
+                datasets: [{
+                    label: 'Numero Ordini',
+                    data: data.data,
+                    borderColor: 'rgba(139, 94, 60, 1)',
+                    backgroundColor: 'rgba(139, 94, 60, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Ordini: ${context.parsed.y}`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error loading sales chart:', error);
+        const container = document.getElementById('salesChart').parentElement;
+        container.innerHTML = '<p class="text-center text-danger">Errore nel caricamento del grafico vendite</p>';
+    }
+}
+
+function updateReviewsChart(reviews) {
+    // Count reviews by rating
+    const ratings = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+    reviews.forEach(review => {
+        ratings[review.valutazione] = (ratings[review.valutazione] || 0) + 1;
+    });
+
+    const ctx = document.getElementById('reviewsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['5 stelle', '4 stelle', '3 stelle', '2 stelle', '1 stella'],
+            datasets: [{
+                data: [
+                    ratings[5],
+                    ratings[4],
+                    ratings[3],
+                    ratings[2],
+                    ratings[1]
+                ],
+                backgroundColor: [
+                    'var(--palette-primary)',     // Main blue
+                    'var(--palette-secondary)',   // Dark blue
+                    'var(--palette-accent)',      // Light blue accent
+                    'var(--palette-light)',       // Very light blue
+                    'var(--palette-medium)'       // Medium blue
+                ],
+                borderColor: '#ffffff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: 'var(--text-color)',
+                        padding: 20,
+                        font: {
+                            family: 'var(--font-primary)',
+                            size: 14
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${value} recensioni (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+}
+
 
 
 
 // --- GESTIONE CATEGORIE ---
 async function loadCategories() {
     try {
-        // Change endpoint to match the one in index.js
         const response = await fetch('/categories', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
@@ -310,41 +370,33 @@ async function loadCategories() {
             throw new Error('Formato dati categorie non valido');
         }
 
-        // Get all select elements that need categories
-        const selectElements = [
-            document.getElementById('productCategoryInput'),
-            document.getElementById('editCategoryInput')
-        ].filter(Boolean);
-        
-        const options = [
+        // Store categories in a global variable for later use
+        window.categoryOptions = [
             '<option value="">Seleziona una categoria</option>',
             ...data.categories.map(category => 
                 `<option value="${category.tipologia_id}">${category.nome_tipologia}</option>`
             )
         ];
 
+        // Get all select elements that need categories
+        const selectElements = [
+            document.getElementById('productCategoryInput'),
+            document.getElementById('editProductCategoryInput'),
+            document.getElementById('editCategoryInput')
+        ].filter(Boolean);
+        
         // Populate all select elements with the same options
         selectElements.forEach(select => {
             if (select) {
-                select.innerHTML = options.join('');
+                select.innerHTML = window.categoryOptions.join('');
             }
         });
-
-        // Set the current artisan's category if available
-        const artisan = JSON.parse(sessionStorage.getItem('user'));
-        if (artisan?.tipologia_id) {
-            const editCategorySelect = document.getElementById('editCategoryInput');
-            if (editCategorySelect) {
-                editCategorySelect.value = artisan.tipologia_id;
-            }
-        }
 
     } catch (error) {
         console.error('Errore nel caricamento delle categorie:', error);
         showErrorMessage('Errore nel caricamento delle categorie');
     }
 }
-
 function getCategoryName(tipologia_id) {
     const categories = {
         1: 'Ceramica',
@@ -361,13 +413,15 @@ function getCategoryName(tipologia_id) {
     return categories[tipologia_id] || 'Non specificata';
 }
 
+
+
 // --- GESTIONE PRODOTTI ---
 async function loadArtisanProducts() {
     try {
-        const user = JSON.parse(localStorage.getItem('user'));
-        const response = await fetch('/api/products', {
+        const user = JSON.parse(sessionStorage.getItem('user')); // Change localStorage to sessionStorage
+        const response = await fetch('/products', { // Change from /api/products to /products
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}` // Change localStorage to sessionStorage
             }
         });
 
@@ -396,7 +450,7 @@ async function loadArtisanProducts() {
                     <td>${product.nome_prodotto || ''}</td>
                     <td>${getCategoryName(product.tipologia_id)}</td>
                     <td>€${parseFloat(product.prezzo || 0).toFixed(2)}</td>
-                    <td>${product.quant || 0}</td>
+                    <td>${product.quantita || 0}</td>
                     <td class="d-flex justify-content-evenly align-items-center">
                         <button class="btn" onclick="editProduct(${product.prodotto_id})" data-bs-toggle="modal" data-bs-target="#editProductModal">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -421,6 +475,7 @@ async function loadArtisanProducts() {
     }
 }
 
+// Update the add product form handler
 document.getElementById('addProductForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -428,33 +483,31 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
         const formData = new FormData();
         
         // Get form values
-        const nome_prodotto = document.getElementById('productNameInput').value;
+        const nome_prodotto = document.getElementById('productNameInput').value.trim();
         const tipologia_id = document.getElementById('productCategoryInput').value;
         const prezzo = document.getElementById('productPriceInput').value;
-        const descrizione = document.getElementById('productDescriptionInput').value;
-        const quant = document.getElementById('productQuantityInput').value || '1';
+        const quantita = document.getElementById('productQuantityInput').value || '1';
         const imageFile = document.getElementById('productImageInput').files[0];
+
+        // Validation
+        if (!nome_prodotto || !tipologia_id || !prezzo) {
+            throw new Error('Compila tutti i campi obbligatori');
+        }
 
         // Append all form data
         formData.append('nome_prodotto', nome_prodotto);
         formData.append('tipologia_id', tipologia_id);
         formData.append('prezzo', prezzo);
-        formData.append('descrizione', descrizione);
-        formData.append('quant', quant);
+        formData.append('quantita', quantita);
         
         if (imageFile) {
             formData.append('immagine', imageFile);
         }
 
-        // Log FormData contents for debugging
-        for (let pair of formData.entries()) {
-            console.log(pair[0] + ': ' + pair[1]);
-        }
-
-        const response = await fetch('/api/products', {
+        const response = await fetch('/products', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             },
             body: formData
         });
@@ -464,22 +517,50 @@ document.getElementById('addProductForm').addEventListener('submit', async (e) =
             throw new Error(errorData.message || 'Errore durante l\'aggiunta del prodotto');
         }
 
-        bootstrap.Modal.getInstance(document.getElementById('addProductModal')).hide();
+        // Close modal and reset form
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addProductModal'));
+        modal.hide();
+        
+        // Reload products and show success message
         await loadArtisanProducts();
         document.getElementById('addProductForm').reset();
-        alert('Prodotto aggiunto con successo!');
+        showSuccessMessage('Prodotto aggiunto con successo');
 
     } catch (error) {
         console.error('Errore durante l\'aggiunta del prodotto:', error);
-        alert(error.message || 'Errore durante l\'aggiunta del prodotto');
+        showErrorMessage(error.message || 'Errore durante l\'aggiunta del prodotto');
     }
 });
 
+// Update editProduct function
 async function editProduct(productId) {
     try {
-        const response = await fetch(`/api/products/${productId}`, {
+        // Check if categories are loaded
+        if (!window.categoryOptions) {
+            await loadCategories();
+        }
+
+        const formElements = {
+            nameInput: document.getElementById('editProductNameInput'),
+            categoryInput: document.getElementById('editProductCategoryInput'),
+            priceInput: document.getElementById('editProductPriceInput'),
+            quantityInput: document.getElementById('editProductQuantityInput'),
+            imagePreview: document.getElementById('editProductImagePreview'),
+            form: document.getElementById('editProductForm')
+        };
+
+        // Verify all form elements exist
+        const missingElements = Object.entries(formElements)
+            .filter(([key, element]) => !element)
+            .map(([key]) => key);
+
+        if (missingElements.length > 0) {
+            throw new Error(`Elementi mancanti nel form: ${missingElements.join(', ')}`);
+        }
+
+        const response = await fetch(`/products/${productId}`, {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
@@ -487,56 +568,104 @@ async function editProduct(productId) {
             throw new Error('Errore nel recupero del prodotto');
         }
 
-        const product = await response.json();
+        const data = await response.json();
+        const product = data.product;
+
+        // Populate form fields
+        formElements.nameInput.value = product.nome_prodotto || '';
+        formElements.priceInput.value = product.prezzo || '';
+        formElements.quantityInput.value = product.quantita || '';
         
-        const modal = document.getElementById('editProductModal');
-        modal.querySelector('#productNameInput').value = product.nome_prodotto;
-        modal.querySelector('#productCategoryInput').value = product.tipologia_id;
-        modal.querySelector('#productPriceInput').value = product.prezzo;
-        modal.querySelector('#productQuantityInput').value = product.quant;
-        modal.querySelector('#productDescriptionInput').value = product.descrizione;
+        // Update category select with current product category
+        if (formElements.categoryInput) {
+            formElements.categoryInput.innerHTML = window.categoryOptions.join('');
+            formElements.categoryInput.value = product.tipologia_id || '';
+        }
+        
+        // Store product ID in form
+        formElements.form.dataset.productId = productId;
 
-        const editForm = modal.querySelector('form');
-        editForm.onsubmit = async (e) => {
-            e.preventDefault();
-
-            const formData = {
-                nome_prodotto: editForm.querySelector('#productNameInput').value,
-                tipologia_id: parseInt(editForm.querySelector('#productCategoryInput').value),
-                prezzo: parseFloat(editForm.querySelector('#productPriceInput').value),
-                quant: parseInt(editForm.querySelector('#productQuantityInput').value),
-                descrizione: editForm.querySelector('#productDescriptionInput').value
-            };
-
-            try {
-                const updateResponse = await fetch(`/api/products/${productId}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                if (!updateResponse.ok) {
-                    throw new Error('Errore durante l\'aggiornamento del prodotto');
-                }
-
-                bootstrap.Modal.getInstance(modal).hide();
-                await loadArtisanProducts();
-                alert('Prodotto aggiornato con successo!');
-
-            } catch (error) {
-                console.error('Errore durante l\'aggiornamento:', error);
-                alert('Errore durante l\'aggiornamento del prodotto');
-            }
-        };
+        // Handle image preview
+        if (product.immagine) {
+            formElements.imagePreview.src = `data:image/jpeg;base64,${product.immagine}`;
+            formElements.imagePreview.classList.remove('d-none');
+        } else {
+            formElements.imagePreview.classList.add('d-none');
+        }
 
     } catch (error) {
         console.error('Errore nel caricamento del prodotto:', error);
-        alert('Errore nel caricamento del prodotto');
+        showErrorMessage('Errore nel caricamento del prodotto: ' + error.message);
     }
 }
+
+
+// Aggiungi questo dopo la definizione di editProduct
+document.getElementById('editProductModal').addEventListener('shown.bs.modal', function (event) {
+    // Ottieni il productId dal pulsante che ha attivato il modale
+    const button = event.relatedTarget;
+    const productId = button.getAttribute('data-product-id');
+    if (productId) {
+        editProduct(productId);
+    }
+});
+
+document.getElementById('editProductForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+        const productId = e.target.dataset.productId;
+        const formData = new FormData();
+        
+        // Get form values
+        const nome_prodotto = document.getElementById('editProductNameInput').value.trim();
+        const tipologia_id = document.getElementById('editProductCategoryInput').value;
+        const prezzo = document.getElementById('editProductPriceInput').value;
+        const quantita = document.getElementById('editProductQuantityInput').value || '1';
+        const imageFile = document.getElementById('editProductImageInput').files[0];
+
+        // Validation
+        if (!nome_prodotto || !tipologia_id || !prezzo) {
+            throw new Error('Compila tutti i campi obbligatori');
+        }
+
+        // Append form data
+        formData.append('nome_prodotto', nome_prodotto);
+        formData.append('tipologia_id', tipologia_id);
+        formData.append('prezzo', prezzo);
+        formData.append('quantita', quantita);
+        
+        if (imageFile) {
+            formData.append('immagine', imageFile);
+        }
+
+        const response = await fetch(`/products/${productId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore durante la modifica del prodotto');
+        }
+
+        // Close modal and reset form
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editProductModal'));
+        modal.hide();
+        
+        // Reload products and show success message
+        await loadArtisanProducts();
+        document.getElementById('editProductForm').reset();
+        showSuccessMessage('Prodotto modificato con successo');
+
+    } catch (error) {
+        console.error('Errore durante la modifica del prodotto:', error);
+        showErrorMessage(error.message || 'Errore durante la modifica del prodotto');
+    }
+});
 
 async function deleteProduct(productId) {
     if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) {
@@ -544,22 +673,90 @@ async function deleteProduct(productId) {
     }
 
     try {
-        const response = await fetch(`/api/products/${productId}`, {
+        const response = await fetch(`/products/${productId}`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
         if (!response.ok) {
-            throw new Error('Errore durante l\'eliminazione del prodotto');
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore durante l\'eliminazione del prodotto');
         }
 
+        // Reload products and show success message
         await loadArtisanProducts();
-        alert('Prodotto eliminato con successo!');
+        showSuccessMessage('Prodotto eliminato con successo');
 
     } catch (error) {
         console.error('Errore durante l\'eliminazione:', error);
-        alert('Errore durante l\'eliminazione del prodotto');
+        showErrorMessage('Errore durante l\'eliminazione del prodotto');
     }
+}
+
+// --- GESTIONE RECENSIONI ---
+
+// Add these functions after the loadArtisanProfile function
+async function loadArtisanReviews() {
+    try {
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        const response = await fetch('/reviews', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore nel recupero delle recensioni');
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error('Formato dati recensioni non valido');
+        }
+
+        // Filter reviews for the current artisan
+        const artisanReviews = data.reviews.filter(r => r.artigiano_id === user.id);
+
+        // Update reviews table
+        const tbody = document.getElementById('reviewsTableBody');
+        if (tbody) {
+            tbody.innerHTML = artisanReviews.length === 0 
+                ? `<tr><td colspan="5" class="text-center">Nessuna recensione disponibile</td></tr>`
+                : artisanReviews.map(review => `
+                    <tr>
+                        <td>${review.cliente_nome} ${review.cliente_cognome}</td>
+                        <td>${generateStars(review.valutazione)}</td>
+                        <td>${review.descrizione}</td>
+                        <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
+                        <td>
+                            <button class="btn btn-outline-danger btn-sm" 
+                                onclick="openReviewReport(${review.recensione_id})">
+                                <i class="fas fa-flag"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+        }
+
+        // Update reviews chart
+        updateReviewsChart(artisanReviews);
+
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        showErrorMessage('Errore nel caricamento delle recensioni');
+    }
+}
+
+function generateStars(rating) {
+    return Array(5).fill(0).map((_, index) => 
+        `<i class="fa${index < rating ? 's' : 'r'} fa-star text-warning"></i>`
+    ).join('');
+}
+
+function openReviewReport(reviewId) {
+    document.getElementById('reportedReviewId').value = reviewId;
+    const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
+    modal.show();
 }
