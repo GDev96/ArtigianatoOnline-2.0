@@ -269,21 +269,21 @@
                         </div>
                     </div>
                 </div>
-                <div id="reviewsContainer" class="row">
+                <div id="reviewsContainer" class="table-responsive-container">
                     <table class="table">
                         <thead>
-                          <tr>
-                            <th>Utente</th>
-                            <th>Valutazione</th>
-                            <th>Commento</th>
-                            <th>Data</th>
-                            <th>Azioni</th>
-                          </tr>
+                            <tr>
+                                <th>Utente</th>
+                                <th>Valutazione</th>
+                                <th>Commento</th>
+                                <th>Data</th>
+                                <th>Azioni</th>
+                            </tr>
                         </thead>
                         <tbody id="reviewsTableBody">
-                          <!-- Recensioni generate dinamicamente -->
+                            <!-- Recensioni generate dinamicamente -->
                         </tbody>
-                      </table>
+                    </table>
                 </div>
             </div>
 
@@ -324,6 +324,33 @@
                             <button type="submit" class="btn btn-primary">Invia segnalazione</button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aggiungi dopo la sezione recensioni -->
+    <div class="row my-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Le mie Segnalazioni</h5>
+                    <div class="table-responsive-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Recensione</th>
+                                    <th>Data</th>
+                                    <th>Motivo</th>
+                                    <th>Stato</th>
+                                    <th>Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody">
+                                <!-- Segnalazioni generate dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

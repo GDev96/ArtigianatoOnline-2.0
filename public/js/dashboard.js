@@ -20,7 +20,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadArtisanProducts(),
             loadCategories(),
             loadSalesChart(),
-            loadArtisanReviews()
+            loadArtisanReviews(),
+            loadArtisanReports()
         ]);
 
     } catch (error) {
@@ -746,22 +747,18 @@ async function loadArtisanReviews() {
             : 0;
 
         // Update header with average rating stars
-        const headerTitle = document.querySelector('#reviews h2');
-        if (headerTitle) {
-            headerTitle.innerHTML = `
-                Recensioni 
-                <div class="d-inline-flex align-items-center ms-3">
-                    <div class="text-warning me-2">
-                        ${generateStars(averageRating)}
-                    </div>
-                    <small class="text-muted">(${averageRating.toFixed(1)})</small>
-                </div>
-            `;
+        // Update header with average rating stars
+        const ratingContainer = document.querySelector('#reviews .rating small');
+        const starsContainer = document.querySelector('#reviews .stars');
+        
+        if (ratingContainer && starsContainer) {
+            starsContainer.innerHTML = generateStars(averageRating);
+            ratingContainer.textContent = `${artisanReviews.length} recensioni (${averageRating.toFixed(1)})`;
         }
 
-        // Clear existing content
+        // Clear and populate table
         tbody.innerHTML = '';
-
+        
         if (artisanReviews.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nessuna recensione disponibile</td></tr>';
             return;
@@ -772,25 +769,25 @@ async function loadArtisanReviews() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${review.cliente_nome} ${review.cliente_cognome}</td>
-                <td>${review.valutazione}/5</td>
+                <td class="text-center">
+                    <small class="text-muted ms-2">${review.valutazione}/5</small>
+                </td>
                 <td>${review.descrizione}</td>
                 <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
-                <td class="d-flex justify-content-center">
-                    <button class="btn" 
+                <td class="display-flex justify-content-evenly align-items-center">
+                    <button class="btn btn-sm" 
                             onclick="openReportModal(${review.recensione_id})"
                             data-bs-toggle="modal"
                             data-bs-target="#reportReviewModal"
                             title="Segnala recensione">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-4h18V3H3v2z" fill="#000000"/>
-                        </svg>
+                        <i class="fas fa-flag"></i>
                     </button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
 
-        // Update reviews chart with the same data
+        // Update reviews chart
         updateReviewsChart(artisanReviews);
 
     } catch (error) {
@@ -827,33 +824,33 @@ document.getElementById('reportReviewForm').addEventListener('submit', async (e)
         const reason = document.getElementById('reportReason').value;
         const description = document.getElementById('reportDescription').value;
 
-        const response = await fetch('/reviews/report', {
+        // Validate all required fields
+        if (!reviewId || !reason || !description.trim()) {
+            throw new Error('Tutti i campi sono richiesti');
+        }
+
+        const response = await fetch('/reports/review', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             },
             body: JSON.stringify({
-                recensione_id: reviewId,
-                motivo: reason,
-                descrizione: description
+                review_id: parseInt(reviewId), // Changed from recensione_id to review_id
+                reason: reason,               // Changed from motivo to reason
+                description: description.trim() // Changed from descrizione to description
             })
         });
 
         if (!response.ok) {
-            throw new Error('Errore durante la segnalazione');
+            const data = await response.json();
+            throw new Error(data.message || 'Errore durante la segnalazione');
         }
 
         // Close modal properly
         const modal = bootstrap.Modal.getInstance(document.getElementById('reportReviewModal'));
         if (modal) {
             modal.hide();
-            // Remove modal backdrop and reset body class
-            document.body.classList.remove('modal-open');
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) {
-                backdrop.remove();
-            }
         }
         
         e.target.reset();
@@ -861,7 +858,7 @@ document.getElementById('reportReviewForm').addEventListener('submit', async (e)
 
     } catch (error) {
         console.error('Error reporting review:', error);
-        showErrorMessage(error.message);
+        showErrorMessage(error.message || 'Errore durante la segnalazione');
     }
 });
 
@@ -882,4 +879,118 @@ function openReviewReport(reviewId) {
     document.getElementById('reportedReviewId').value = reviewId;
     const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
     modal.show();
+}
+
+// --- GESTIONE SEGNALAZIONI ---
+async function loadArtisanReports() {
+    try {
+        const response = await fetch('/reports/user', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Errore nel caricamento delle segnalazioni');
+        
+        const reports = await response.json();
+        const tbody = document.getElementById('reportsTableBody');
+        
+        if (!tbody) return;
+
+        if (reports.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        Nessuna segnalazione effettuata
+                    </td>
+                </tr>`;
+            return;
+        }
+        
+        tbody.innerHTML = reports.map(report => `
+            <tr>
+                <td>${report.recensione_id ? `#${report.recensione_id}` : 'N/A'}</td>
+                <td>${new Date(report.data_segnalazione).toLocaleDateString()}</td>
+                <td>${getReportReasonText(report.motivazione)}</td>
+                <td>
+                    <span class="badge bg-${getReportStatusColor(report.stato_segnalazione)}">
+                        ${getReportStatusText(report.stato_segnalazione)}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="deleteReport(${report.segnalazione_id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error:', error);
+        const tbody = document.getElementById('reportsTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-danger">
+                        Errore nel caricamento delle segnalazioni
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+
+async function deleteReport(reportId) {
+    if (!confirm('Sei sicuro di voler eliminare questa segnalazione?')) return;
+
+    try {
+        const response = await fetch(`/reports/${reportId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'eliminazione della segnalazione');
+
+        await loadArtisanReports();
+        showSuccessMessage('Segnalazione eliminata con successo');
+
+    } catch (error) {
+        console.error('Error:', error);
+        showErrorMessage('Errore nell\'eliminazione della segnalazione');
+    }
+}
+
+// Helper functions per stato e motivo segnalazione
+function getReportStatusColor(status) {
+    const colors = {
+        'in attesa': 'warning',
+        'in lavorazione': 'info',
+        'risolta': 'success',
+        'chiusa': 'secondary',
+        'rifiutata': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getReportStatusText(status) {
+    const statuses = {
+        'in attesa': 'In attesa',
+        'in lavorazione': 'In lavorazione',
+        'risolta': 'Risolta',
+        'chiusa': 'Chiusa',
+        'rifiutata': 'Rifiutata'
+    };
+    return statuses[status] || status;
+}
+
+function getReportReasonText(reason) {
+    const reasons = {
+        'fake': 'Recensione falsa',
+        'inappropriate': 'Contenuti inappropriati',
+        'spam': 'Spam',
+        'other': 'Altro'
+    };
+    return reasons[reason] || reason;
 }
