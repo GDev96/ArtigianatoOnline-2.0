@@ -244,7 +244,8 @@ async function loadSalesChart() {
         }
 
         const data = await response.json();
-        
+    
+
         const ctx = document.getElementById('salesChart').getContext('2d');
         new Chart(ctx, {
             type: 'line',
@@ -253,8 +254,8 @@ async function loadSalesChart() {
                 datasets: [{
                     label: 'Numero Ordini',
                     data: data.data,
-                    borderColor: 'rgba(139, 94, 60, 1)',
-                    backgroundColor: 'rgba(139, 94, 60, 0.1)',
+                    borderColor: '#7095b9', // Main color from palette
+                    backgroundColor: 'rgba(112, 149, 185, 0.1)', // Same color with transparency
                     fill: true,
                     tension: 0.4
                 }]
@@ -265,22 +266,40 @@ async function loadSalesChart() {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            stepSize: 1
+                            stepSize: 1,
+                            color: '#5f7c9d' // Secondary color for axis labels
+                        },
+                        grid: {
+                            color: 'rgba(177, 196, 210, 0.1)' // Light color from palette for grid
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#5f7c9d' // Secondary color for axis labels
+                        },
+                        grid: {
+                            color: 'rgba(177, 196, 210, 0.1)' // Light color from palette for grid
                         }
                     }
                 },
                 plugins: {
+                    legend: {
+                        labels: {
+                            color: '#5f7c9d' // Secondary color for legend
+                        }
+                    },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
                                 return `Ordini: ${context.parsed.y}`;
                             }
-                        }
+                        },
+                        backgroundColor: 'rgba(95, 124, 157, 0.8)' // Secondary color with transparency
                     }
                 }
             }
         });
-
+        
     } catch (error) {
         console.error('Error loading sales chart:', error);
         const container = document.getElementById('salesChart').parentElement;
@@ -309,11 +328,11 @@ function updateReviewsChart(reviews) {
                     ratings[1]
                 ],
                 backgroundColor: [
-                    'var(--palette-primary)',     // Main blue
-                    'var(--palette-secondary)',   // Dark blue
-                    'var(--palette-accent)',      // Light blue accent
-                    'var(--palette-light)',       // Very light blue
-                    'var(--palette-medium)'       // Medium blue
+                    '#7095b9', // --palette-primary
+                    '#5f7c9d', // --palette-secondary
+                    '#95b0ca', // --palette-accent
+                    '#b1c4d2', // --palette-light
+                    '#7e99b2'  // --palette-medium
                 ],
                 borderColor: '#ffffff',
                 borderWidth: 2
@@ -325,10 +344,9 @@ function updateReviewsChart(reviews) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: 'var(--text-color)',
+                        color: '#000000', // --text-color
                         padding: 20,
                         font: {
-                            family: 'var(--font-primary)',
                             size: 14
                         }
                     }
@@ -346,7 +364,6 @@ function updateReviewsChart(reviews) {
             }
         }
     });
-
 }
 
 
@@ -701,6 +718,10 @@ async function deleteProduct(productId) {
 async function loadArtisanReviews() {
     try {
         const user = JSON.parse(sessionStorage.getItem('user'));
+        const tbody = document.getElementById('reviewsTableBody');
+        if (!tbody) return;
+
+        // Fetch reviews from server
         const response = await fetch('/reviews', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
@@ -719,40 +740,142 @@ async function loadArtisanReviews() {
         // Filter reviews for the current artisan
         const artisanReviews = data.reviews.filter(r => r.artigiano_id === user.id);
 
-        // Update reviews table
-        const tbody = document.getElementById('reviewsTableBody');
-        if (tbody) {
-            tbody.innerHTML = artisanReviews.length === 0 
-                ? `<tr><td colspan="5" class="text-center">Nessuna recensione disponibile</td></tr>`
-                : artisanReviews.map(review => `
-                    <tr>
-                        <td>${review.cliente_nome} ${review.cliente_cognome}</td>
-                        <td>${generateStars(review.valutazione)}</td>
-                        <td>${review.descrizione}</td>
-                        <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
-                        <td>
-                            <button class="btn btn-outline-danger btn-sm" 
-                                onclick="openReviewReport(${review.recensione_id})">
-                                <i class="fas fa-flag"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
+        // Calculate average rating
+        const averageRating = artisanReviews.length > 0 
+            ? artisanReviews.reduce((acc, rev) => acc + parseFloat(rev.valutazione), 0) / artisanReviews.length 
+            : 0;
+
+        // Update header with average rating stars
+        const headerTitle = document.querySelector('#reviews h2');
+        if (headerTitle) {
+            headerTitle.innerHTML = `
+                Recensioni 
+                <div class="d-inline-flex align-items-center ms-3">
+                    <div class="text-warning me-2">
+                        ${generateStars(averageRating)}
+                    </div>
+                    <small class="text-muted">(${averageRating.toFixed(1)})</small>
+                </div>
+            `;
         }
 
-        // Update reviews chart
+        // Clear existing content
+        tbody.innerHTML = '';
+
+        if (artisanReviews.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nessuna recensione disponibile</td></tr>';
+            return;
+        }
+
+        // Populate table with reviews
+        artisanReviews.forEach(review => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${review.cliente_nome} ${review.cliente_cognome}</td>
+                <td>${review.valutazione}/5</td>
+                <td>${review.descrizione}</td>
+                <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
+                <td class="d-flex justify-content-center">
+                    <button class="btn" 
+                            onclick="openReportModal(${review.recensione_id})"
+                            data-bs-toggle="modal"
+                            data-bs-target="#reportReviewModal"
+                            title="Segnala recensione">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M3 21h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18v-2H3v2zm0-4h18V7H3v2zm0-4h18V3H3v2z" fill="#000000"/>
+                        </svg>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Update reviews chart with the same data
         updateReviewsChart(artisanReviews);
 
     } catch (error) {
         console.error('Error loading reviews:', error);
         showErrorMessage('Errore nel caricamento delle recensioni');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Errore nel caricamento delle recensioni</td></tr>';
+        }
     }
 }
 
+function openReportModal(reviewId) {
+    document.getElementById('reportedReviewId').value = reviewId;
+    const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
+    modal.show();
+
+    // Add event listener for modal close
+    document.getElementById('reportReviewModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('reportReviewForm').reset();
+        document.body.classList.remove('modal-open');
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+    });
+}
+
+// Update form submission handler
+document.getElementById('reportReviewForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    try {
+        const reviewId = document.getElementById('reportedReviewId').value;
+        const reason = document.getElementById('reportReason').value;
+        const description = document.getElementById('reportDescription').value;
+
+        const response = await fetch('/reviews/report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                recensione_id: reviewId,
+                motivo: reason,
+                descrizione: description
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore durante la segnalazione');
+        }
+
+        // Close modal properly
+        const modal = bootstrap.Modal.getInstance(document.getElementById('reportReviewModal'));
+        if (modal) {
+            modal.hide();
+            // Remove modal backdrop and reset body class
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+        }
+        
+        e.target.reset();
+        showSuccessMessage('Segnalazione inviata con successo');
+
+    } catch (error) {
+        console.error('Error reporting review:', error);
+        showErrorMessage(error.message);
+    }
+});
+
+
 function generateStars(rating) {
-    return Array(5).fill(0).map((_, index) => 
-        `<i class="fa${index < rating ? 's' : 'r'} fa-star text-warning"></i>`
-    ).join('');
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+    
+    return [
+        ...Array(fullStars).fill('<i class="fas fa-star"></i>'),
+        hasHalfStar ? '<i class="fas fa-star-half-alt"></i>' : '',
+        ...Array(emptyStars).fill('<i class="far fa-star"></i>')
+    ].join('');
 }
 
 function openReviewReport(reviewId) {
