@@ -101,6 +101,21 @@
 
             <!-- Users Management -->
             <div class="tab-pane fade" id="users">
+                <!-- Tab navigation per gli utenti -->
+                <ul class="nav nav-tabs mb-4">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#usersTab">
+                            <i class="bi bi-people me-2"></i>Utenti
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#usersReportsTab">
+                            <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
+                            <span class="badge bg-danger" id="userReportsCount">0</span>
+                        </a>
+                    </li>
+                </ul>
+
                 <div class="tab-content">
                     <!-- Users Tab -->
                     <div class="tab-pane fade show active" id="usersTab">

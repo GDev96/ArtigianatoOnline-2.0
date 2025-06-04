@@ -85,4 +85,287 @@ router.get('/stats/categories', requireAuth, async (req, res) => {
     }
 });
 
+/* User Management Routes */
+// Get all users
+router.get('/users', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                u.id as utente_id,
+                u.username,
+                u.email,
+                u.stato,
+                u.ruolo_id,
+                COUNT(s.segnalazione_id) as segnalazioni
+            FROM utente u
+            LEFT JOIN segnalazioni s ON s.utente_id = u.id
+            WHERE u.ruolo_id = 1 AND u.stato != 'eliminato'
+            GROUP BY u.id, u.username, u.email, u.stato, u.ruolo_id
+            ORDER BY u.username`;
+
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ message: 'Errore nel recupero degli utenti' });
+    }
+});
+
+// Update user status
+router.patch('/users/:id/status', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const query = `
+            UPDATE utente 
+            SET stato = $1 
+            WHERE id = $2 AND ruolo_id = 1 
+            RETURNING *`;
+
+        const result = await pool.query(query, [status, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Utente non trovato' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating user status:', error);
+        res.status(500).json({ message: 'Errore nella modifica dello stato utente' });
+    }
+});
+
+// Delete user (soft delete)
+router.delete('/users/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const query = `
+            UPDATE utente 
+            SET stato = 'eliminato' 
+            WHERE id = $1 AND ruolo_id = 1 
+            RETURNING *`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Utente non trovato' });
+        }
+
+        res.json({ message: 'Utente eliminato con successo' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ message: 'Errore nell\'eliminazione dell\'utente' });
+    }
+});
+
+/* Artisan Management Routes */
+// Get all artisans
+router.get('/artisans', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                u.id as artisan_id,
+                u.username,
+                u.email,
+                u.stato,
+                a.artigiano_id,
+                a.tipologia_id,
+                t.nome_tipologia,
+                (
+                    SELECT COUNT(s.segnalazione_id) 
+                    FROM segnalazioni s 
+                    WHERE s.utente_id = a.artigiano_id
+                ) as segnalazioni
+            FROM utente u
+            INNER JOIN artigiani a ON a.artigiano_id = u.id
+            INNER JOIN tipologia t ON t.tipologia_id = a.tipologia_id
+            WHERE u.ruolo_id = 2 AND u.stato != 'sospeso'
+            ORDER BY u.username`;
+
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching artisans:', error);
+        res.status(500).json({ message: 'Errore nel recupero degli artigiani' });
+    }
+});
+
+// Update artisan status
+router.patch('/artisans/:id/status', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const query = `
+            UPDATE utente 
+            SET stato = $1 
+            WHERE id = $2 AND ruolo_id = 2 
+            RETURNING id, username, email, stato`;
+
+        const result = await pool.query(query, [status, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Artigiano non trovato' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating artisan status:', error);
+        res.status(500).json({ message: 'Errore nella modifica dello stato artigiano' });
+    }
+});
+
+//TODO Delete artisan (soft delete)
+
+/* Reviews Management */
+router.get('/reviews', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                r.recensione_id,
+                c.username as cliente_nome,
+                a.username as artigiano_nome,
+                r.valutazione,
+                r.descrizione as testo,
+                r.data_recensione,
+                r.stato,
+                COUNT(s.segnalazione_id) as segnalazioni
+            FROM recensioni r
+            JOIN utente c ON r.cliente_id = c.id
+            JOIN utente a ON r.artigiano_id = a.id
+            LEFT JOIN segnalazioni s ON s.recensione_id = r.recensione_id
+            GROUP BY r.recensione_id, c.username, a.username
+            ORDER BY r.data_recensione DESC`;
+
+        const result = await pool.query(query);
+        res.json({ reviews: result.rows });
+    } catch (error) {
+        console.error('Error fetching reviews:', error);
+        res.status(500).json({ message: 'Errore nel recupero delle recensioni' });
+    }
+});
+
+/* Products Management */
+router.get('/products', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                p.prodotto_id,
+                p.nome_prodotto,
+                p.tipologia_id,
+                t.nome_tipologia,
+                p.prezzo,
+                p.quantita as quant,
+                u.username as artigiano_nome,
+                u.id as artigiano_id
+            FROM prodotti p
+            JOIN artigiani a ON p.artigiano_id = a.artigiano_id
+            JOIN utente u ON a.artigiano_id = u.id
+            JOIN tipologia t ON p.tipologia_id = t.tipologia_id
+            ORDER BY p.nome_prodotto`;
+
+        const result = await pool.query(query);
+        res.json({ products: result.rows });
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.status(500).json({ message: 'Errore nel recupero dei prodotti' });
+    }
+});
+
+/* Orders Management */
+router.get('/orders', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                o.ordine_id as id,
+                c.username as cliente_nome,
+                a.username as artigiano_nome,
+                o.data_ordine as data,
+                o.stato,
+                COALESCE(SUM(d.quantita * d.prezzo_unitario), 0) as totale
+            FROM ordini o
+            JOIN utente c ON o.cliente_id = c.id
+            LEFT JOIN dettagli_ordine d ON o.ordine_id = d.ordine_id
+            LEFT JOIN prodotti p ON d.prodotto_id = p.prodotto_id
+            LEFT JOIN artigiani ar ON p.artigiano_id = ar.artigiano_id
+            LEFT JOIN utente a ON ar.artigiano_id = a.id
+            GROUP BY o.ordine_id, c.username, a.username
+            ORDER BY o.data_ordine DESC`;
+
+        const result = await pool.query(query);
+        res.json({ orders: result.rows });
+    } catch (error) {
+        console.error('Error fetching orders:', error);
+        res.status(500).json({ message: 'Errore nel recupero degli ordini' });
+    }
+});
+
+/* Reports Management */
+router.get('/reports', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                s.segnalazione_id as id,
+                s.ordine_id,
+                s.recensione_id,
+                s.utente_id,
+                u.username as utente_nome,
+                s.motivazione as tipo,
+                s.testo as descrizione,
+                s.data_segnalazione as data,
+                s.stato_segnalazione as stato
+            FROM segnalazioni s
+            JOIN utente u ON s.utente_id = u.id
+            ORDER BY s.data_segnalazione DESC`;
+
+        const result = await pool.query(query);
+        res.json({ reports: result.rows });
+    } catch (error) {
+        console.error('Error fetching reports:', error);
+        res.status(500).json({ message: 'Errore nel recupero delle segnalazioni' });
+    }
+});
+
+// Update report status
+router.patch('/reports/:id/resolve', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const query = `
+            UPDATE segnalazioni
+            SET stato_segnalazione = 'risolta'
+            WHERE segnalazione_id = $1
+            RETURNING *`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Segnalazione non trovata' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error resolving report:', error);
+        res.status(500).json({ message: 'Errore nella risoluzione della segnalazione' });
+    }
+});
+
+// Get categories for dropdown menus
+router.get('/categories', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT tipologia_id, nome_tipologia
+            FROM tipologia
+            ORDER BY nome_tipologia`;
+
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).json({ message: 'Errore nel recupero delle categorie' });
+    }
+});
+
 module.exports = router;

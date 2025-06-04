@@ -212,80 +212,136 @@ async function loadUsers() {
     try {
         const response = await fetch('/api/admin/users', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
+
+        if (!response.ok) throw new Error('Errore nel recupero degli utenti');
+
         const users = await response.json();
-        
         const tbody = document.getElementById('usersTableBody');
+        
         tbody.innerHTML = users.map(user => `
             <tr>
-                <td>${user.id}</td>
+                <td>${user.utente_id}</td>
                 <td>${user.username}</td>
                 <td>${user.email}</td>
                 <td>
-                    <span class="badge bg-${user.active ? 'success' : 'danger'}">
-                        ${user.active ? 'Attivo' : 'Inattivo'}
+                    <span class="badge bg-${user.stato === 'attivo' ? 'success' : 'danger'}">
+                        ${user.stato === 'attivo' ? 'Attivo' : 'Sospeso'}
                     </span>
                 </td>
                 <td>
                     <span class="badge bg-${user.segnalazioni > 0 ? 'warning' : 'secondary'}">
-                        ${user.segnalazioni || 0}
+                        ${user.segnalazioni}
                     </span>
                 </td>
-                <td>
-                    <button class="btn btn-sm btn-primary" onclick="editUser(${user.id})">
-                        <i class="bi bi-pencil"></i>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-warning" onclick="toggleUserStatus(${user.utente_id}, '${user.stato}')">
+                        <i class="bi bi-${user.stato === 'attivo' ? 'pause-fill' : 'play-fill'}"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">
+                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.utente_id})">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>
             </tr>
         `).join('');
+
     } catch (error) {
-        console.error('Error loading users:', error);
+        console.error('Error:', error);
+        const tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-danger">
+                    Errore nel caricamento degli utenti: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+async function toggleUserStatus(userId, currentStatus) {
+    const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
+    if (!confirm(`Sei sicuro di voler ${newStatus === 'attivo' ? 'riattivare' : 'sospendere'} questo utente?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/users/${userId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!response.ok) throw new Error('Errore nella modifica dello stato');
+
+        await loadUsers();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nella modifica dello stato dell\'utente');
+    }
+}
+
+async function deleteUser(userId) {
+    if (!confirm('Sei sicuro di voler eliminare questo utente?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'eliminazione dell\'utente');
+
+        await loadUsers();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nell\'eliminazione dell\'utente');
     }
 }
 
 // --- ARTISANS ---
 async function loadArtisans() {
     try {
-        const response = await fetch('/api/users/artisans', {
+        const response = await fetch('/api/admin/artisans', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
-        if (!response.ok) {
-            throw new Error('Errore nel recupero degli artigiani');
-        }
+        if (!response.ok) throw new Error('Errore nel recupero degli artigiani');
 
-        const artisansData = await response.json();
+        const artisans = await response.json();
         const tbody = document.getElementById('artisansTableBody');
-
-        tbody.innerHTML = artisansData.artisans.map(artisan => `
+        
+        tbody.innerHTML = artisans.map(artisan => `
             <tr>
-                <td>${artisan.id}</td>
-                <td>${artisan.nome_utente}</td>
+                <td>${artisan.artisan_id}</td>
+                <td>${artisan.username}</td>
                 <td>${artisan.email}</td>
-                <td>${getCategoryName(artisan.tipologia_id)}</td>
+                <td>${artisan.nome_tipologia}</td>
                 <td>
-                    <span class="badge bg-${artisan.sospeso ? 'danger' : 'success'}">
-                        ${artisan.sospeso ? 'Sospeso' : 'Attivo'}
+                    <span class="badge bg-${artisan.stato === 'attivo' ? 'success' : 'danger'}">
+                        ${artisan.stato === 'attivo' ? 'Attivo' : 'Sospeso'}
                     </span>
                 </td>
                 <td>
-                    <span class="badge bg-${artisan.segnalazioni > 0 ? 'warning' : 'secondary'}">
-                        ${artisan.segnalazioni || 0}
+                    <span class="badge bg-${parseInt(artisan.segnalazioni) > 0 ? 'warning' : 'secondary'}">
+                        ${artisan.segnalazioni}
                     </span>
                 </td>
-                <td>
-                    <button title="Sospendi" class="btn btn-sm ${artisan.sospeso ? 'btn-success' : 'btn-warning'}" 
-                        onclick="toggleArtisanStatus(${artisan.id})">
-                        <i class="bi bi-${artisan.sospeso ? 'play-circle' : 'pause-circle'}"></i>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-warning" onclick="toggleArtisanStatus(${artisan.artisan_id}, '${artisan.stato}')">
+                        <i class="bi bi-${artisan.stato === 'attivo' ? 'pause-fill' : 'play-fill'}"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteArtisan(${artisan.id})">
+                    <button class="btn btn-sm btn-danger" onclick="deleteArtisan(${artisan.artisan_id})">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>
@@ -297,7 +353,7 @@ async function loadArtisans() {
         const tbody = document.getElementById('artisansTableBody');
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-danger">
+                <td colspan="7" class="text-center text-danger">
                     Errore nel caricamento degli artigiani: ${error.message}
                 </td>
             </tr>
@@ -305,61 +361,42 @@ async function loadArtisans() {
     }
 }
 
-// Add new function to handle artisan suspension
-async function toggleArtisanStatus(artisanId) {
-    if (confirm('Sei sicuro di voler cambiare lo stato di questo artigiano?')) {
-        try {
-            const response = await fetch(`/api/users/artisans/${artisanId}/toggle-status`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                await loadArtisans();
-            } else {
-                throw new Error('Errore nella modifica dello stato dell\'artigiano');
-            }
-        } catch (error) {
-            console.error('Error toggling artisan status:', error);
-            alert('Errore nella modifica dello stato dell\'artigiano');
-        }
+async function toggleArtisanStatus(artisanId, currentStatus) {
+    if (!confirm(`Sei sicuro di voler ${currentStatus === 'attivo' ? 'sospendere' : 'riattivare'} questo artigiano?`)) {
+        return;
     }
-}
-        
-async function deleteArtisan(id) {
-    if (confirm('Sei sicuro di voler eliminare questo artigiano?')) {
-        try {
-            const response = await fetch(`/api/users/artisans/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (response.ok) {
-                await loadArtisans();
-            }
-        } catch (error) {
-            console.error('Error deleting artisan:', error);
-        }
+
+    try {
+        const response = await fetch(`/api/admin/artisans/${artisanId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: currentStatus === 'attivo' ? 'sospeso' : 'attivo'
+            })
+        });
+
+        if (!response.ok) throw new Error('Errore nella modifica dello stato');
+
+        await loadArtisans();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nella modifica dello stato dell\'artigiano');
     }
 }
 
 // --- PRODUCTS ---
 async function loadProducts() {
     try {
-        const response = await fetch('/api/products', {
+        const response = await fetch('/api/admin/products', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
-        if (!response.ok) {
-            throw new Error('Errore nel recupero dei prodotti');
-        }
+        if (!response.ok) throw new Error('Errore nel recupero dei prodotti');
 
         const data = await response.json();
         const tbody = document.getElementById('productsTableBody');
@@ -368,11 +405,11 @@ async function loadProducts() {
             <tr>
                 <td>${product.prodotto_id}</td>
                 <td>${product.nome_prodotto}</td>
-                <td>${getCategoryName(product.tipologia_id)}</td>
+                <td>${product.nome_tipologia}</td>
                 <td>€${parseFloat(product.prezzo).toFixed(2)}</td>
                 <td>${product.quant}</td>
                 <td>${product.artigiano_nome}</td>
-                <td>
+                <td class="text-end">
                     <button class="btn btn-sm btn-primary" onclick="editProduct(${product.prodotto_id})">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -441,25 +478,30 @@ async function loadOrders() {
     try {
         const response = await fetch('/api/admin/orders', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
-        const orders = await response.json();
+
+        if (!response.ok) throw new Error('Errore nel recupero degli ordini');
+
+        const { orders } = await response.json();
         
         const tbody = document.getElementById('ordersTableBody');
-        tbody.innerHTML = orders.map(order => `
+        if (!tbody) return;
+
+        tbody.innerHTML = (orders || []).map(order => `
             <tr>
                 <td>${order.id}</td>
                 <td>${order.cliente_nome}</td>
                 <td>${order.artigiano_nome}</td>
-                <td>€${order.totale.toFixed(2)}</td>
+                <td>€${parseFloat(order.totale).toFixed(2)}</td>
                 <td>${new Date(order.data).toLocaleDateString()}</td>
                 <td>
                     <span class="badge bg-${getOrderStatusColor(order.stato)}">
                         ${order.stato}
                     </span>
                 </td>
-                <td>
+                <td class="text-end">
                     <button class="btn btn-sm btn-info" onclick="viewOrderDetails(${order.id})">
                         <i class="bi bi-eye"></i>
                     </button>
@@ -471,6 +513,16 @@ async function loadOrders() {
         `).join('');
     } catch (error) {
         console.error('Error loading orders:', error);
+        const tbody = document.getElementById('ordersTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-danger">
+                        Errore nel caricamento degli ordini: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
     }
 }
 
@@ -488,16 +540,13 @@ function getOrderStatusColor(status) {
 // --- REVIEWS ---
 async function loadReviews() {
     try {
-        const response = await fetch('/api/reviews', {
+        const response = await fetch('/api/admin/reviews', {
             headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error('Errore nel recupero delle recensioni');
 
         const data = await response.json();
         const tbody = document.getElementById('reviewsTableBody');
@@ -507,37 +556,29 @@ async function loadReviews() {
                 <td>${review.recensione_id}</td>
                 <td>${review.cliente_nome}</td>
                 <td>${review.artigiano_nome}</td>
-                <td>
-                    <div class="stars">
-                        ${generateStars(review.valutazione)}
-                    </div>
-                </td>
-                <td>${review.testo.substring(0, 100)}${review.testo.length > 100 ? '...' : ''}</td>
+                <td>${review.valutazione}/5</td>
+                <td>${review.testo}</td>
                 <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
                 <td>
-                    <span class="badge bg-${review.rimossa ? 'danger' : 'success'}">
-                        ${review.rimossa ? 'Rimossa' : 'Attiva'}
+                    <span class="badge bg-${review.stato === 'attiva' ? 'success' : 'danger'}">
+                        ${review.stato === 'attiva' ? 'Attiva' : 'Rimossa'}
                     </span>
                 </td>
                 <td>
                     <span class="badge bg-${review.segnalazioni > 0 ? 'warning' : 'secondary'}">
-                        ${review.segnalazioni || 0}
+                        ${review.segnalazioni}
                     </span>
                 </td>
-                <td>
+                <td class="text-end">
                     <button class="btn btn-sm btn-info" onclick="viewReviewDetails(${review.recensione_id})">
                         <i class="bi bi-eye"></i>
-                    </button>
-                    <button class="btn btn-sm ${review.rimossa ? 'btn-success' : 'btn-danger'}" 
-                            onclick="toggleReviewStatus(${review.recensione_id}, ${!review.rimossa})">
-                        <i class="bi bi-${review.rimossa ? 'arrow-counterclockwise' : 'x-lg'}"></i>
                     </button>
                 </td>
             </tr>
         `).join('');
 
     } catch (error) {
-        console.error('Errore nel caricamento delle recensioni:', error);
+        console.error('Error loading reviews:', error);
         const tbody = document.getElementById('reviewsTableBody');
         tbody.innerHTML = `
             <tr>
@@ -628,23 +669,33 @@ async function loadReports() {
     try {
         const response = await fetch('/api/admin/reports', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
-        const reports = await response.json();
+
+        if (!response.ok) throw new Error('Errore nel recupero delle segnalazioni');
+
+        const { reports } = await response.json();
         
-        // Aggiorna il contatore delle segnalazioni pendenti
-        const pendingReports = reports.filter(report => report.stato === 'pending').length;
-        document.getElementById('reportsCount').textContent = pendingReports;
+        // Update pending reports counter
+        const pendingReports = (reports || []).filter(report => report.stato === 'pending').length;
+        const reportsCountElement = document.getElementById('reportsCount');
+        if (reportsCountElement) {
+            reportsCountElement.textContent = pendingReports;
+        }
         
         const tbody = document.getElementById('reportsTableBody');
-        tbody.innerHTML = reports.map(report => `
+        if (!tbody) return;
+
+        tbody.innerHTML = (reports || []).map(report => `
             <tr>
                 <td>${report.id}</td>
                 <td>
-                    <a href="#" onclick="viewOrderDetails(${report.ordine_id})">
-                        #${report.ordine_id}
-                    </a>
+                    ${report.ordine_id ? `
+                        <a href="#" onclick="viewOrderDetails(${report.ordine_id})">
+                            #${report.ordine_id}
+                        </a>
+                    ` : 'N/A'}
                 </td>
                 <td>${report.utente_nome}</td>
                 <td>${report.tipo}</td>
@@ -655,7 +706,7 @@ async function loadReports() {
                         ${report.stato === 'pending' ? 'In Attesa' : 'Risolta'}
                     </span>
                 </td>
-                <td>
+                <td class="text-end">
                     <button class="btn btn-sm btn-primary" onclick="handleReport(${report.id})">
                         <i class="bi bi-chat-dots"></i>
                     </button>
@@ -669,6 +720,16 @@ async function loadReports() {
         `).join('');
     } catch (error) {
         console.error('Error loading reports:', error);
+        const tbody = document.getElementById('reportsTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-danger">
+                        Errore nel caricamento delle segnalazioni: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
     }
 }
 
