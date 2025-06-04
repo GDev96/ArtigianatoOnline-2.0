@@ -1,44 +1,45 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const rawUser = sessionStorage.getItem('user');
-    if (!rawUser) {
-        window.location.href = '/login.html';
-        return;
-    }
-
+// Keep only one initialization event
+document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Get session user for authorization check
+        const rawUser = sessionStorage.getItem('user');
+        if (!rawUser) {
+            window.location.href = '/login.html';
+            return;
+        }
+
         const user = JSON.parse(rawUser);
         if (user.ruolo_id !== 3) {
             window.location.href = '/index.html';
             return;
         }
-        // Continue with admin console initialization...
+
+        // Initialize admin console
+        await Promise.all([
+            loadDashboardData(),
+            loadUsers(),
+            loadArtisans(),
+            loadProducts(),
+            loadOrders(),
+            loadReviews(),
+            loadReports()
+        ]);
+
+        // Add event listeners for tab switching
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                loadTabData(this.getAttribute('href').substring(1));
+            });
+        });
+
+        // Initialize charts
+        initializeDashboardCharts();
+
     } catch (error) {
-        console.error('Error loading admin console:', error);
+        console.error('Error initializing admin console:', error);
         sessionStorage.clear();
         window.location.href = '/login.html';
     }
-});
-
-// Initialization
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if user is admin
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user || user.ruolo_id !== 3) {
-        window.location.href = '/login.html';
-        return;
-    }
-
-    // Initialize Charts
-    initializeDashboardCharts();
-    // Load initial data
-    loadDashboardData();
-    
-    // Add event listeners for tab switching
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', function(e) {
-            loadTabData(this.getAttribute('href').substring(1));
-        });
-    });
 });
 
 // --- DASHBOARD ---
