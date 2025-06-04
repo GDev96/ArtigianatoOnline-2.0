@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS recensioni (
     valutazione INTEGER NOT NULL CHECK (valutazione >= 1 AND valutazione <= 5),
     descrizione VARCHAR(255),
     stato VARCHAR(20) NOT NULL DEFAULT 'attiva',
-    CONSTRAINT recensioni_stato_check CHECK (stato IN ('attiva', 'sospesa')),
+    CONSTRAINT recensioni_stato_check CHECK (stato IN ('attiva', 'nascosta')),
     CONSTRAINT recensioni_cliente_id_fkey FOREIGN KEY (cliente_id)
         REFERENCES utente (id)
         ON UPDATE CASCADE
@@ -159,6 +159,18 @@ CREATE TABLE IF NOT EXISTS segnalazioni (
         ON DELETE CASCADE,
     CONSTRAINT segnalazioni_recensione_id_fkey FOREIGN KEY (recensione_id)
         REFERENCES recensioni (recensione_id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+-- Add table for tracking suspensions
+CREATE TABLE IF NOT EXISTS sospensioni_artigiani (
+    sospensione_id SERIAL PRIMARY KEY,
+    artigiano_id INTEGER NOT NULL,
+    data_inizio TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_fine TIMESTAMP,
+    CONSTRAINT sospensioni_artigiani_artigiano_fkey FOREIGN KEY (artigiano_id)
+        REFERENCES artigiani (artigiano_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );

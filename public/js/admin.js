@@ -221,18 +221,61 @@ async function loadUsers() {
         const users = await response.json();
         const tbody = document.getElementById('usersTableBody');
         
-        tbody.innerHTML = users.map(user => `
-            <tr>
-                <td>${user.utente_id}</td>
-                <td>${user.username}</td>
-                <td>${user.email}</td>
-                <td>
-                    <span class="badge bg-${user.stato === 'attivo' ? 'success' : 'danger'}">
-                        ${user.stato === 'attivo' ? 'Attivo' : 'Sospeso'}
-                    </span>
-                </td>
-            </tr>
-        `).join('');
+        // Function to render the table with filtered data
+        function renderTable(filteredUsers) {
+            tbody.innerHTML = filteredUsers.map(user => `
+                <tr>
+                    <td>${user.utente_id}</td>
+                    <td>${user.username}</td>
+                    <td>${user.email}</td>
+                    <td>
+                        <span class="badge bg-${user.stato === 'attivo' ? 'success' : 'danger'}">
+                            ${user.stato === 'attivo' ? 'Attivo' : 'Sospeso'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+
+            if (filteredUsers.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center">
+                            Nessun cliente trovato
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // Initial render with all users
+        renderTable(users);
+
+        // Add filter functionality
+        const filterButtons = document.querySelectorAll('#users .btn-group button');
+        filterButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                // Update active button state
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+
+                // Apply filter
+                const filter = e.target.dataset.filter;
+                let filteredUsers;
+                
+                switch(filter) {
+                    case 'active':
+                        filteredUsers = users.filter(user => user.stato === 'attivo');
+                        break;
+                    case 'suspended':
+                        filteredUsers = users.filter(user => user.stato === 'sospeso');
+                        break;
+                    default: // 'all'
+                        filteredUsers = users;
+                }
+
+                renderTable(filteredUsers);
+            });
+        });
 
     } catch (error) {
         console.error('Error:', error);
