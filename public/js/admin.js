@@ -678,46 +678,43 @@ async function loadReports() {
 
         const { reports } = await response.json();
         
-        // Filtra le segnalazioni per tipo
-        const artisanReports = reports.filter(r => r.tipo_segnalazione === 'artigiano');
-        const orderReports = reports.filter(r => r.tipo_segnalazione === 'ordine');
-        const reviewReports = reports.filter(r => r.tipo_segnalazione === 'recensione');
-
-        // Popola le tabelle
-        populateReportsTable('artisanReportsTable', artisanReports);
-        populateReportsTable('orderReportsTable', orderReports);
-        populateReportsTable('reviewReportsTable', reviewReports);
+        // Popola le diverse tabelle
+        populateReportsTable('artisansReportsTableBody', reports);
+        populateReportsTable('ordersReportsTableBody', reports);
+        populateReportsTable('reviewsReportsTableBody', reports);
 
         // Aggiorna i contatori
-        updateReportCounters(artisanReports, orderReports, reviewReports);
+        const artisanReports = reports.filter(r => r.tipo_segnalazione === 'artigiano' && r.stato === 'in attesa');
+        const orderReports = reports.filter(r => r.tipo_segnalazione === 'ordine' && r.stato === 'in attesa');
+        const reviewReports = reports.filter(r => r.tipo_segnalazione === 'recensione' && r.stato === 'in attesa');
+
+        updateReportCounters(artisanReports.length, orderReports.length, reviewReports.length);
 
     } catch (error) {
         console.error('Error loading reports:', error);
-        const tables = ['artisanReportsTable', 'orderReportsTable', 'reviewReportsTable'];
-        tables.forEach(tableId => {
-            const tbody = document.getElementById(tableId);
-            if (tbody) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center text-danger">
-                            Errore nel caricamento delle segnalazioni: ${error.message}
-                        </td>
-                    </tr>
-                `;
-            }
-        });
+        showErrorInTables('Errore nel caricamento delle segnalazioni');
     }
 }
 
 function populateReportsTable(tableId, reports) {
+    // Determina quale tabella popolare in base all'ID
+    const tables = {
+        'artisansReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'artigiano'),
+        'ordersReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'ordine'),
+        'reviewsReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'recensione')
+    };
+
     const tbody = document.getElementById(tableId);
     if (!tbody) return;
 
-    tbody.innerHTML = reports.map(report => `
+    // Filtra le segnalazioni per il tipo corretto
+    const filteredReports = tables[tableId] || [];
+
+    tbody.innerHTML = filteredReports.map(report => `
         <tr>
             <td>${report.id}</td>
             <td>${report.segnalatore_nome}</td>
-            <td>${report.target_nome}</td>
+            <td>${report.target_nome || 'N/D'}</td>
             <td>${report.tipo}</td>
             <td>${report.descrizione}</td>
             <td>${new Date(report.data).toLocaleDateString()}</td>
@@ -735,13 +732,23 @@ function populateReportsTable(tableId, reports) {
             </td>
         </tr>
     `).join('');
+
+    if (filteredReports.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center">
+                    Nessuna segnalazione presente
+                </td>
+            </tr>
+        `;
+    }
 }
 
-function updateReportCounters(artisanReports, orderReports, reviewReports) {
+function updateReportCounters(artisanCount, orderCount, reviewCount) {
     const counters = {
-        'artisanReportsCount': artisanReports.filter(r => r.stato === 'in attesa').length,
-        'orderReportsCount': orderReports.filter(r => r.stato === 'in attesa').length,
-        'reviewReportsCount': reviewReports.filter(r => r.stato === 'in attesa').length
+        'artisanReportsCount': artisanCount,
+        'orderReportsCount': orderCount,
+        'reviewReportsCount': reviewCount
     };
 
     Object.entries(counters).forEach(([id, count]) => {
