@@ -75,6 +75,53 @@ router.get('/user', requireAuth, async (req, res) => {
     }
 });
 
+// Get ordini per artigiano
+router.get('/artisan/sales', requireAuth, async (req, res) => {
+    try {
+        const artisanId = req.user.id;
+        const query = `
+            WITH MonthlyOrders AS (
+                SELECT 
+                    DATE_TRUNC('month', o.data_ordine) as mese,
+                    COUNT(DISTINCT o.ordine_id) as numero_ordini
+                FROM ordini o
+                JOIN dettagli_ordine det ON o.ordine_id = det.ordine_id
+                JOIN prodotti p ON det.prodotto_id = p.prodotto_id
+                WHERE p.artigiano_id = $1
+                GROUP BY DATE_TRUNC('month', o.data_ordine)
+                ORDER BY mese ASC
+            )
+            SELECT 
+                TO_CHAR(mese, 'Month') as mese,
+                EXTRACT(MONTH FROM mese) as mese_numero,
+                COALESCE(numero_ordini, 0) as numero_ordini
+            FROM MonthlyOrders`;
+
+        const result = await pool.query(query, [artisanId]);
+
+        // Create array for all months
+        const monthlyData = new Array(12).fill(0);
+        
+        // Fill in the data we have
+        result.rows.forEach(row => {
+            monthlyData[row.mese_numero - 1] = parseInt(row.numero_ordini);
+        });
+
+        res.json({
+            success: true,
+            data: monthlyData
+        });
+
+    } catch (error) {
+        console.error('Error fetching artisan sales:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero delle vendite'
+        });
+    }
+});
+
+
 // Get dettagli ordine tramite id
 router.get('/:id', requireAuth, async (req, res) => {
     try {

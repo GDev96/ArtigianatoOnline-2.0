@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db/db'); // Update this line
 const createAuthMiddleware = require('../middleware/auth');
+const multer = require('multer');
+const upload = multer();
 
 // Create auth middleware
 const requireAuth = createAuthMiddleware();
@@ -111,10 +113,10 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST nuovo prodotto - solo artigiani
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, upload.single('immagine'), async (req, res) => {
     try {
-        const { nome_prodotto, descrizione, prezzo, quantita, tipologia_id } = req.body;
-        let { immagine } = req.body;
+        const { nome_prodotto, prezzo, quantita, tipologia_id } = req.body;
+        let immagine = null;
 
         // Verifica che l'utente sia un artigiano
         if (req.user.ruolo_id !== 2) {
@@ -125,30 +127,29 @@ router.post('/', requireAuth, async (req, res) => {
         }
 
         // Validazione dati
-        if (!nome_prodotto || !prezzo || prezzo <= 0 || quantita < 0) {
+        if (!nome_prodotto || !prezzo || prezzo <= 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Dati prodotto non validi'
             });
         }
 
-        // Converti immagine in Buffer se presente
-        if (immagine) {
-            immagine = Buffer.from(immagine, 'base64');
+        // Handle uploaded image
+        if (req.file) {
+            immagine = req.file.buffer;
         }
 
         const query = `
             INSERT INTO prodotti 
-                (artigiano_id, nome_prodotto, descrizione, prezzo, quantita, tipologia_id, immagine)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (artigiano_id, nome_prodotto, prezzo, quantita, tipologia_id, immagine)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *`;
 
         const result = await pool.query(query, [
             req.user.id,
             nome_prodotto,
-            descrizione,
             prezzo,
-            quantita,
+            quantita || 1,
             tipologia_id,
             immagine
         ]);
@@ -172,11 +173,11 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // PUT modifica prodotto - solo artigiano proprietario
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, upload.single('immagine'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { nome_prodotto, descrizione, prezzo, quantita, tipologia_id } = req.body;
-        let { immagine } = req.body;
+        const { nome_prodotto, prezzo, quantita, tipologia_id } = req.body;
+        let immagine = null;
 
         // Verifica proprietà del prodotto
         const checkQuery = 'SELECT artigiano_id FROM prodotti WHERE prodotto_id = $1';
@@ -196,26 +197,24 @@ router.put('/:id', requireAuth, async (req, res) => {
             });
         }
 
-        // Converti immagine in Buffer se presente
-        if (immagine) {
-            immagine = Buffer.from(immagine, 'base64');
+        // Handle uploaded image
+        if (req.file) {
+            immagine = req.file.buffer;
         }
 
         const query = `
             UPDATE prodotti 
             SET 
                 nome_prodotto = COALESCE($1, nome_prodotto),
-                descrizione = COALESCE($2, descrizione),
-                prezzo = COALESCE($3, prezzo),
-                quantita = COALESCE($4, quantita),
-                tipologia_id = COALESCE($5, tipologia_id),
-                immagine = COALESCE($6, immagine)
-            WHERE prodotto_id = $7
+                prezzo = COALESCE($2, prezzo),
+                quantita = COALESCE($3, quantita),
+                tipologia_id = COALESCE($4, tipologia_id),
+                immagine = COALESCE($5, immagine)
+            WHERE prodotto_id = $6
             RETURNING *`;
 
         const result = await pool.query(query, [
             nome_prodotto,
-            descrizione,
             prezzo,
             quantita,
             tipologia_id,

@@ -61,6 +61,8 @@ setInterval(changeBackground, 10000);
 // Imposta l'immagine iniziale
 changeBackground();
 
+
+
 // Caricamento dei componenti
 function loadComponent(selector, file, callback) {
   fetch(file)
@@ -76,40 +78,42 @@ function loadComponent(selector, file, callback) {
     .catch(error => console.error('Errore nel caricamento:', error));
 }
 
-// Update updateNavbar function to include user ID in profile link
-function updateNavbar(user) {
-    if (!user) return;
-
-    // Update cart and profile links with user ID
-    const navLinks = {
-        cart: document.querySelector('.client-only a[href="/cart.html"]'),
-        profile: document.querySelector('.client-only a[href="/profile.html"]'),
-        dashboard: document.querySelector('.artisan-only a[href="/dashboard.html"]'),
-        admin: document.querySelector('.admin-only a[href="/admin.html"]')
-    };
-
-    if (user.ruolo_id === 1) {
-        if (navLinks.cart) navLinks.cart.href = `/cart.html?id=${user.id}`;
-        if (navLinks.profile) navLinks.profile.href = `/profile.html?id=${user.id}`;
-    } else if (user.ruolo_id === 2 && navLinks.dashboard) {
-        navLinks.dashboard.href = `/dashboard.html?id=${user.id}`;
-    } else if (user.ruolo_id === 3 && navLinks.admin) {
-        navLinks.admin.href = `/admin.html?id=${user.id}`;
-    }
-
-    // Update username in navbar
-    const usernameElement = document.querySelector('#username');
-    if (usernameElement) {
-        usernameElement.textContent = user.username;
-    }
-}
-
-// Update initNavbar function
+// Update initNavbar function to include logout handling
 async function initNavbar() {
     try {
         const navbarResponse = await fetch('/components/navbar.html');
         const navbarHtml = await navbarResponse.text();
         document.getElementById('navbar').innerHTML = navbarHtml;
+
+        // Add logout handler after navbar is loaded
+        const logoutButton = document.getElementById('logoutButton');
+        if (logoutButton) {
+            logoutButton.addEventListener('click', async function(e) {
+                e.preventDefault();
+                try {
+                    const response = await fetch('/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Errore durante il logout');
+                    }
+
+                    // Clear session storage
+                    sessionStorage.clear();
+                    console.log('Logout successful');
+                    
+                    // Redirect to login page
+                    window.location.href = '/login.html';
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    alert('Errore durante il logout. Riprova più tardi.');
+                }
+            });
+        }
 
         const rawUser = sessionStorage.getItem('user');
         if (rawUser) {
@@ -143,32 +147,34 @@ async function initNavbar() {
     }
 }
 
-// Handle logout
-document.getElementById('logoutButton')?.addEventListener('click', async function(e) {
-    e.preventDefault();
-    try {
-        const response = await fetch('/auth/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+// Update updateNavbar function to include user ID in profile link
+function updateNavbar(user) {
+    if (!user) return;
 
-        if (!response.ok) {
-            throw new Error('Errore durante il logout');
-        }
+    // Update cart and profile links with user ID
+    const navLinks = {
+        cart: document.querySelector('.client-only a[href="/cart.html"]'),
+        profile: document.querySelector('.client-only a[href="/profile.html"]'),
+        dashboard: document.querySelector('.artisan-only a[href="/dashboard.html"]'),
+        admin: document.querySelector('.admin-only a[href="/admin.html"]')
+    };
 
-        // Clear session storage
-        sessionStorage.clear();
-        console.log('Logout successful');
-        
-        // Redirect to login page
-        window.location.href = '/login.html';
-    } catch (error) {
-        console.error('Logout error:', error);
-        alert('Errore durante il logout. Riprova più tardi.');
+    if (user.ruolo_id === 1) {
+        if (navLinks.cart) navLinks.cart.href = `/cart.html?id=${user.id}`;
+        if (navLinks.profile) navLinks.profile.href = `/profile.html?id=${user.id}`;
+    } else if (user.ruolo_id === 2 && navLinks.dashboard) {
+        navLinks.dashboard.href = `/dashboard.html?id=${user.id}`;
+    } else if (user.ruolo_id === 3 && navLinks.admin) {
+        navLinks.admin.href = `/admin.html?id=${user.id}`;
     }
-});
+
+    // Update username in navbar
+    const usernameElement = document.querySelector('#username');
+    if (usernameElement) {
+        usernameElement.textContent = user.username;
+    }
+}
+
 
 // Add navigation handlers
 document.querySelectorAll('a[href]').forEach(link => {
