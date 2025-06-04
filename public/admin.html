@@ -293,10 +293,18 @@
                     <div class="tab-pane fade show active" id="ordersTab">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Gestione Ordini</h2>
-                            <div>
-                                <button class="btn btn-secondary me-2" id="filterOrders">
-                                    <i class="bi bi-funnel me-2"></i>Filtra
-                                </button>
+                            <div class="d-flex gap-3">
+                                <select id="customerFilter" class="form-select">
+                                    <option value="">Tutti i clienti</option>
+                                    <!-- Populated via JavaScript -->
+                                </select>
+                                <select id="statusFilter" class="form-select">
+                                    <option value="">Tutti gli stati</option>
+                                    <option value="in preparazione">In preparazione</option>
+                                    <option value="spedito">Spedito</option>
+                                    <option value="controversia aperta">Controversia aperta</option>
+                                    <option value="consegnato">Consegnato</option>
+                                </select>
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -305,7 +313,6 @@
                                     <tr>
                                         <th>ID</th>
                                         <th>Cliente</th>
-                                        <th>Artigiano</th>
                                         <th>Totale</th>
                                         <th>Data</th>
                                         <th>Stato</th>
@@ -319,7 +326,7 @@
                         </div>
                     </div>
             
-                    <!-- Reports Tab -->
+                    <!-- Orders Reports Tab -->
                     <div class="tab-pane fade" id="reportsTab">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Segnalazioni Ordini</h2>
@@ -343,7 +350,7 @@
                                         <th>Azioni</th>
                                     </tr>
                                 </thead>
-                                <tbody id="reportsTableBody">
+                                <tbody id="ordersReportsTableBody">
                                     <!-- Populated via JavaScript -->
                                 </tbody>
                             </table>

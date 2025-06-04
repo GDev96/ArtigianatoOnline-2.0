@@ -164,7 +164,7 @@ async function seed() {
         const recensioni = [
             { cliente_id: clientiRes.rows[0].id, artigiano_id: artigianiIds.rows[0].artigiano_id, valutazione: 5, descrizione: 'Ottimo prodotto e servizio!', stato: 'attiva' },
             { cliente_id: clientiRes.rows[1].id, artigiano_id: artigianiIds.rows[1].artigiano_id, valutazione: 4, descrizione: 'Buon prodotto, spedizione nella media', stato: 'attiva' },
-            { cliente_id: clientiRes.rows[2].id, artigiano_id: artigianiIds.rows[2].artigiano_id, valutazione: 3, descrizione: 'Prodotto ok ma tempi lunghi', stato: 'sospesa' }
+            { cliente_id: clientiRes.rows[2].id, artigiano_id: artigianiIds.rows[2].artigiano_id, valutazione: 3, descrizione: 'Prodotto ok ma tempi lunghi', stato: 'nascosta' }
         ];
 
         const recensioniInserite = [];

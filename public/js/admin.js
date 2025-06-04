@@ -565,56 +565,221 @@ async function loadOrders() {
 
         const { orders } = await response.json();
         
-        const tbody = document.getElementById('ordersTableBody');
-        if (!tbody) return;
+        // Populate customer filter
+        populateCustomerFilter(orders);
+        
+        // Initial render
+        renderOrders(orders);
+        
+        // Setup filter listeners
+        setupOrderFilters(orders);
 
-        tbody.innerHTML = (orders || []).map(order => `
-            <tr>
-                <td>${order.id}</td>
-                <td>${order.cliente_nome}</td>
-                <td>${order.artigiano_nome}</td>
-                <td>€${parseFloat(order.totale).toFixed(2)}</td>
-                <td>${new Date(order.data).toLocaleDateString()}</td>
-                <td>
-                    <span class="badge bg-${getOrderStatusColor(order.stato)}">
-                        ${order.stato}
-                    </span>
-                </td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-info" onclick="viewOrderDetails(${order.id})">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-success" onclick="updateOrderStatus(${order.id})">
-                        <i class="bi bi-arrow-clockwise"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
     } catch (error) {
         console.error('Error loading orders:', error);
-        const tbody = document.getElementById('ordersTableBody');
-        if (tbody) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center text-danger">
-                        Errore nel caricamento degli ordini: ${error.message}
-                    </td>
-                </tr>
-            `;
-        }
+        showOrderError('Errore nel caricamento degli ordini: ' + error.message);
     }
 }
+function populateCustomerFilter(orders) {
+    const customerFilter = document.getElementById('customerFilter');
+    const customers = [...new Set(orders.map(o => o.cliente_nome))].sort();
+    
+    customerFilter.innerHTML = `
+        <option value="">Tutti i clienti</option>
+        ${customers.map(customer => `
+            <option value="${customer}">${customer}</option>
+        `).join('')}
+    `;
+}
+function setupOrderFilters(orders) {
+    const customerFilter = document.getElementById('customerFilter');
+    const statusFilter = document.getElementById('statusFilter');
 
+    const filterOrders = () => {
+        let filtered = [...orders];
+        
+        const selectedCustomer = customerFilter.value;
+        const selectedStatus = statusFilter.value;
+
+        if (selectedCustomer) {
+            filtered = filtered.filter(o => o.cliente_nome === selectedCustomer);
+        }
+        if (selectedStatus) {
+            filtered = filtered.filter(o => o.stato === selectedStatus);
+        }
+
+        renderOrders(filtered);
+    };
+
+    customerFilter.addEventListener('change', filterOrders);
+    statusFilter.addEventListener('change', filterOrders);
+}
+function renderOrders(orders) {
+    const tbody = document.getElementById('ordersTableBody');
+    
+    if (!orders.length) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center">Nessun ordine trovato</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = orders.map(order => `
+        <tr>
+            <td>${order.id}</td>
+            <td>${order.cliente_nome}</td>
+            <td>€${parseFloat(order.totale).toFixed(2)}</td>
+            <td>${new Date(order.data).toLocaleDateString()}</td>
+            <td>
+                <span class="badge bg-${getOrderStatusColor(order.stato)}">
+                    ${order.stato}
+                </span>
+            </td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-info" onclick="viewOrderDetails(${order.id})">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+function showOrderError(message) {
+    const tbody = document.getElementById('ordersTableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center text-danger">${message}</td>
+        </tr>
+    `;
+}
+async function updateOrderStatus(orderId, newStatus, showConfirm = true) {
+    if (showConfirm && !confirm(`Sei sicuro di voler aggiornare lo stato dell'ordine?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/admin/orders/${orderId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!response.ok) throw new Error('Errore nell\'aggiornamento dello stato');
+
+        await loadOrders();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nell\'aggiornamento dello stato dell\'ordine');
+    }
+}
 function getOrderStatusColor(status) {
     const colors = {
-        'pending': 'warning',
-        'processing': 'info',
-        'shipped': 'primary',
-        'delivered': 'success',
-        'cancelled': 'danger'
+        'in attesa': 'warning',
+        'in preparazione': 'info',
+        'spedito': 'primary',
+        'controversia aperta': 'danger',
+        'consegnato': 'success'
     };
     return colors[status] || 'secondary';
 }
+async function viewOrderDetails(orderId) {
+    try {
+        const response = await fetch(`/admin/orders/${orderId}/details`, {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nel recupero dei dettagli dell\'ordine');
+
+        const order = await response.json();
+
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal fade" id="orderDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Dettagli Ordine #${orderId}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-4">
+                                <h6>Cliente</h6>
+                                <p>${order.cliente_nome}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Data Ordine</h6>
+                                <p>${new Date(order.data).toLocaleDateString()}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Stato</h6>
+                                <span class="badge bg-${getOrderStatusColor(order.stato)}">
+                                    ${order.stato}
+                                </span>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Prodotti</h6>
+                                <div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Nome</th>
+                                                <th>Quantità</th>
+                                                <th>Prezzo Unit.</th>
+                                                <th>Subtotale</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${order.products.map(product => `
+                                                <tr>
+                                                    <td>${product.nome_prodotto}</td>
+                                                    <td>${product.quantita}</td>
+                                                    <td>€${parseFloat(product.prezzo_unitario).toFixed(2)}</td>
+                                                    <td>€${(product.quantita * product.prezzo_unitario).toFixed(2)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <td colspan="3" class="text-end"><strong>Totale</strong></td>
+                                                <td><strong>€${parseFloat(order.totale).toFixed(2)}</strong></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if any
+        const existingModal = document.getElementById('orderDetailsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to document
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+        modal.show();
+
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nel caricamento dei dettagli dell\'ordine');
+    }
+}
+
 
 // --- REVIEWS ---
 async function loadReviews() {
@@ -747,7 +912,7 @@ async function toggleReviewStatus(reviewId, shouldRemove) {
 // --- REPORTS ---
 async function loadReports() {
     try {
-        const response = await fetch('/reports/all', {
+        const response = await fetch('/admin/reports', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -757,17 +922,25 @@ async function loadReports() {
 
         const { reports } = await response.json();
         
-        // Popola le diverse tabelle
+        // Populate different tables
         populateReportsTable('artisansReportsTableBody', reports);
         populateReportsTable('ordersReportsTableBody', reports);
         populateReportsTable('reviewsReportsTableBody', reports);
 
-        // Aggiorna i contatori
-        const artisanReports = reports.filter(r => r.tipo_segnalazione === 'artigiano' && r.stato === 'in attesa');
+        // Update counters
         const orderReports = reports.filter(r => r.tipo_segnalazione === 'ordine' && r.stato === 'in attesa');
+        const artisanReports = reports.filter(r => r.tipo_segnalazione === 'artigiano' && r.stato === 'in attesa');
         const reviewReports = reports.filter(r => r.tipo_segnalazione === 'recensione' && r.stato === 'in attesa');
 
-        updateReportCounters(artisanReports.length, orderReports.length, reviewReports.length);
+        // Update counters in navigation
+        document.getElementById('reportsCount').textContent = orderReports.length;
+        document.getElementById('reportsCount').style.display = orderReports.length > 0 ? 'inline' : 'none';
+        
+        document.getElementById('artisanReportsCount').textContent = artisanReports.length;
+        document.getElementById('artisanReportsCount').style.display = artisanReports.length > 0 ? 'inline' : 'none';
+        
+        document.getElementById('reviewReportsCount').textContent = reviewReports.length;
+        document.getElementById('reviewReportsCount').style.display = reviewReports.length > 0 ? 'inline' : 'none';
 
     } catch (error) {
         console.error('Error loading reports:', error);
@@ -790,13 +963,14 @@ function populateReportsTable(tableId, reports) {
     let filteredReports = tables[tableId] || [];
     let filterType = 'all'; // Default filter type
 
-    // Add filter functionality for artisan reports
-    if (tableId === 'artisansReportsTableBody') {
-        const activeFilter = document.querySelector('#artisansReportsTab .btn-group button.active');
+    // Add filter functionality for both artisan and order reports
+    if (tableId === 'artisansReportsTableBody' || tableId === 'ordersReportsTableBody') {
+        const tabId = tableId === 'artisansReportsTableBody' ? 'artisansReportsTab' : 'reportsTab';
+        const activeFilter = document.querySelector(`#${tabId} .btn-group button.active`);
         filterType = activeFilter?.dataset.filter || 'all';
 
         // Add event listeners for filter buttons if they haven't been added yet
-        const filterButtons = document.querySelectorAll('#artisansReportsTab .btn-group button');
+        const filterButtons = document.querySelectorAll(`#${tabId} .btn-group button`);
         filterButtons.forEach(button => {
             if (!button.hasListener) {
                 button.hasListener = true;
@@ -843,8 +1017,8 @@ function populateReportsTable(tableId, reports) {
         tbody.innerHTML = reports.map(report => `
             <tr>
                 <td>${report.id}</td>
+                <td>${report.tipo_segnalazione === 'ordine' ? `#${report.ordine_id}` : 'N/A'}</td>
                 <td>${report.segnalatore_nome}</td>
-                <td>${report.target_nome || 'N/D'}</td>
                 <td>${report.tipo}</td>
                 <td>${report.descrizione}</td>
                 <td>${new Date(report.data).toLocaleDateString()}</td>
@@ -914,6 +1088,15 @@ async function resolveReport(reportId) {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Errore nella risoluzione della segnalazione');
+        }
+
+        // After resolving report, check if we need to update order status
+        const orderResponse = await fetch(`/reports/${reportId}/order`);
+        if (orderResponse.ok) {
+            const { orderId } = await orderResponse.json();
+            if (orderId) {
+                await updateOrderStatus(orderId, 'consegnato', false);
+            }
         }
 
         await loadReports();

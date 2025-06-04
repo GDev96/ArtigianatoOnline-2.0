@@ -368,6 +368,45 @@ router.get('/orders', requireAuth, async (req, res) => {
     }
 });
 
+// Add this after the orders GET endpoint
+
+// Get order details
+router.get('/orders/:id/details', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const query = `
+            SELECT 
+                o.ordine_id,
+                o.data_ordine as data,
+                o.stato,
+                c.username as cliente_nome,
+                json_agg(json_build_object(
+                    'nome_prodotto', p.nome_prodotto,
+                    'quantita', d.quantita,
+                    'prezzo_unitario', d.prezzo_unitario
+                )) as products,
+                SUM(d.quantita * d.prezzo_unitario) as totale
+            FROM ordini o
+            JOIN utente c ON o.cliente_id = c.id
+            JOIN dettagli_ordine d ON o.ordine_id = d.ordine_id
+            JOIN prodotti p ON d.prodotto_id = p.prodotto_id
+            WHERE o.ordine_id = $1
+            GROUP BY o.ordine_id, c.username`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Ordine non trovato' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching order details:', error);
+        res.status(500).json({ message: 'Errore nel recupero dei dettagli dell\'ordine' });
+    }
+});
+
 /* Reports Management */
 // Get reports
 router.get('/reports', requireAuth, async (req, res) => {
@@ -453,5 +492,7 @@ router.get('/categories', requireAuth, async (req, res) => {
         res.status(500).json({ message: 'Errore nel recupero delle categorie' });
     }
 });
+
+
 
 module.exports = router;

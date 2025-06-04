@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS ordini (
     ordine_id SERIAL PRIMARY KEY,
     cliente_id INTEGER NOT NULL,
     data_ordine TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    has_reports BOOLEAN NOT NULL DEFAULT FALSE,
     stato VARCHAR(20) NOT NULL,
     CONSTRAINT ordini_cliente_id_fkey FOREIGN KEY (cliente_id)
         REFERENCES utente (id)
