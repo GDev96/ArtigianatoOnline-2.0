@@ -181,18 +181,57 @@ async function seed() {
         // --- CREAZIONE SEGNALAZIONI ---
         console.log('Inserimento segnalazioni...');
         const segnalazioni = [
-            { ordine_id: ordiniInseriti[2], utente_id: clientiRes.rows[2].id, recensione_id: null, 
-              testo: 'Prodotto mai ricevuto', motivazione: 'Mancata consegna', stato_segnalazione: 'in attesa' },
-            { ordine_id: null, utente_id: artigianiIds.rows[1].artigiano_id, recensione_id: recensioniInserite[2], 
-              testo: 'Recensione ingiustificata', motivazione: 'Diffamazione', stato_segnalazione: 'in attesa' }
+            { 
+                utente_segnalatore_id: clientiRes.rows[2].id,
+                ordine_id: ordiniInseriti[2],
+                artigiano_id: null,
+                recensione_id: null,
+                testo: 'Prodotto mai ricevuto',
+                motivazione: 'Mancata consegna',
+                stato_segnalazione: 'in attesa'
+            },
+            { 
+                utente_segnalatore_id: clientiRes.rows[0].id,
+                ordine_id: null,
+                artigiano_id: artigianiIds.rows[1].artigiano_id,
+                recensione_id: null,
+                testo: 'Comportamento scorretto',
+                motivazione: 'Comunicazione inappropriata',
+                stato_segnalazione: 'in attesa'
+            },
+            {
+                utente_segnalatore_id: artigianiIds.rows[0].artigiano_id,
+                ordine_id: null,
+                artigiano_id: null,
+                recensione_id: recensioniInserite[2],
+                testo: 'Recensione ingiustificata',
+                motivazione: 'Diffamazione',
+                stato_segnalazione: 'in attesa'
+            }
         ];
-
+        
         for (const segnalazione of segnalazioni) {
             await pool.query(
-                `INSERT INTO segnalazioni (ordine_id, utente_id, recensione_id, testo, motivazione, stato_segnalazione, data_segnalazione)
-                 VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP - interval '1 day' * random() * 5)`,
-                [segnalazione.ordine_id, segnalazione.utente_id, segnalazione.recensione_id, 
-                 segnalazione.testo, segnalazione.motivazione, segnalazione.stato_segnalazione]
+                `INSERT INTO segnalazioni (
+                    utente_segnalatore_id,
+                    ordine_id,
+                    artigiano_id,
+                    recensione_id,
+                    testo,
+                    motivazione,
+                    stato_segnalazione,
+                    data_segnalazione
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP - interval '1 day' * random() * 5)`,
+                [
+                    segnalazione.utente_segnalatore_id,
+                    segnalazione.ordine_id,
+                    segnalazione.artigiano_id,
+                    segnalazione.recensione_id,
+                    segnalazione.testo,
+                    segnalazione.motivazione,
+                    segnalazione.stato_segnalazione
+                ]
             );
         }
 

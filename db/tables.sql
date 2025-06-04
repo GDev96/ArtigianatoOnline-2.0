@@ -136,8 +136,9 @@ CREATE TABLE IF NOT EXISTS recensioni (
 -- crea tabella segnalazioni
 CREATE TABLE IF NOT EXISTS segnalazioni (
     segnalazione_id SERIAL PRIMARY KEY,
+    utente_segnalatore_id INTEGER NOT NULL,
     ordine_id INTEGER,
-    utente_id INTEGER,
+    artigiano_id INTEGER,
     recensione_id INTEGER, 
     testo TEXT,
     motivazione TEXT NOT NULL, 
@@ -148,12 +149,16 @@ CREATE TABLE IF NOT EXISTS segnalazioni (
         REFERENCES ordini (ordine_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
-    CONSTRAINT segnalazioni_utente_id_fkey FOREIGN KEY (utente_id)
-        REFERENCES utente (id)
+    CONSTRAINT segnalazioni_utente_segnalatore_fkey FOREIGN KEY (utente_segnalatore_id)
+        REFERENCES utente(id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT segnalazioni_artigiano_id_fkey FOREIGN KEY (artigiano_id)
+        REFERENCES artigiani(artigiano_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     CONSTRAINT segnalazioni_recensione_id_fkey FOREIGN KEY (recensione_id)
         REFERENCES recensioni (recensione_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
-)
+);
