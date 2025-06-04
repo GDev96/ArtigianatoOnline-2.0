@@ -94,13 +94,9 @@ router.get('/users', requireAuth, async (req, res) => {
                 u.id as utente_id,
                 u.username,
                 u.email,
-                u.stato,
-                u.ruolo_id,
-                COUNT(s.segnalazione_id) as segnalazioni
+                u.stato
             FROM utente u
-            LEFT JOIN segnalazioni s ON s.utente_segnalatore_id = u.id
             WHERE u.ruolo_id = 1 AND u.stato != 'eliminato'
-            GROUP BY u.id, u.username, u.email, u.stato, u.ruolo_id
             ORDER BY u.username`;
 
         const result = await pool.query(query);
@@ -181,7 +177,7 @@ router.get('/artisans', requireAuth, async (req, res) => {
             FROM utente u
             INNER JOIN artigiani a ON a.artigiano_id = u.id
             INNER JOIN tipologia t ON t.tipologia_id = a.tipologia_id
-            WHERE u.ruolo_id = 2 AND u.stato != 'sospeso'
+            WHERE u.ruolo_id = 2
             ORDER BY u.username`;
 
         const result = await pool.query(query);

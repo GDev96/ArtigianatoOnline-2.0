@@ -231,19 +231,6 @@ async function loadUsers() {
                         ${user.stato === 'attivo' ? 'Attivo' : 'Sospeso'}
                     </span>
                 </td>
-                <td>
-                    <span class="badge bg-${user.segnalazioni > 0 ? 'warning' : 'secondary'}">
-                        ${user.segnalazioni}
-                    </span>
-                </td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-warning" onclick="toggleUserStatus(${user.utente_id}, '${user.stato}')">
-                        <i class="bi bi-${user.stato === 'attivo' ? 'pause-fill' : 'play-fill'}"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.utente_id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
             </tr>
         `).join('');
 
@@ -252,7 +239,7 @@ async function loadUsers() {
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-danger">
+                <td colspan="4" class="text-center text-danger">
                     Errore nel caricamento degli utenti: ${error.message}
                 </td>
             </tr>
@@ -338,11 +325,10 @@ async function loadArtisans() {
                     </span>
                 </td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-warning" onclick="toggleArtisanStatus(${artisan.artisan_id}, '${artisan.stato}')">
+                    <button class="btn btn-sm ${artisan.stato === 'attivo' ? 'btn-warning' : 'btn-success'}" 
+                            onclick="toggleArtisanStatus(${artisan.artisan_id}, '${artisan.stato}')">
                         <i class="bi bi-${artisan.stato === 'attivo' ? 'pause-fill' : 'play-fill'}"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteArtisan(${artisan.artisan_id})">
-                        <i class="bi bi-trash"></i>
+                        ${artisan.stato === 'attivo' ? 'Sospendi' : 'Ripristina'}
                     </button>
                 </td>
             </tr>
