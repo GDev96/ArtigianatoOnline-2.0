@@ -924,7 +924,7 @@ async function loadArtisanReports() {
         
         tbody.innerHTML = reports.map(report => `
             <tr>
-                <td>${report.review_id ? `#${report.review_id}` : 'N/A'}</td>
+                <td>${report.recensione_id ? `#${report.recensione_id}` : 'N/A'}</td>
                 <td>${new Date(report.data_segnalazione).toLocaleDateString()}</td>
                 <td>${getReportReasonText(report.motivazione)}</td>
                 <td>

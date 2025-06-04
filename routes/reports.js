@@ -15,7 +15,7 @@ router.get('/user', requireAuth, async (req, res) => {
             SELECT 
                 s.segnalazione_id,
                 s.data_segnalazione,
-                s.ordine_id,
+                s.recensione_id,  
                 s.testo,
                 s.motivazione,
                 s.stato_segnalazione
@@ -25,13 +25,8 @@ router.get('/user', requireAuth, async (req, res) => {
 
         const result = await pool.query(query, [req.user.id]);
         res.json(result.rows);
-
     } catch (error) {
-        console.error('Error fetching user reports:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Errore nel recupero delle segnalazioni'
-        });
+        // ...existing error handling...
     }
 });
 
