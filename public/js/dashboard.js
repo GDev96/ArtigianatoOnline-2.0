@@ -308,6 +308,9 @@ async function loadSalesChart() {
     }
 }
 
+// Aggiungi una variabile globale per tenere traccia del grafico delle recensioni
+let reviewsChart = null;
+
 function updateReviewsChart(reviews) {
     // Count reviews by rating
     const ratings = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
@@ -316,7 +319,14 @@ function updateReviewsChart(reviews) {
     });
 
     const ctx = document.getElementById('reviewsChart').getContext('2d');
-    new Chart(ctx, {
+    
+    // Distruggi il grafico esistente se presente
+    if (reviewsChart) {
+        reviewsChart.destroy();
+    }
+
+    // Crea il nuovo grafico
+    reviewsChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['5 stelle', '4 stelle', '3 stelle', '2 stelle', '1 stella'],
@@ -345,7 +355,7 @@ function updateReviewsChart(reviews) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: '#000000', // --text-color
+                        color: '#000000',
                         padding: 20,
                         font: {
                             size: 14
@@ -747,7 +757,6 @@ async function loadArtisanReviews() {
             : 0;
 
         // Update header with average rating stars
-        // Update header with average rating stars
         const ratingContainer = document.querySelector('#reviews .rating small');
         const starsContainer = document.querySelector('#reviews .stars');
         
@@ -757,24 +766,20 @@ async function loadArtisanReviews() {
         }
 
         // Clear and populate table
-        tbody.innerHTML = '';
-        
         if (artisanReviews.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">Nessuna recensione disponibile</td></tr>';
             return;
         }
 
-        // Populate table with reviews
-        artisanReviews.forEach(review => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
+        tbody.innerHTML = artisanReviews.map(review => `
+            <tr>
                 <td>${review.cliente_nome} ${review.cliente_cognome}</td>
                 <td class="text-center">
                     <small class="text-muted ms-2">${review.valutazione}/5</small>
                 </td>
                 <td>${review.descrizione}</td>
                 <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
-                <td class="display-flex justify-content-evenly align-items-center">
+                <td class="text-center">
                     <button class="btn btn-sm" 
                             onclick="openReportModal(${review.recensione_id})"
                             data-bs-toggle="modal"
@@ -783,16 +788,15 @@ async function loadArtisanReviews() {
                         <i class="fas fa-flag"></i>
                     </button>
                 </td>
-            `;
-            tbody.appendChild(tr);
-        });
+            </tr>
+        `).join('');
 
         // Update reviews chart
         updateReviewsChart(artisanReviews);
 
     } catch (error) {
         console.error('Error loading reviews:', error);
-        showErrorMessage('Errore nel caricamento delle recensioni');
+        const tbody = document.getElementById('reviewsTableBody');
         if (tbody) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Errore nel caricamento delle recensioni</td></tr>';
         }
@@ -836,9 +840,9 @@ document.getElementById('reportReviewForm').addEventListener('submit', async (e)
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             },
             body: JSON.stringify({
-                review_id: parseInt(reviewId), // Changed from recensione_id to review_id
-                reason: reason,               // Changed from motivo to reason
-                description: description.trim() // Changed from descrizione to description
+                review_id: parseInt(reviewId),
+                reason: reason,
+                description: description.trim()
             })
         });
 
@@ -856,12 +860,16 @@ document.getElementById('reportReviewForm').addEventListener('submit', async (e)
         e.target.reset();
         showSuccessMessage('Segnalazione inviata con successo');
 
+        // Reload the page after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+
     } catch (error) {
         console.error('Error reporting review:', error);
         showErrorMessage(error.message || 'Errore durante la segnalazione');
     }
 });
-
 
 function generateStars(rating) {
     const fullStars = Math.floor(rating);
@@ -893,23 +901,30 @@ async function loadArtisanReports() {
         if (!response.ok) throw new Error('Errore nel caricamento delle segnalazioni');
         
         const reports = await response.json();
-        const tbody = document.getElementById('reportsTableBody');
+        console.log('Reports data:', reports); // Debug: log the reports data
         
-        if (!tbody) return;
-
-        if (reports.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center text-muted">
-                        Nessuna segnalazione effettuata
-                    </td>
-                </tr>`;
+        const reportsContainer = document.querySelector('#reports-container');
+        
+        // If no reports, hide the entire container and return
+        if (!reports || !Array.isArray(reports) || reports.length === 0) {
+            if (reportsContainer) {
+                reportsContainer.style.display = 'none';
+            }
             return;
         }
+
+        // Show the container if there are reports
+        if (reportsContainer) {
+            reportsContainer.style.display = 'block';
+            reportsContainer.classList.remove('d-none');
+        }
+
+        const tbody = document.getElementById('reportsTableBody');
+        if (!tbody) return;
         
         tbody.innerHTML = reports.map(report => `
             <tr>
-                <td>${report.recensione_id ? `#${report.recensione_id}` : 'N/A'}</td>
+                <td>${report.review_id ? `#${report.review_id}` : 'N/A'}</td>
                 <td>${new Date(report.data_segnalazione).toLocaleDateString()}</td>
                 <td>${getReportReasonText(report.motivazione)}</td>
                 <td>
@@ -917,7 +932,7 @@ async function loadArtisanReports() {
                         ${getReportStatusText(report.stato_segnalazione)}
                     </span>
                 </td>
-                <td>
+                <td class="text-center">
                     <button class="btn btn-sm btn-danger" onclick="deleteReport(${report.segnalazione_id})">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -927,15 +942,9 @@ async function loadArtisanReports() {
 
     } catch (error) {
         console.error('Error:', error);
-        const tbody = document.getElementById('reportsTableBody');
-        if (tbody) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center text-danger">
-                        Errore nel caricamento delle segnalazioni
-                    </td>
-                </tr>
-            `;
+        const reportsContainer = document.querySelector('#reports-container');
+        if (reportsContainer) {
+            reportsContainer.style.display = 'none';
         }
     }
 }
