@@ -13,11 +13,11 @@ Legenda:
 | Aggiungere file vecchio progetto         | Gaia         | main (primo commit)           | ✅ Completato |
 | Cambiare stili              | Gaia        | fixstyles| ✅ Completato |
 | Pagina catalogo             | Gaia         | catalogpage          | ✅ Completato  |
-| Pagina profilo utente             | -         | -          | ❌ Da fare   |
-| Pagina carrello             | Gaia         | cartpage          | ⏳ In corso    |
-| Pagina dashboard             | -         | -          | ❌ Da fare   |
-| Pagina admin             | -         | -          | ❌ Da fare   |
-| -             | -         | -          | ❌ Da fare   |
+| Pagina profilo utente             | Gaia         | profilepage          | ✅ Completato   |
+| Pagina carrello             | Gaia         | cartpage          | ✅ Completato    |
+| Pagina dashboard             | Gaia         | dashboard          | ✅ Completato   |
+| Pagina admin             | Gaia         | adminconsole          | ❌ Da fare   |
+| Pagina di recupero password             | -         | -          | ❌ Da fare   |
 
 
 ## BACKEND PAGINE HTML
@@ -52,82 +52,134 @@ Tabelle e attributi:
 | Creare nuovo db    | Gaia    | main   |✅ Completato
 
 
+***
 
 
+# Artigianato Online 2.0
 
-# PIATTAFORMA WEB "ARTIGIANATO ONLINE"
-
-## Avvio dell'applicazione in locale 
-
-_work in progress..._
-
-### Avvio del server
-
-```powershell
-node app.js
-```
-
-URL provvisori pre-db: 
- - localhost:3000/index.html
- - localhost:3000/dashboard.html
- - localhost:3000/admin.html
-
----
-
-## 🛠️ Tecnologie usate
-
-- HTML5
-- CSS3
-- Immagini da [Pexels](https://www.pexels.com/)
-- Icone da [Svg Repo](https://www.svgrepo.com/)
-
----
-
-
-
-
-
-# Esempio di README (fatto da chat)
-
-# 🛍️ ShopOnline - E-commerce Homepage
-
-Benvenuto in **ShopOnline**, la homepage di un sito e-commerce responsive, moderno e minimalista.  
-Questo progetto è stato sviluppato per presentare i prodotti in modo semplice e accattivante.
-
----
-
-## 📸 Demo
-
-![screenshot](screenshot.png)  
-[Guarda la demo online](#) *(link opzionale)*
-
----
+Una piattaforma web per connettere artigiani e clienti, permettendo l'acquisto di prodotti artigianali e la gestione di recensioni.
 
 ## 🚀 Funzionalità
 
-- Navbar con link alle sezioni principali
-- Hero/banner promozionale con immagine full-width
-- Griglia responsive di prodotti
-- Footer minimale
-- HTML e CSS puri, senza framework
+### Utenti
+- Registrazione e login con ruoli differenziati (Cliente, Artigiano, Admin)
+- Gestione del profilo personale
+- Visualizzazione dello storico ordini
+- Gestione delle recensioni effettuate
+- Gestione delle segnalazioni inviate
 
----
+### Artigiani
+- Dashboard personalizzata
+- Gestione del catalogo prodotti (aggiunta, modifica, eliminazione)
+- Visualizzazione statistiche vendite
+- Gestione delle recensioni ricevute
+- Monitoraggio delle segnalazioni
 
-## 🛠️ Tecnologie usate
+### Amministratori
+- Gestione utenti
+- Moderazione recensioni
+- Gestione segnalazioni
+- Monitoraggio della piattaforma
 
-- HTML5
-- CSS3 (Flexbox e Grid)
-- Responsive design
-- Immagini da [Pexels](https://www.pexels.com/)
+## 🛠️ Tecnologie Utilizzate
 
----
+- **Frontend**: HTML5, CSS3, JavaScript, Bootstrap 5
+- **Backend**: Node.js, Express.js
+- **Database**: PostgreSQL
+- **Autenticazione**: JWT (JSON Web Tokens)
 
-## 📂 Struttura del progetto
+## 💻 Requisiti di Sistema
 
-```plaintext
-/ (root)
-│
-├── index.html          # Pagina principale
-├── style.css           # Stili personalizzati (se separati)
-├── images/             # Immagini prodotto / banner
-└── README.md           # Documentazione
+- Node.js (v14+)
+- PostgreSQL (v12+)
+- npm o yarn
+
+## 🚦 Getting Started
+
+1. Clona il repository
+```bash
+git clone https://github.com/yourusername/artigianato-online-2.git
+```
+
+2. Installa le dipendenze
+```bash
+npm install
+```
+
+3. Configura il database
+```bash
+# Crea un file .env nella root del progetto con:
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=artigianato_online
+JWT_SECRET=your_secret_key
+```
+
+4. Inizializza il database
+```bash
+node db/seed.js
+```
+
+5. Avvia l'applicazione
+```bash
+node app.js
+```
+
+L'applicazione sarà disponibile all'indirizzo: `http://localhost:3000`
+
+## 📝 API Endpoints
+
+### Autenticazione
+- `POST /auth/signup` - Registrazione nuovo utente
+- `POST /auth/login` - Login utente
+- `POST /auth/logout` - Logout utente
+
+### Utenti
+- `GET /users/profile` - Recupera profilo utente
+- `PUT /users/profile` - Aggiorna profilo utente
+- `POST /users/profile/image` - Carica immagine profilo
+
+### Prodotti
+- `GET /products` - Lista prodotti
+- `POST /products` - Crea nuovo prodotto
+- `PUT /products/:id` - Modifica prodotto
+- `DELETE /products/:id` - Elimina prodotto
+
+### Recensioni
+- `GET /reviews` - Lista recensioni
+- `POST /reviews` - Crea recensione
+- `PUT /reviews/:id` - Modifica recensione
+- `DELETE /reviews/:id` - Elimina recensione
+
+### Segnalazioni
+- `GET /reports/user` - Lista segnalazioni utente
+- `POST /reports/review` - Segnala recensione
+- `POST /reports/artisan` - Segnala artigiano
+- `DELETE /reports/:id` - Elimina segnalazione
+
+## 👥 Ruoli Utente
+
+1. **Cliente** (ruolo_id: 1)
+   - Acquisto prodotti
+   - Gestione carrello
+   - Recensioni
+   - Segnalazioni
+
+2. **Artigiano** (ruolo_id: 2)
+   - Gestione prodotti
+   - Visualizzazione recensioni
+   - Gestione segnalazioni
+
+3. **Amministratore** (ruolo_id: 3)
+   - Gestione piattaforma
+   - Moderazione contenuti
+
+## 🔒 Sicurezza
+
+- Autenticazione basata su JWT
+- Password hashate
+- Validazione input
+- Protezione CSRF
+- Middleware di autorizzazione per ruoli
