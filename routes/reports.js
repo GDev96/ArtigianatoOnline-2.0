@@ -6,7 +6,64 @@ const createAuthMiddleware = require('../middleware/auth');
 // Create auth middleware
 const requireAuth = createAuthMiddleware();
 
-//TODO: GET tutte le recensioni - admin
+// Get all reports (admin only)
+router.get('/all', requireAuth, async (req, res) => {
+    try {
+        // Verifica che l'utente sia admin
+        if (req.user.ruolo_id !== 3) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accesso non autorizzato'
+            });
+        }
+
+        const query = `
+            SELECT 
+                s.segnalazione_id as id,
+                s.data_segnalazione as data,
+                s.ordine_id,
+                s.recensione_id,
+                s.utente_id,
+                s.testo as descrizione,
+                s.motivazione as tipo,
+                s.stato_segnalazione as stato,
+                u.username as segnalatore_nome,
+                CASE 
+                    WHEN s.ordine_id IS NOT NULL THEN 'ordine'
+                    WHEN s.recensione_id IS NOT NULL THEN 'recensione'
+                    WHEN s.utente_id IS NOT NULL THEN 'artigiano'
+                END as tipo_segnalazione,
+                CASE
+                    WHEN s.ordine_id IS NOT NULL THEN o.cliente_id
+                    WHEN s.recensione_id IS NOT NULL THEN r.cliente_id
+                    WHEN s.utente_id IS NOT NULL THEN art.artigiano_id
+                END as target_id,
+                CASE
+                    WHEN s.ordine_id IS NOT NULL THEN c_ord.username
+                    WHEN s.recensione_id IS NOT NULL THEN c_rev.username
+                    WHEN s.utente_id IS NOT NULL THEN art_u.username
+                END as target_nome
+            FROM segnalazioni s
+            JOIN utente u ON s.utente_id = u.id
+            LEFT JOIN ordini o ON s.ordine_id = o.ordine_id
+            LEFT JOIN recensioni r ON s.recensione_id = r.recensione_id
+            LEFT JOIN utente art ON s.utente_id = art.id AND art.ruolo_id = 2
+            LEFT JOIN artigiani art_info ON art.id = art_info.artigiano_id
+            LEFT JOIN utente c_ord ON o.cliente_id = c_ord.id
+            LEFT JOIN utente c_rev ON r.cliente_id = c_rev.id
+            LEFT JOIN utente art_u ON art.id = art_u.id
+            ORDER BY s.data_segnalazione DESC`;
+
+        const result = await pool.query(query);
+        res.json({ reports: result.rows });
+    } catch (error) {
+        console.error('Error fetching all reports:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero delle segnalazioni'
+        });
+    }
+});
 
 // Get segnalazioni dell'utente
 router.get('/user', requireAuth, async (req, res) => {
@@ -177,7 +234,48 @@ router.post('/order', requireAuth, async (req, res) => {
     }
 });
 
-//TODO: PUT modifica segnalazione - admin
+// Update report status (admin only)
+router.patch('/admin/:id/resolve', requireAuth, async (req, res) => {
+    try {
+        // Verifica che l'utente sia admin
+        if (req.user.ruolo_id !== 3) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accesso non autorizzato'
+            });
+        }
+
+        const { id } = req.params;
+        
+        const query = `
+            UPDATE segnalazioni
+            SET stato_segnalazione = 'risolta'
+            WHERE segnalazione_id = $1
+            RETURNING *`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Segnalazione non trovata'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Segnalazione risolta con successo',
+            report: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error resolving report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nella risoluzione della segnalazione'
+        });
+    }
+});
 
 // DELETE elimina segnalazione - solo utente che ha fatto la segnalazione
 router.delete('/:id', requireAuth, async (req, res) => {

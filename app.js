@@ -40,7 +40,7 @@ if (ordersRouter) app.use('/orders', ordersRouter);
 if (reviewsRouter) app.use('/reviews', reviewsRouter);
 if (reportsRouter) app.use('/reports', reportsRouter);
 if (usersRouter) app.use('/users', usersRouter);
-if (adminRouter) app.use('/api/admin', adminRouter);
+if (adminRouter) app.use('/admin', adminRouter);
 
 app.get('/profile.html', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/profile.html'));

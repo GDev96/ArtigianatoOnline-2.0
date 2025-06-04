@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // --- DASHBOARD ---
 async function loadDashboardData() {
     try {
-        const response = await fetch('/api/admin/stats/users', {
+        const response = await fetch('/admin/stats/users', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -74,7 +74,7 @@ function initializeDashboardCharts() {
 
 async function loadSalesChart() {
     try {
-        const response = await fetch('/api/admin/stats/orders', {
+        const response = await fetch('/admin/stats/orders', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -145,7 +145,7 @@ async function loadSalesChart() {
 
 async function loadCategoriesChart() {
     try {
-        const response = await fetch('/api/admin/stats/categories', {
+        const response = await fetch('/admin/stats/categories', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -210,7 +210,7 @@ async function loadCategoriesChart() {
 // --- USERS ---
 async function loadUsers() {
     try {
-        const response = await fetch('/api/admin/users', {
+        const response = await fetch('/admin/users', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -267,7 +267,7 @@ async function toggleUserStatus(userId, currentStatus) {
     }
 
     try {
-        const response = await fetch(`/api/admin/users/${userId}/status`, {
+        const response = await fetch(`/admin/users/${userId}/status`, {
             method: 'PATCH',
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
@@ -291,7 +291,7 @@ async function deleteUser(userId) {
     }
 
     try {
-        const response = await fetch(`/api/admin/users/${userId}`, {
+        const response = await fetch(`/admin/users/${userId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
@@ -310,7 +310,7 @@ async function deleteUser(userId) {
 // --- ARTISANS ---
 async function loadArtisans() {
     try {
-        const response = await fetch('/api/admin/artisans', {
+        const response = await fetch('/admin/artisans', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -367,7 +367,7 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
     }
 
     try {
-        const response = await fetch(`/api/admin/artisans/${artisanId}/status`, {
+        const response = await fetch(`/admin/artisans/${artisanId}/status`, {
             method: 'PATCH',
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
@@ -390,7 +390,7 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
 // --- PRODUCTS ---
 async function loadProducts() {
     try {
-        const response = await fetch('/api/admin/products', {
+        const response = await fetch('/admin/products', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -440,7 +440,7 @@ async function editProduct(id) {
 async function deleteProduct(id) {
     if (confirm('Sei sicuro di voler eliminare questo prodotto?')) {
         try {
-            const response = await fetch(`/api/users/products/${id}`, {
+            const response = await fetch(`/users/products/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -458,7 +458,7 @@ async function deleteProduct(id) {
 
 async function toggleProductAvailability(id) {
     try {
-        const response = await fetch(`/api/users/products/${id}/toggle`, {
+        const response = await fetch(`/users/products/${id}/toggle`, {
             method: 'PATCH',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -476,7 +476,7 @@ async function toggleProductAvailability(id) {
 // --- ORDERS ---
 async function loadOrders() {
     try {
-        const response = await fetch('/api/admin/orders', {
+        const response = await fetch('/admin/orders', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -540,7 +540,7 @@ function getOrderStatusColor(status) {
 // --- REVIEWS ---
 async function loadReviews() {
     try {
-        const response = await fetch('/api/admin/reviews', {
+        const response = await fetch('/admin/reviews', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -598,7 +598,7 @@ function generateStars(rating) {
 
 async function viewReviewDetails(reviewId) {
     try {
-        const response = await fetch(`/api/reviews/${reviewId}`);
+        const response = await fetch(`/reviews/${reviewId}`);
         if (!response.ok) throw new Error('Errore nel recupero dei dettagli della recensione');
         const review = await response.json();
 
@@ -645,7 +645,7 @@ async function toggleReviewStatus(reviewId, shouldRemove) {
     }
 
     try {
-        const response = await fetch(`/api/reviews/${reviewId}/toggle`, {
+        const response = await fetch(`/reviews/${reviewId}/toggle`, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json'
@@ -664,10 +664,11 @@ async function toggleReviewStatus(reviewId, shouldRemove) {
     }
 }
 
+
 // --- REPORTS ---
 async function loadReports() {
     try {
-        const response = await fetch('/api/admin/reports', {
+        const response = await fetch('/reports/all', {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
@@ -677,85 +678,118 @@ async function loadReports() {
 
         const { reports } = await response.json();
         
-        // Update pending reports counter
-        const pendingReports = (reports || []).filter(report => report.stato === 'pending').length;
-        const reportsCountElement = document.getElementById('reportsCount');
-        if (reportsCountElement) {
-            reportsCountElement.textContent = pendingReports;
-        }
-        
-        const tbody = document.getElementById('reportsTableBody');
-        if (!tbody) return;
+        // Filtra le segnalazioni per tipo
+        const artisanReports = reports.filter(r => r.tipo_segnalazione === 'artigiano');
+        const orderReports = reports.filter(r => r.tipo_segnalazione === 'ordine');
+        const reviewReports = reports.filter(r => r.tipo_segnalazione === 'recensione');
 
-        tbody.innerHTML = (reports || []).map(report => `
-            <tr>
-                <td>${report.id}</td>
-                <td>
-                    ${report.ordine_id ? `
-                        <a href="#" onclick="viewOrderDetails(${report.ordine_id})">
-                            #${report.ordine_id}
-                        </a>
-                    ` : 'N/A'}
-                </td>
-                <td>${report.utente_nome}</td>
-                <td>${report.tipo}</td>
-                <td>${report.descrizione}</td>
-                <td>${new Date(report.data).toLocaleDateString()}</td>
-                <td>
-                    <span class="badge bg-${report.stato === 'pending' ? 'warning' : 'success'}">
-                        ${report.stato === 'pending' ? 'In Attesa' : 'Risolta'}
-                    </span>
-                </td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-primary" onclick="handleReport(${report.id})">
-                        <i class="bi bi-chat-dots"></i>
-                    </button>
-                    ${report.stato === 'pending' ? `
-                        <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
-                            <i class="bi bi-check-lg"></i>
-                        </button>
-                    ` : ''}
-                </td>
-            </tr>
-        `).join('');
+        // Popola le tabelle
+        populateReportsTable('artisanReportsTable', artisanReports);
+        populateReportsTable('orderReportsTable', orderReports);
+        populateReportsTable('reviewReportsTable', reviewReports);
+
+        // Aggiorna i contatori
+        updateReportCounters(artisanReports, orderReports, reviewReports);
+
     } catch (error) {
         console.error('Error loading reports:', error);
-        const tbody = document.getElementById('reportsTableBody');
+        const tables = ['artisanReportsTable', 'orderReportsTable', 'reviewReportsTable'];
+        tables.forEach(tableId => {
+            const tbody = document.getElementById(tableId);
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center text-danger">
+                            Errore nel caricamento delle segnalazioni: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        });
+    }
+}
+
+function populateReportsTable(tableId, reports) {
+    const tbody = document.getElementById(tableId);
+    if (!tbody) return;
+
+    tbody.innerHTML = reports.map(report => `
+        <tr>
+            <td>${report.id}</td>
+            <td>${report.segnalatore_nome}</td>
+            <td>${report.target_nome}</td>
+            <td>${report.tipo}</td>
+            <td>${report.descrizione}</td>
+            <td>${new Date(report.data).toLocaleDateString()}</td>
+            <td>
+                <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
+                    ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
+                </span>
+            </td>
+            <td class="text-end">
+                ${report.stato === 'in attesa' ? `
+                    <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                ` : ''}
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateReportCounters(artisanReports, orderReports, reviewReports) {
+    const counters = {
+        'artisanReportsCount': artisanReports.filter(r => r.stato === 'in attesa').length,
+        'orderReportsCount': orderReports.filter(r => r.stato === 'in attesa').length,
+        'reviewReportsCount': reviewReports.filter(r => r.stato === 'in attesa').length
+    };
+
+    Object.entries(counters).forEach(([id, count]) => {
+        const badge = document.getElementById(id);
+        if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline' : 'none';
+        }
+    });
+}
+
+// Update the resolve endpoint as well
+async function resolveReport(reportId) {
+    if (!confirm('Sei sicuro di voler contrassegnare questa segnalazione come risolta?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/reports/${reportId}/resolve`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nella risoluzione della segnalazione');
+
+        await loadReports();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Errore nella risoluzione della segnalazione');
+    }
+}
+
+function showErrorInTables(message) {
+    const tables = ['artisansReportsTableBody', 'ordersReportsTableBody', 'reviewsReportsTableBody'];
+    tables.forEach(tableId => {
+        const tbody = document.getElementById(tableId);
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center text-danger">
-                        Errore nel caricamento delle segnalazioni: ${error.message}
+                    <td colspan="7" class="text-center text-danger">
+                        Errore nel caricamento delle segnalazioni: ${message}
                     </td>
                 </tr>
             `;
         }
-    }
-}
-
-async function handleReport(reportId) {
-    const response = await fetch(`/api/admin/reports/${reportId}`);
-    const report = await response.json();
-    // TODO: Implementa il modale
-}
-
-async function resolveReport(reportId) {
-    if (confirm('Sei sicuro di voler contrassegnare questa segnalazione come risolta?')) {
-        try {
-            const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (response.ok) {
-                await loadReports();
-            }
-        } catch (error) {
-            console.error('Error resolving report:', error);
-        }
-    }
+    });
 }
 
 // --- UTILITY FUNCTIONS ---
