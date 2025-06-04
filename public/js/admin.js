@@ -66,12 +66,10 @@ async function loadDashboardData() {
         document.getElementById('totalArtisans').textContent = '0';
     }
 }
-
 function initializeDashboardCharts() {
     loadSalesChart();
     loadCategoriesChart();
 }
-
 async function loadSalesChart() {
     try {
         const response = await fetch('/admin/stats/orders', {
@@ -142,7 +140,6 @@ async function loadSalesChart() {
         console.error('Error loading sales chart:', error);
     }
 }
-
 async function loadCategoriesChart() {
     try {
         const response = await fetch('/admin/stats/categories', {
@@ -206,6 +203,8 @@ async function loadCategoriesChart() {
         console.error('Error loading categories chart:', error);
     }
 }
+
+
 
 // --- USERS ---
 async function loadUsers() {
@@ -289,7 +288,6 @@ async function loadUsers() {
         `;
     }
 }
-
 async function toggleUserStatus(userId, currentStatus) {
     const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
     if (!confirm(`Sei sicuro di voler ${newStatus === 'attivo' ? 'riattivare' : 'sospendere'} questo utente?`)) {
@@ -315,27 +313,7 @@ async function toggleUserStatus(userId, currentStatus) {
     }
 }
 
-async function deleteUser(userId) {
-    if (!confirm('Sei sicuro di voler eliminare questo utente?')) {
-        return;
-    }
 
-    try {
-        const response = await fetch(`/admin/users/${userId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-            }
-        });
-
-        if (!response.ok) throw new Error('Errore nell\'eliminazione dell\'utente');
-
-        await loadUsers();
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Errore nell\'eliminazione dell\'utente');
-    }
-}
 
 // --- ARTISANS ---
 async function loadArtisans() {
@@ -362,11 +340,6 @@ async function loadArtisans() {
                         ${artisan.stato === 'attivo' ? 'Attivo' : 'Sospeso'}
                     </span>
                 </td>
-                <td>
-                    <span class="badge bg-${parseInt(artisan.segnalazioni) > 0 ? 'warning' : 'secondary'}">
-                        ${artisan.segnalazioni}
-                    </span>
-                </td>
                 <td class="text-end">
                     <button class="btn btn-sm ${artisan.stato === 'attivo' ? 'btn-warning' : 'btn-success'}" 
                             onclick="toggleArtisanStatus(${artisan.artisan_id}, '${artisan.stato}')">
@@ -382,14 +355,13 @@ async function loadArtisans() {
         const tbody = document.getElementById('artisansTableBody');
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-danger">
+                <td colspan="6" class="text-center text-danger">
                     Errore nel caricamento degli artigiani: ${error.message}
                 </td>
             </tr>
         `;
     }
 }
-
 async function toggleArtisanStatus(artisanId, currentStatus) {
     if (!confirm(`Sei sicuro di voler ${currentStatus === 'attivo' ? 'sospendere' : 'riattivare'} questo artigiano?`)) {
         return;
@@ -409,12 +381,74 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
 
         if (!response.ok) throw new Error('Errore nella modifica dello stato');
 
-        await loadArtisans();
+        // Update both tables
+        await Promise.all([
+            loadArtisans(),
+            loadSuspendedArtisans()
+        ]);
     } catch (error) {
         console.error('Error:', error);
         alert('Errore nella modifica dello stato dell\'artigiano');
     }
 }
+async function loadSuspendedArtisans() {
+    try {
+        const response = await fetch('/admin/artisans/suspended', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nel recupero degli artigiani sospesi');
+
+        const artisans = await response.json();
+        const tbody = document.getElementById('suspendedArtisansTableBody');
+        
+        tbody.innerHTML = artisans.map(artisan => `
+            <tr>
+                <td>${artisan.artisan_id}</td>
+                <td>${artisan.username}</td>
+                <td>${artisan.email}</td>
+                <td>${artisan.nome_tipologia}</td>
+                <td>${new Date(artisan.data_ultima_sospensione).toLocaleDateString()}</td>
+                <td>
+                    <span class="badge bg-warning">
+                        ${artisan.numero_sospensioni}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-success" 
+                            onclick="toggleArtisanStatus(${artisan.artisan_id}, '${artisan.stato}')">
+                        <i class="bi bi-play-fill"></i> Ripristina
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        if (artisans.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center">
+                        Nessun artigiano sospeso
+                    </td>
+                </tr>
+            `;
+        }
+
+    } catch (error) {
+        console.error('Error loading suspended artisans:', error);
+        const tbody = document.getElementById('suspendedArtisansTableBody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-danger">
+                    Errore nel caricamento degli artigiani sospesi: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+
 
 // --- PRODUCTS ---
 async function loadProducts() {
@@ -428,79 +462,95 @@ async function loadProducts() {
         if (!response.ok) throw new Error('Errore nel recupero dei prodotti');
 
         const data = await response.json();
-        const tbody = document.getElementById('productsTableBody');
+        const products = data.products;
         
-        tbody.innerHTML = data.products.map(product => `
-            <tr>
-                <td>${product.prodotto_id}</td>
-                <td>${product.nome_prodotto}</td>
-                <td>${product.nome_tipologia}</td>
-                <td>€${parseFloat(product.prezzo).toFixed(2)}</td>
-                <td>${product.quant}</td>
-                <td>${product.artigiano_nome}</td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-primary" onclick="editProduct(${product.prodotto_id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteProduct(${product.prodotto_id})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        // Populate filters
+        populateFilters(products);
+
+        // Initial render
+        renderProducts(products);
+
+        // Setup filter event listeners
+        setupFilterListeners(products);
 
     } catch (error) {
         console.error('Error loading products:', error);
-        const tbody = document.getElementById('productsTableBody');
+        showError('Errore nel caricamento dei prodotti: ' + error.message);
+    }
+}
+function populateFilters(products) {
+    // Populate category filter
+    const categoryFilter = document.getElementById('categoryFilter');
+    const categories = [...new Set(products.map(p => p.nome_tipologia))].sort();
+    categoryFilter.innerHTML = `
+        <option value="">Tutte le categorie</option>
+        ${categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+    `;
+
+    // Populate artisan filter
+    const artisanFilter = document.getElementById('artisanFilter');
+    const artisans = [...new Set(products.map(p => p.artigiano_nome))].sort();
+    artisanFilter.innerHTML = `
+        <option value="">Tutti gli artigiani</option>
+        ${artisans.map(art => `<option value="${art}">${art}</option>`).join('')}
+    `;
+}
+function setupFilterListeners(products) {
+    const categoryFilter = document.getElementById('categoryFilter');
+    const artisanFilter = document.getElementById('artisanFilter');
+
+    const filterProducts = () => {
+        let filtered = [...products];
+        
+        const selectedCategory = categoryFilter.value;
+        const selectedArtisan = artisanFilter.value;
+
+        if (selectedCategory) {
+            filtered = filtered.filter(p => p.nome_tipologia === selectedCategory);
+        }
+        if (selectedArtisan) {
+            filtered = filtered.filter(p => p.artigiano_nome === selectedArtisan);
+        }
+
+        renderProducts(filtered);
+    };
+
+    categoryFilter.addEventListener('change', filterProducts);
+    artisanFilter.addEventListener('change', filterProducts);
+}
+function renderProducts(products) {
+    const tbody = document.getElementById('productsTableBody');
+    
+    if (products.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-danger">
-                    Errore nel caricamento dei prodotti: ${error.message}
-                </td>
+                <td colspan="6" class="text-center">Nessun prodotto trovato</td>
             </tr>
         `;
+        return;
     }
+
+    tbody.innerHTML = products.map(product => `
+        <tr>
+            <td>${product.prodotto_id}</td>
+            <td>${product.nome_prodotto}</td>
+            <td>${product.nome_tipologia}</td>
+            <td>€${parseFloat(product.prezzo).toFixed(2)}</td>
+            <td>${product.quant}</td>
+            <td>${product.artigiano_nome}</td>
+        </tr>
+    `).join('');
+}
+function showError(message) {
+    const tbody = document.getElementById('productsTableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center text-danger">${message}</td>
+        </tr>
+    `;
 }
 
-async function editProduct(id) {
-    console.log('Edit product:', id);
-}
 
-async function deleteProduct(id) {
-    if (confirm('Sei sicuro di voler eliminare questo prodotto?')) {
-        try {
-            const response = await fetch(`/users/products/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-            
-            if (response.ok) {
-                await loadProducts();
-            }
-        } catch (error) {
-            console.error('Error deleting product:', error);
-        }
-    }
-}
-
-async function toggleProductAvailability(id) {
-    try {
-        const response = await fetch(`/users/products/${id}/toggle`, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-        });
-        
-        if (response.ok) {
-            await loadProducts();
-        }
-    } catch (error) {
-        console.error('Error toggling product availability:', error);
-    }
-}
 
 // --- ORDERS ---
 async function loadOrders() {
@@ -726,7 +776,7 @@ async function loadReports() {
 }
 
 function populateReportsTable(tableId, reports) {
-    // Determina quale tabella popolare in base all'ID
+    // Determine which table to populate based on ID
     const tables = {
         'artisansReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'artigiano'),
         'ordersReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'ordine'),
@@ -736,41 +786,98 @@ function populateReportsTable(tableId, reports) {
     const tbody = document.getElementById(tableId);
     if (!tbody) return;
 
-    // Filtra le segnalazioni per il tipo corretto
-    const filteredReports = tables[tableId] || [];
+    // Get all reports for this table type
+    let filteredReports = tables[tableId] || [];
+    let filterType = 'all'; // Default filter type
 
-    tbody.innerHTML = filteredReports.map(report => `
-        <tr>
-            <td>${report.id}</td>
-            <td>${report.segnalatore_nome}</td>
-            <td>${report.target_nome || 'N/D'}</td>
-            <td>${report.tipo}</td>
-            <td>${report.descrizione}</td>
-            <td>${new Date(report.data).toLocaleDateString()}</td>
-            <td>
-                <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
-                    ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
-                </span>
-            </td>
-            <td class="text-end">
-                ${report.stato === 'in attesa' ? `
-                    <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
-                        <i class="bi bi-check-lg"></i>
-                    </button>
-                ` : ''}
-            </td>
-        </tr>
-    `).join('');
+    // Add filter functionality for artisan reports
+    if (tableId === 'artisansReportsTableBody') {
+        const activeFilter = document.querySelector('#artisansReportsTab .btn-group button.active');
+        filterType = activeFilter?.dataset.filter || 'all';
 
-    if (filteredReports.length === 0) {
-        tbody.innerHTML = `
+        // Add event listeners for filter buttons if they haven't been added yet
+        const filterButtons = document.querySelectorAll('#artisansReportsTab .btn-group button');
+        filterButtons.forEach(button => {
+            if (!button.hasListener) {
+                button.hasListener = true;
+                button.addEventListener('click', (e) => {
+                    // Update active state
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    
+                    // Get current filter
+                    const currentFilter = e.target.dataset.filter;
+                    
+                    // Filter reports based on status
+                    let currentReports = tables[tableId] || [];
+                    switch(currentFilter) {
+                        case 'pending':
+                            currentReports = currentReports.filter(r => r.stato === 'in attesa');
+                            break;
+                        case 'resolved':
+                            currentReports = currentReports.filter(r => r.stato === 'risolta');
+                            break;
+                        // 'all' shows everything, no additional filtering needed
+                    }
+
+                    // Render filtered reports
+                    renderReports(tbody, currentReports, currentFilter);
+                });
+            }
+        });
+
+        // Apply current filter
+        switch(filterType) {
+            case 'pending':
+                filteredReports = filteredReports.filter(r => r.stato === 'in attesa');
+                break;
+            case 'resolved':
+                filteredReports = filteredReports.filter(r => r.stato === 'risolta');
+                break;
+            // 'all' shows everything, no additional filtering needed
+        }
+    }
+
+    // Helper function to render reports
+    function renderReports(tbody, reports, filterType) {
+        tbody.innerHTML = reports.map(report => `
             <tr>
-                <td colspan="8" class="text-center">
-                    Nessuna segnalazione presente
+                <td>${report.id}</td>
+                <td>${report.segnalatore_nome}</td>
+                <td>${report.target_nome || 'N/D'}</td>
+                <td>${report.tipo}</td>
+                <td>${report.descrizione}</td>
+                <td>${new Date(report.data).toLocaleDateString()}</td>
+                <td>
+                    <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
+                        ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
+                    </span>
+                </td>
+                <td class="text-end">
+                    ${report.stato === 'in attesa' ? `
+                        <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
+                            <i class="bi bi-check-lg"></i> Risolvi
+                        </button>
+                    ` : ''}
                 </td>
             </tr>
-        `;
+        `).join('');
+
+        if (reports.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        ${filterType === 'pending' ? 'Nessuna segnalazione in attesa' : 
+                          filterType === 'resolved' ? 'Nessuna segnalazione risolta' : 
+                          'Nessuna segnalazione presente'}
+                    </td>
+                </tr>
+            `;
+        }
     }
+
+    // Initial render
+    renderReports(tbody, filteredReports, filterType);
 }
 
 function updateReportCounters(artisanCount, orderCount, reviewCount) {
@@ -796,19 +903,23 @@ async function resolveReport(reportId) {
     }
 
     try {
-        const response = await fetch(`/reports/${reportId}/resolve`, {
+        const response = await fetch(`/reports/admin/${reportId}/resolve`, {
             method: 'PATCH',
             headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
             }
         });
 
-        if (!response.ok) throw new Error('Errore nella risoluzione della segnalazione');
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Errore nella risoluzione della segnalazione');
+        }
 
         await loadReports();
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nella risoluzione della segnalazione');
+        alert(error.message || 'Errore nella risoluzione della segnalazione');
     }
 }
 
@@ -836,6 +947,7 @@ async function loadTabData(tabId) {
             break;
         case 'artisans':
             await loadArtisans();
+            await loadSuspendedArtisans()
             break;
         case 'products':
             await loadProducts();

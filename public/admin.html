@@ -143,6 +143,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#suspendedArtisansTab">
+                            <i class="bi bi-person-x me-2"></i>Sospesi
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="tab" href="#artisansReportsTab">
                             <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
                             <span class="badge bg-danger" id="artisanReportsCount">0</span>
@@ -165,11 +170,34 @@
                                         <th>Email</th>
                                         <th>Categoria</th>
                                         <th>Stato</th>
-                                        <th>Segnalazioni</th>
                                         <th>Azioni</th>
                                     </tr>
                                 </thead>
                                 <tbody id="artisansTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="suspendedArtisansTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Artigiani Sospesi</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome utente</th>
+                                        <th>Email</th>
+                                        <th>Categoria</th>
+                                        <th>Data Sospensione</th>
+                                        <th>N° Sospensioni</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="suspendedArtisansTableBody">
                                     <!-- Populated via JavaScript -->
                                 </tbody>
                             </table>
@@ -191,7 +219,7 @@
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>Artigiano ID</th>
+                                        <th>Artigiano</th>
                                         <th>Segnalato da</th>
                                         <th>Tipo</th>
                                         <th>Descrizione</th>
@@ -209,17 +237,19 @@
                 </div>
             </div>
 
-            <!-- Products Management -->
+            <!-- Replace the Products Management section -->
             <div class="tab-pane fade" id="products">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Gestione Prodotti</h2>
-                    <div>
-                        <button class="btn btn-secondary me-2" id="filterProducts">
-                            <i class="bi bi-funnel me-2"></i>Filtra
-                        </button>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
-                            <i class="bi bi-plus-lg me-2"></i>Nuovo Prodotto
-                        </button>
+                    <div class="d-flex gap-3">
+                        <select id="categoryFilter" class="form-select">
+                            <option value="">Tutte le categorie</option>
+                            <!-- Populated via JavaScript -->
+                        </select>
+                        <select id="artisanFilter" class="form-select">
+                            <option value="">Tutti gli artigiani</option>
+                            <!-- Populated via JavaScript -->
+                        </select>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -232,7 +262,6 @@
                                 <th>Prezzo</th>
                                 <th>Quantità</th>
                                 <th>Artigiano</th>
-                                <th>Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="productsTableBody">

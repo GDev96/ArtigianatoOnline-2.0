@@ -193,27 +193,97 @@ router.patch('/artisans/:id/status', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
+        const client = await pool.connect();
 
-        const query = `
-            UPDATE utente 
-            SET stato = $1 
-            WHERE id = $2 AND ruolo_id = 2 
-            RETURNING id, username, email, stato`;
+        try {
+            await client.query('BEGIN');
 
-        const result = await pool.query(query, [status, id]);
+            // Update user status
+            const updateQuery = `
+                UPDATE utente 
+                SET stato = $1 
+                WHERE id = $2 AND ruolo_id = 2 
+                RETURNING id, username, email, stato`;
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Artigiano non trovato' });
+            const result = await client.query(updateQuery, [status, id]);
+
+            if (result.rows.length === 0) {
+                throw new Error('Artigiano non trovato');
+            }
+
+            // Handle suspension tracking
+            if (status === 'sospeso') {
+                // Add new suspension record
+                await client.query(`
+                    INSERT INTO sospensioni_artigiani (artigiano_id, data_inizio)
+                    VALUES ($1, CURRENT_TIMESTAMP)
+                `, [id]);
+            } else {
+                // Close current suspension record
+                await client.query(`
+                    UPDATE sospensioni_artigiani
+                    SET data_fine = CURRENT_TIMESTAMP
+                    WHERE artigiano_id = $1 AND data_fine IS NULL
+                `, [id]);
+            }
+
+            await client.query('COMMIT');
+            res.json(result.rows[0]);
+
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
         }
-
-        res.json(result.rows[0]);
     } catch (error) {
         console.error('Error updating artisan status:', error);
         res.status(500).json({ message: 'Errore nella modifica dello stato artigiano' });
     }
 });
 
-//TODO Delete artisan (soft delete)
+// Get suspended artisans with suspension history
+router.get('/artisans/suspended', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                u.id as artisan_id,
+                u.username,
+                u.email,
+                u.stato,
+                a.artigiano_id,
+                t.nome_tipologia,
+                (
+                    SELECT COUNT(s.segnalazione_id) 
+                    FROM segnalazioni s 
+                    WHERE s.artigiano_id = a.artigiano_id
+                ) as segnalazioni,
+                (
+                    SELECT COUNT(*) 
+                    FROM sospensioni_artigiani sa 
+                    WHERE sa.artigiano_id = a.artigiano_id
+                ) as numero_sospensioni,
+                (
+                    SELECT sa.data_inizio 
+                    FROM sospensioni_artigiani sa 
+                    WHERE sa.artigiano_id = a.artigiano_id 
+                    AND sa.data_fine IS NULL
+                    ORDER BY sa.data_inizio DESC 
+                    LIMIT 1
+                ) as data_ultima_sospensione
+            FROM utente u
+            INNER JOIN artigiani a ON a.artigiano_id = u.id
+            INNER JOIN tipologia t ON t.tipologia_id = a.tipologia_id
+            WHERE u.ruolo_id = 2 AND u.stato = 'sospeso'
+            ORDER BY data_ultima_sospensione DESC`;
+
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching suspended artisans:', error);
+        res.status(500).json({ message: 'Errore nel recupero degli artigiani sospesi' });
+    }
+});
 
 /* Reviews Management */
 router.get('/reviews', requireAuth, async (req, res) => {
@@ -326,12 +396,20 @@ router.get('/reports', requireAuth, async (req, res) => {
 });
 
 // Update report status
-router.patch('/reports/:id/resolve', requireAuth, async (req, res) => {
+router.patch('/admin/:id/resolve', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        
+
+        // Check if admin
+        if (req.user.ruolo_id !== 3) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accesso non autorizzato'
+            });
+        }
+
         const query = `
-            UPDATE segnalazioni
+            UPDATE segnalazioni 
             SET stato_segnalazione = 'risolta'
             WHERE segnalazione_id = $1
             RETURNING *`;
@@ -339,13 +417,24 @@ router.patch('/reports/:id/resolve', requireAuth, async (req, res) => {
         const result = await pool.query(query, [id]);
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Segnalazione non trovata' });
+            return res.status(404).json({
+                success: false,
+                message: 'Segnalazione non trovata'
+            });
         }
 
-        res.json(result.rows[0]);
+        res.json({
+            success: true,
+            message: 'Segnalazione risolta con successo',
+            report: result.rows[0]
+        });
+
     } catch (error) {
         console.error('Error resolving report:', error);
-        res.status(500).json({ message: 'Errore nella risoluzione della segnalazione' });
+        res.status(500).json({
+            success: false,
+            message: 'Errore nella risoluzione della segnalazione'
+        });
     }
 });
 
