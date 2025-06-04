@@ -45,24 +45,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 // --- DASHBOARD ---
 async function loadDashboardData() {
     try {
-        const artisansResponse = await fetch('/api/users/artisans', {
+        const response = await fetch('/api/admin/stats/users', {
             headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
-        if (!artisansResponse.ok) {
+        if (!response.ok) {
             throw new Error('Errore nel recupero dei dati');
         }
 
-        const artisansData = await artisansResponse.json();
+        const stats = await response.json();
         
-        const totalArtisans = artisansData.artisans ? artisansData.artisans.length : 0;
-        const totalClients = artisansData.total - totalArtisans;
-
-        document.getElementById('totalClients').textContent = totalClients;
-        document.getElementById('totalArtisans').textContent = totalArtisans;
+        document.getElementById('totalClients').textContent = stats.clientsCount || 0;
+        document.getElementById('totalArtisans').textContent = stats.artisansCount || 0;
 
     } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -72,33 +68,143 @@ async function loadDashboardData() {
 }
 
 function initializeDashboardCharts() {
-    // Sales Chart
-    const salesCtx = document.getElementById('salesChart').getContext('2d');
-    new Chart(salesCtx, {
-        type: 'line',
-        data: {
-            labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu'],
-            datasets: [{
-                label: 'Vendite',
-                data: [12, 19, 3, 5, 2, 3],
-                borderColor: '#b99570',
-                tension: 0.1
-            }]
-        }
-    });
+    loadSalesChart();
+    loadCategoriesChart();
+}
 
-    // Categories Chart
-    const categoriesCtx = document.getElementById('categoriesChart').getContext('2d');
-    new Chart(categoriesCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Gioielli', 'Ceramica', 'Legno', 'Altro'],
-            datasets: [{
-                data: [12, 19, 3, 5],
-                backgroundColor: ['#b99570', '#d4b08c', '#f1d7b8', '#f8e9d6']
-            }]
-        }
-    });
+async function loadSalesChart() {
+    try {
+        const response = await fetch('/api/admin/stats/orders', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nel recupero dati vendite');
+        
+        const monthlyData = await response.json();
+        
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'],
+                datasets: [{
+                    label: 'Ordini',
+                    data: monthlyData,
+                    borderColor: '#7095b9',
+                    backgroundColor: 'rgba(112, 149, 185, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            color: '#5f7c9d'
+                        },
+                        grid: {
+                            color: 'rgba(177, 196, 210, 0.1)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#5f7c9d'
+                        },
+                        grid: {
+                            color: 'rgba(177, 196, 210, 0.1)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#5f7c9d'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Ordini: ${context.parsed.y}`;
+                            }
+                        },
+                        backgroundColor: 'rgba(95, 124, 157, 0.8)'
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading sales chart:', error);
+    }
+}
+
+async function loadCategoriesChart() {
+    try {
+        const response = await fetch('/api/admin/stats/categories', {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Errore nel recupero dati categorie');
+        
+        const data = await response.json();
+        
+        const ctx = document.getElementById('categoriesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: [
+                        '#7095b9',  // --palette-primary
+                        '#5f7c9d',  // --palette-secondary
+                        '#95b0ca',  // --palette-accent
+                        '#b1c4d2',  // --palette-light
+                        '#7e99b2'   // --palette-medium
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false // Remove legend
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label;
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} prodotti (${percentage}%)`;
+                            }
+                        },
+                        backgroundColor: 'rgba(95, 124, 157, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14
+                        },
+                        bodyFont: {
+                            size: 13
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading categories chart:', error);
+    }
 }
 
 // --- USERS ---

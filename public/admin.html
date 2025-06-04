@@ -46,41 +46,53 @@
             <!-- Dashboard Overview -->
             <div class="tab-pane fade show active" id="dashboard">
                 <h2 class="mb-4">Dashboard Overview</h2>
-                <div class="row">
-                    <div class="col-md-4 mb-4">
+                <!-- Stats cards -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
                         <div class="card stat-card">
                             <div class="card-body">
-                                <h6 class="text-muted">Clienti Registrati</h6>
-                                <h3 id="totalClients">0</h3>
-                                <small class="text-muted">Utenti semplici</small>
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <h6 class="text-muted">Clienti Registrati</h6>
+                                    <i class="bi bi-people fs-4 text-primary"></i>
+                                </div>
+                                <h3 id="totalClients" class="mb-2">0</h3>
+                                <small class="text-muted">Utenti con ruolo cliente</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-6">
                         <div class="card stat-card">
                             <div class="card-body">
-                                <h6 class="text-muted">Artigiani</h6>
-                                <h3 id="totalArtisans">0</h3>
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <h6 class="text-muted">Artigiani</h6>
+                                    <i class="bi bi-tools fs-4 text-primary"></i>
+                                </div>
+                                <h3 id="totalArtisans" class="mb-2">0</h3>
                                 <small class="text-muted">Professionisti registrati</small>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="row mt-4">
+                <!-- Charts -->
+                <div class="row">
                     <div class="col-md-8">
-                        <div class="card">
+                        <div class="card chart-card">
                             <div class="card-body">
                                 <h5 class="card-title">Vendite Mensili</h5>
-                                <canvas id="salesChart"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="salesChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card">
+                        <div class="card chart-card">
                             <div class="card-body">
                                 <h5 class="card-title">Top Categorie</h5>
-                                <canvas id="categoriesChart"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="categoriesChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -89,21 +101,6 @@
 
             <!-- Users Management -->
             <div class="tab-pane fade" id="users">
-                <!-- Tab navigation per gli utenti -->
-                <ul class="nav nav-tabs mb-4">
-                    <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="tab" href="#usersTab">
-                            <i class="bi bi-people me-2"></i>Utenti
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#usersReportsTab">
-                            <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
-                            <span class="badge bg-danger" id="userReportsCount">0</span>
-                        </a>
-                    </li>
-                </ul>
-
                 <div class="tab-content">
                     <!-- Users Tab -->
                     <div class="tab-pane fade show active" id="usersTab">

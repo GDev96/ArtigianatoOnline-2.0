@@ -16,7 +16,7 @@ Legenda:
 | Pagina profilo utente             | Gaia         | profilepage          | ✅ Completato   |
 | Pagina carrello             | Gaia         | cartpage          | ✅ Completato    |
 | Pagina dashboard             | Gaia         | dashboard          | ✅ Completato   |
-| Pagina admin             | Gaia         | adminconsole          | ❌ Da fare   |
+| Pagina admin             | Gaia         | adminconsole          | ⏳ In corso  |
 | Pagina di recupero password             | -         | -          | ❌ Da fare   |
 
 
@@ -31,7 +31,8 @@ Legenda:
 | API recensioni             | -         | -          | ❌ Da fare   |
 | API segnalazioni             | -         | -          | ❌ Da fare   |
 | API Ordini             | -         | -          | ❌ Da fare   |
-| Correzione logout token             | -         | -          | ❌ Da fare   |
+| API admin             | Gaia         | adminconsole          | ✅ Completato   |
+| Correzione logout token             | Gaia         | fixtokenlogout          |✅ Completato  |
 | Recupero password             | -         | -          | ❌ Da fare   |
 | Docker             | -         | -          | ❌ Da fare   |
 
