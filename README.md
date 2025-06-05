@@ -16,8 +16,8 @@ Legenda:
 | Pagina profilo utente             | Gaia         | profilepage          | ✅ Completato   |
 | Pagina carrello             | Gaia         | cartpage          | ✅ Completato    |
 | Pagina dashboard             | Gaia         | dashboard          | ✅ Completato   |
-| Pagina admin             | Gaia         | adminconsole          | ⏳ In corso  |
-| Pagina di recupero password             | -         | -          | ❌ Da fare   |
+| Pagina admin             | Gaia         | adminconsole          | ✅ Completato  |
+| Pagina di recupero password             | Gaia         | resetpass          | ⏳ In corso    |
 
 
 ## BACKEND PAGINE HTML
