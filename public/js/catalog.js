@@ -404,28 +404,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (artisanReviews.length === 0) {
             const user = JSON.parse(sessionStorage.getItem('user'));
             //TODO: aggiungi pulsante per modificare ed per eliminare recensione se l'id dell'utente loggato corrisponde a quello dell'utente che ha scritto la recensione
-            reviewsContainer.innerHTML = `
-                <div class="col-9">
-                    <div class="card text-center p-5">
+            reviewsContainer.innerHTML = artisanReviews.map(review => `
+                <div class="col-9 mb-4">
+                    <div class="card bg-light w-100">
                         <div class="card-body">
-                            <h3 class="card-title text-muted">
-                                <i class="far fa-comment-dots mb-3 d-block" style="font-size: 3rem;"></i>
-                                Nessuna recensione disponibile
-                            </h3>
-                            <p class="card-text text-muted">
-                                Questo artigiano non ha ancora ricevuto recensioni.
-                            </p>
-                            ${user ? 
-                                `<button class="btn btn-brown mt-3" data-bs-toggle="modal" data-bs-target="#addReviewModal">
-                                    <i class="fas fa-star me-2"></i>Scrivi la prima recensione
-                                </button>` :
-                                `<a href="/login.html" class="btn btn-brown mt-3">
-                                    <i class="fas fa-sign-in-alt me-2"></i>Accedi per recensire
-                                </a>`
-                            }
+                            <div class="d-flex justify-content-between">
+                                <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
+                                ${user ? 
+                                    `<button class="btn btn-outline-danger btn-sm" onclick="openReviewReport(${review.recensione_id})">
+                                        <i class="fas fa-flag"></i>
+                                    </button>` : 
+                                    ''
+                                }
+                            </div>
+                            <div class="stars mb-2 d-flex align-items-center">
+                                ${generateStars(review.valutazione)}
+                                <small class="text-muted ms-2">${new Date(review.data_recensione).toLocaleDateString()}</small>
+                            </div>
+                            <p class="card-text">${review.descrizione}</p>
                         </div>
                     </div>
-                </div>`;
+                </div>
+            `).join('');
             
             updateAverageRating(0, 0);
             return;
