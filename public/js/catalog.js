@@ -499,15 +499,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Aggiorna la sezione della valutazione media
         updateAverageRating(averageRating, artisanReviews.length);
 
-        // Popola le recensioni
+        // Popola le recensioni con controllo proprietario
         reviewsContainer.innerHTML = artisanReviews.map(review => `
             <div class="col-9 mb-4">
                 <div class="card bg-light w-100">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between align-items-center">
                             <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
-                            ${user ? 
-                                `<button class="btn btn-outline-danger btn-sm" onclick="openReviewReport(${review.recensione_id})">
+                            ${user && user.id !== review.cliente_id ? 
+                                `<button class="btn btn-outline-danger btn-sm" 
+                                        onclick="openReviewReport(${review.recensione_id})"
+                                        title="Segnala questa recensione">
                                     <i class="fas fa-flag"></i>
                                 </button>` : 
                                 ''
@@ -515,9 +517,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                         <div class="stars mb-2 d-flex align-items-center">
                             ${generateStars(review.valutazione)}
-                            <small class="text-muted ms-2">${new Date(review.data_recensione).toLocaleDateString()}</small>
+                            <small class="text-muted ms-2">
+                                ${new Date(review.data_recensione).toLocaleDateString()}
+                            </small>
                         </div>
                         <p class="card-text">${review.descrizione}</p>
+                        ${user && user.id === review.cliente_id ? 
+                            `<div class="d-flex justify-content-end mt-3">
+                                <button class="btn btn-link text-primary me-2" 
+                                        onclick="editReview(${review.recensione_id})"
+                                        title="Modifica recensione">
+                                    <i class="fas fa-edit"></i> Modifica
+                                </button>
+                                <button class="btn btn-link text-danger" 
+                                        onclick="deleteReview(${review.recensione_id})"
+                                        title="Elimina recensione">
+                                    <i class="fas fa-trash"></i> Elimina
+                                </button>
+                            </div>` : 
+                            ''
+                        }
                     </div>
                 </div>
             </div>
@@ -632,6 +651,184 @@ async function submitReview() {
     }
 }
 
+async function editReview(reviewId) {
+    try {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            throw new Error('Devi essere loggato per modificare una recensione');
+        }
+
+        // Fetch existing review data
+        const response = await fetch(`/reviews/${reviewId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore nel recupero della recensione');
+        }
+
+        // Populate edit modal with existing data
+        document.getElementById('editReviewId').value = reviewId;
+        document.getElementById('editReviewText').value = data.review.descrizione;
+        
+        // Set rating stars
+        const ratingStars = document.querySelectorAll('#editReviewModal .rating-input .fa-star');
+        ratingStars.forEach(star => {
+            const starRating = parseInt(star.dataset.rating);
+            if (starRating <= data.review.valutazione) {
+                star.classList.remove('far');
+                star.classList.add('fas');
+            } else {
+                star.classList.remove('fas');
+                star.classList.add('far');
+            }
+        });
+        document.getElementById('editRatingValue').value = data.review.valutazione;
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
+        modal.show();
+
+    } catch (error) {
+        console.error('Error fetching review:', error);
+        showErrorMessage(error.message);
+    }
+}
+
+async function updateReview() {
+    try {
+        const reviewId = document.getElementById('editReviewId').value;
+        const rating = document.getElementById('editRatingValue').value;
+        const reviewText = document.getElementById('editReviewText').value;
+        const token = sessionStorage.getItem('token');
+
+        if (!token) {
+            throw new Error('Devi essere loggato per modificare una recensione');
+        }
+
+        if (!rating) {
+            throw new Error('Per favore seleziona una valutazione');
+        }
+
+        if (!reviewText.trim()) {
+            throw new Error('Per favore scrivi una recensione');
+        }
+
+        const response = await fetch(`/reviews/${reviewId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                valutazione: parseInt(rating),
+                descrizione: reviewText.trim()
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore durante la modifica della recensione');
+        }
+
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editReviewModal'));
+        modal.hide();
+
+        // Show success message
+        showSuccessMessage('Recensione modificata con successo');
+
+        // Reload reviews after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error updating review:', error);
+        showErrorMessage(error.message);
+    }
+}
+
+function deleteReview(reviewId) {
+    try {
+        // Get the modal element
+        const deleteModal = document.getElementById('deleteReviewModal');
+        if (!deleteModal) {
+            throw new Error('Modal element not found');
+        }
+
+        // Set the review ID in the hidden input
+        const hiddenInput = deleteModal.querySelector('#deleteReviewId');
+        if (!hiddenInput) {
+            throw new Error('Hidden input not found');
+        }
+        hiddenInput.value = reviewId;
+
+        // Create and show the modal
+        const modal = new bootstrap.Modal(deleteModal);
+        modal.show();
+
+    } catch (error) {
+        console.error('Error showing delete modal:', error);
+        showErrorMessage('Errore nell\'apertura del modale di conferma');
+    }
+}
+
+async function confirmDeleteReview() {
+    let modal = null;
+    try {
+        const reviewId = document.getElementById('deleteReviewId').value;
+        const token = sessionStorage.getItem('token');
+        
+        if (!token) {
+            throw new Error('Devi essere loggato per eliminare una recensione');
+        }
+
+        if (!reviewId) {
+            throw new Error('ID recensione non valido');
+        }
+
+        const response = await fetch(`/reviews/${reviewId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore durante l\'eliminazione della recensione');
+        }
+
+        // Get the modal instance before closing
+        modal = bootstrap.Modal.getInstance(document.getElementById('deleteReviewModal'));
+        if (modal) {
+            modal.hide();
+        }
+
+        // Show success message
+        showSuccessMessage('Recensione eliminata con successo');
+
+        // Reload reviews after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        showErrorMessage(error.message);
+        // Make sure to close modal even on error
+        if (modal) {
+            modal.hide();
+        }
+    }
+}
+
 function resetReviewForm() {
     // Reset form
     document.getElementById('reviewForm').reset();
@@ -684,6 +881,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+
 
 
 
@@ -800,7 +999,7 @@ async function submitReviewReport() {
 // Messaggi di successo e errore
 function showSuccessMessage(message) {
     const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed bottom-100 start-50 translate-middle-x mt-3';
     alertDiv.setAttribute('role', 'alert');
     alertDiv.innerHTML = `
         <i class="fas fa-check-circle me-2"></i>
@@ -815,7 +1014,7 @@ function showSuccessMessage(message) {
 
 function showErrorMessage(message) {
     const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed bottom-100 start-50 translate-middle-x mt-3';
     alertDiv.setAttribute('role', 'alert');
     alertDiv.innerHTML = `
         <i class="fas fa-exclamation-circle me-2"></i>

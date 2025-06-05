@@ -211,6 +211,65 @@
       <!--Le recensioni verranno caricate qui--> 
     </div>
 
+    <!-- Update the edit review modal -->
+    <div class="modal fade" id="editReviewModal" tabindex="-1" aria-labelledby="editReviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editReviewModalLabel">Modifica Recensione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editReviewForm">
+                        <input type="hidden" id="editReviewId">
+                        <div class="mb-3">
+                            <label for="editRatingValue" class="form-label">Valutazione</label>
+                            <div class="rating-input">
+                                <i class="far fa-star" data-rating="1"></i>
+                                <i class="far fa-star" data-rating="2"></i>
+                                <i class="far fa-star" data-rating="3"></i>
+                                <i class="far fa-star" data-rating="4"></i>
+                                <i class="far fa-star" data-rating="5"></i>
+                            </div>
+                            <input type="hidden" id="editRatingValue" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editReviewText" class="form-label">Recensione</label>
+                            <textarea class="form-control" id="editReviewText" rows="3" required></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-primary" onclick="updateReview()">Salva modifiche</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <!-- Add confirmation modal -->
+    <div class="modal fade" id="deleteReviewModal" tabindex="-1" aria-labelledby="deleteReviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteReviewModalLabel">Conferma eliminazione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Sei sicuro di voler eliminare questa recensione?</p>
+                    <p class="text-muted small">Questa azione non può essere annullata.</p>
+                    <input type="hidden" id="deleteReviewId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteReview()">
+                        <i class="fas fa-trash me-2"></i>Elimina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Update the report review modal -->
     <div class="modal fade" id="reportReviewModal" tabindex="-1" aria-labelledby="reportReviewModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -248,6 +307,8 @@
             </div>
         </div>
     </div>
+
+
 
   </div>
 

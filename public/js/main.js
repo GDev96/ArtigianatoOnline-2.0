@@ -301,51 +301,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-/***********Pagina Catalogo ******************/
-// Funzione per generare le stelle in base alla valutazione
-function generateStars(rating) {
-  let starsHTML = '';
-  for (let i = 1; i <= 5; i++) {
-    starsHTML += `<d class="fa fa-star ${i <= rating ? 'checked' : ''}"></d>`;
-  }
-  return starsHTML;
-}
-
-// Funzione per caricare e visualizzare le recensioni
-function loadReviews(containerSelector, jsonFile) {
-  fetch(jsonFile)
-    .then((response) => response.json())
-    .then((recensioni) => {
-      const container = document.querySelector(containerSelector);
-
-      // Filtra le recensioni visibili
-      const recensioniVisibili = recensioni.filter((recensione) => recensione.visibilità);
-
-      // Genera il contenuto HTML per ogni recensione
-      recensioniVisibili.forEach((recensione) => {
-        const recensioneHTML = `
-          <div class="col-10 mb-4">
-            <div class="card">
-              <div class="card-body">
-                <h5 class="card-title">${recensione.nome_utente}</h5>
-                <div class="stars mb-2">
-                  ${generateStars(recensione.valutazione)}
-                </div>
-                <p class="card-text">"${recensione.descrizione}"</p>
-                <div class="card-footer d-flex justify-content-end align-items-center">
-                  <p class="card-text"><small class="text-muted">${recensione.data}</small></p>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-        container.insertAdjacentHTML('beforeend', recensioneHTML);
-      });
-    })
-    .catch((error) => console.error('Errore nel caricamento delle recensioni:', error));
-}
-
-
 /************** Modale Conferma ordine **************/
 //Gestione del metodo di pagamento
 document.addEventListener('DOMContentLoaded', () => {
