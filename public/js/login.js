@@ -1,10 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Toggle password visibility
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('passwordInput');
     const loginForm = document.getElementById('loginForm');
     const loginError = document.getElementById('loginError');
 
+    // Password toggle
     togglePassword?.addEventListener('click', function() {
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
         passwordInput.setAttribute('type', type);
@@ -12,45 +12,72 @@ document.addEventListener('DOMContentLoaded', function() {
         this.classList.toggle('bi-eye-slash');
     });
 
-    // Handle form submission
-    loginForm?.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        loginError.classList.add('d-none');
-        
-        try {
-            const credentials = {
-                nome_utente: document.getElementById('usernameInput').value.trim(),
-                password: document.getElementById('passwordInput').value
-            };
+    // Form submission
+    if (loginForm) {
+        // Use addEventListener instead of onsubmit
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation(); // Stop any other handlers
+            
+            const submitButton = this.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            loginError.classList.add('d-none');
+            
+            try {
+                const credentials = {
+                    nome_utente: document.getElementById('usernameInput').value.trim(),
+                    password: passwordInput.value
+                };
 
-            const response = await fetch('/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(credentials)
-            });
+                if (!credentials.nome_utente || !credentials.password) {
+                    throw new Error('Username e password sono richiesti');
+                }
 
-            const data = await response.json();
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(credentials)
+                });
 
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || data.message || 'Errore durante il login');
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Credenziali non valide');
+                }
+
+                if (!data.success || !data.token || !data.user) {
+                    throw new Error('Dati di login incompleti');
+                }
+
+                // Delay redirect slightly to ensure error handling completes
+                AuthService.setSession(data.token, data.user);
+                setTimeout(() => {
+                    window.location.href = '/index.html';
+                }, 100);
+
+            } catch (error) {
+                console.error('Login error:', error);
+                loginError.textContent = error.message;
+                loginError.classList.remove('d-none');
+                passwordInput.value = '';
+                passwordInput.focus();
+            } finally {
+                submitButton.disabled = false;
             }
+        });
 
-            if (!data.token || !data.user) {
-                throw new Error('Dati di login incompleti dal server');
+        // Prevent form submission via Enter key
+        loginForm.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
             }
-
-            AuthService.setSession(data.token, data.user);
-            window.location.href = '/index.html';
-
-        } catch (error) {
-            console.error('Login error:', error);
-            loginError.textContent = error.message;
-            loginError.classList.remove('d-none');
-        }
-    });
+        });
+    }
 });
+
+
 
 async function requestPasswordRecovery() {
     const emailInput = document.getElementById('emailInput');

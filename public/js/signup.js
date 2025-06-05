@@ -59,7 +59,99 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// Add these functions at the top of the file
+function showError(message) {
+    const errorDiv = document.getElementById('formError');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('d-none');
+}
 
+function validatePassword(password) {
+    const validations = {
+        upperCase: /[A-Z]/.test(password),
+        lowerCase: /[a-z]/.test(password),
+        number: /[0-9]/.test(password),
+        special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+        length: password.length >= 8
+    };
+
+    // Update validation UI
+    Object.keys(validations).forEach(key => {
+        const element = document.getElementById(key);
+        if (element) {
+            if (validations[key]) {
+                element.classList.remove('text-danger');
+                element.classList.add('text-success');
+                element.querySelector('i').classList.remove('fa-times-circle');
+                element.querySelector('i').classList.add('fa-check-circle');
+            } else {
+                element.classList.remove('text-success');
+                element.classList.add('text-danger');
+                element.querySelector('i').classList.remove('fa-check-circle');
+                element.querySelector('i').classList.add('fa-times-circle');
+            }
+        }
+    });
+
+    return Object.values(validations).every(Boolean);
+}
+
+// Add password validation on input
+document.addEventListener('DOMContentLoaded', () => {
+    const passwordInput = document.getElementById('passwordInput');
+    const passwordValidation = document.getElementById('passwordValidation');
+    const ibanInput = document.getElementById('vatNumberInput');
+
+    if (ibanInput) {
+        ibanInput.addEventListener('input', (e) => {
+            const iban = e.target.value.replace(/\s/g, '');
+            const isValid = iban === '' || validateIBAN(iban);
+            
+            ibanInput.classList.toggle('is-invalid', !isValid);
+            ibanInput.classList.toggle('is-valid', isValid && iban !== '');
+        });
+    }
+
+    if (passwordInput && passwordValidation) {
+        passwordInput.addEventListener('focus', () => {
+            passwordValidation.classList.remove('d-none');
+        });
+
+        passwordInput.addEventListener('input', () => {
+            validatePassword(passwordInput.value);
+        });
+
+        passwordInput.addEventListener('blur', () => {
+            if (!passwordInput.value) {
+                passwordValidation.classList.add('d-none');
+            }
+        });
+    }
+});
+
+// Add this after the validatePassword function
+function validateIBAN(iban) {
+    // Remove spaces and convert to uppercase
+    iban = iban.replace(/\s/g, '').toUpperCase();
+    
+    // Check basic format for Italian IBAN
+    if (!/^IT\d{2}[A-Z]\d{10}[0-9A-Z]{12}$/.test(iban)) {
+        return false;
+    }
+
+    // Convert letters to numbers (A=10, B=11, ...)
+    const ibanNum = iban.slice(4) + iban.slice(0, 4).replace(/[A-Z]/g, letter => 
+        (letter.charCodeAt(0) - 55).toString()
+    );
+
+    // Calculate mod-97
+    let remainder = ibanNum.split('')
+        .reduce((acc, digit) => (acc * 10 + (isNaN(digit) ? digit.charCodeAt(0) - 55 : parseInt(digit))) % 97, 0);
+
+    return remainder === 1;
+}
+
+//Funzione per processare l'immagine
 async function processImage(file) {
     return new Promise((resolve, reject) => {
         if (!file) {
@@ -112,8 +204,16 @@ async function processImage(file) {
 // Registration function
 document.querySelector('form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const formError = document.getElementById('formError');
+    formError.classList.add('d-none');
 
     try {
+        const password = document.getElementById('passwordInput').value;
+        
+        // Validate password requirements
+        if (!validatePassword(password)) {
+            throw new Error('La password non soddisfa i requisiti minimi di sicurezza');
+        }
         const formData = {
             nome_utente: document.getElementById('usernameInput').value.trim(),
             email: document.getElementById('emailInput').value.trim(),
@@ -128,6 +228,18 @@ document.querySelector('form').addEventListener('submit', async (e) => {
         // Validate password confirmation
         if (formData.password !== document.getElementById('confirmPasswordInput').value) {
             throw new Error('Le password non coincidono');
+        }
+
+        // Check IBAN if artisan section is visible
+        const artisanSection = document.getElementById('artisanSection');
+        if (artisanSection && !artisanSection.classList.contains('d-none')) {
+            const iban = document.getElementById('vatNumberInput').value.replace(/\s/g, '');
+            if (!iban) {
+                throw new Error('L\'IBAN è obbligatorio per gli artigiani');
+            }
+            if (!validateIBAN(iban)) {
+                throw new Error('L\'IBAN inserito non è valido');
+            }
         }
 
         // Add artisan specific fields if artisan registration
@@ -178,6 +290,10 @@ document.querySelector('form').addEventListener('submit', async (e) => {
 
     } catch (error) {
         console.error('Registration error:', error);
-        alert(error.message);
+        showError(error.message);
+        window.scrollTo({
+            top: document.getElementById('formError').offsetTop - 20,
+            behavior: 'smooth'
+        });
     }
 });
