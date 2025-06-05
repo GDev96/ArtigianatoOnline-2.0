@@ -51,3 +51,53 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+async function requestPasswordRecovery() {
+    const emailInput = document.getElementById('emailInput');
+    const recoverError = document.getElementById('recoverError');
+    const recoverSuccess = document.getElementById('recoverSuccess');
+    
+    // Reset messages
+    recoverError.classList.add('d-none');
+    recoverSuccess.classList.add('d-none');
+
+    try {
+        const email = emailInput.value.trim();
+        
+        if (!email) {
+            throw new Error('Inserisci un indirizzo email valido');
+        }
+
+        const response = await fetch('/auth/recover-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Errore durante la richiesta di recupero password');
+        }
+
+        // Show success message
+        recoverSuccess.textContent = 'Email di recupero inviata! Controlla la tua casella di posta.';
+        recoverSuccess.classList.remove('d-none');
+        
+        // Clear input
+        emailInput.value = '';
+        
+        // Automatically close modal after 3 seconds
+        setTimeout(() => {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('recoverPasswordModal'));
+            modal.hide();
+        }, 3000);
+
+    } catch (error) {
+        console.error('Password recovery error:', error);
+        recoverError.textContent = error.message;
+        recoverError.classList.remove('d-none');
+    }
+}
