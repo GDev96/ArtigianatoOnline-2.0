@@ -211,39 +211,43 @@
       <!--Le recensioni verranno caricate qui--> 
     </div>
 
+    <!-- Update the report review modal -->
     <div class="modal fade" id="reportReviewModal" tabindex="-1" aria-labelledby="reportReviewModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-          <div class="modal-content">
-              <div class="modal-header">
-                  <h5 class="modal-title" id="reportReviewModalLabel">Segnala Recensione</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                  <form id="reportReviewForm">
-                      <input type="hidden" id="reportedReviewId">
-                      <div class="mb-3">
-                          <label for="reportReviewReason" class="form-label">Motivo della segnalazione</label>
-                          <select class="form-select" id="reportReviewReason" required>
-                              <option value="">Seleziona un motivo</option>
-                              <option value="fake">Recensione falsa</option>
-                              <option value="inappropriate">Contenuti inappropriati</option>
-                              <option value="spam">Spam</option>
-                              <option value="other">Altro</option>
-                          </select>
-                      </div>
-                      <div class="mb-3">
-                          <label for="reportReviewDescription" class="form-label">Descrizione</label>
-                          <textarea class="form-control" id="reportReviewDescription" rows="3" required></textarea>
-                      </div>
-                  </form>
-              </div>
-              <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
-                  <button type="button" class="btn btn-danger" onclick="submitReviewReport()">Invia segnalazione</button>
-              </div>
-          </div>
-      </div>
-  </div>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reportReviewModalLabel">Segnala Recensione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reportReviewForm">
+                        <input type="hidden" id="reportedReviewId">
+                        <div class="mb-3">
+                            <label for="reportReviewReason" class="form-label">Motivo della segnalazione</label>
+                            <select class="form-select" id="reportReviewReason" required>
+                                <option value="">Seleziona un motivo</option>
+                                <option value="fake">Recensione falsa</option>
+                                <option value="inappropriate">Contenuti inappropriati</option>
+                                <option value="spam">Spam</option>
+                                <option value="other">Altro</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="reportReviewDescription" class="form-label">Descrizione</label>
+                            <textarea class="form-control" id="reportReviewDescription" rows="3" required 
+                                    placeholder="Descrivi il motivo della segnalazione"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-danger" onclick="submitReviewReport()">
+                        <i class="fas fa-flag me-2"></i>Invia segnalazione
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
   </div>
 

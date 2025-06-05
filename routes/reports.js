@@ -151,7 +151,7 @@ router.post('/artisan', requireAuth, async (req, res) => {
 router.post('/review', requireAuth, async (req, res) => {
     try {
         const { review_id, reason, description } = req.body;
-        const user_id = req.user.id;
+        const segnalatore_id = req.user.id;
 
         // Validation
         if (!review_id || !reason || !description) {
@@ -174,12 +174,18 @@ router.post('/review', requireAuth, async (req, res) => {
             });
         }
 
-        // Insert report
+        // Insert report with correct field names
         const result = await pool.query(`
-            INSERT INTO segnalazioni (utente_id, recensione_id, testo, motivazione, stato_segnalazione)
+            INSERT INTO segnalazioni (
+                utente_segnalatore_id, 
+                recensione_id,
+                testo, 
+                motivazione, 
+                stato_segnalazione
+            )
             VALUES ($1, $2, $3, $4, 'in attesa')
             RETURNING segnalazione_id
-        `, [user_id, review_id, description, reason]);
+        `, [segnalatore_id, review_id, description, reason]);
 
         res.status(201).json({
             success: true,

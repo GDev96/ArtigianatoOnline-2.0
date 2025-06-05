@@ -761,6 +761,7 @@ async function submitReviewReport() {
             throw new Error('Per favore compila tutti i campi');
         }
 
+        // Updated API endpoint and request structure
         const response = await fetch('/reports/review', {
             method: 'POST',
             headers: {
@@ -768,7 +769,7 @@ async function submitReviewReport() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                review_id: reviewId,
+                review_id: parseInt(reviewId),
                 reason: reason,
                 description: description
             })
@@ -780,18 +781,16 @@ async function submitReviewReport() {
             throw new Error(data.message || 'Errore nell\'invio della segnalazione');
         }
 
-        // Close modal
+        // Close modal and reset form
         const modal = bootstrap.Modal.getInstance(document.getElementById('reportReviewModal'));
         modal.hide();
-
-        // Reset form
         document.getElementById('reportReviewForm').reset();
 
         // Show success message
         showSuccessMessage('Segnalazione inviata con successo');
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error submitting review report:', error);
         showErrorMessage(error.message);
     }
 }
