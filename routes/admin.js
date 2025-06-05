@@ -368,8 +368,6 @@ router.get('/orders', requireAuth, async (req, res) => {
     }
 });
 
-// Add this after the orders GET endpoint
-
 // Get order details
 router.get('/orders/:id/details', requireAuth, async (req, res) => {
     try {
@@ -404,6 +402,40 @@ router.get('/orders/:id/details', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching order details:', error);
         res.status(500).json({ message: 'Errore nel recupero dei dettagli dell\'ordine' });
+    }
+});
+
+// Get review details
+router.get('/reviews/:id/details', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT 
+                r.recensione_id,
+                c.username as cliente_nome,
+                a.username as artigiano_nome,
+                r.valutazione,
+                r.descrizione as testo,
+                r.data_recensione,
+                r.stato,
+                COUNT(s.segnalazione_id) as segnalazioni
+            FROM recensioni r
+            JOIN utente c ON r.cliente_id = c.id
+            JOIN utente a ON r.artigiano_id = a.id
+            LEFT JOIN segnalazioni s ON s.recensione_id = r.recensione_id
+            WHERE r.recensione_id = $1
+            GROUP BY r.recensione_id, c.username, a.username`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Recensione non trovata' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching review details:', error);
+        res.status(500).json({ message: 'Errore nel recupero dei dettagli della recensione' });
     }
 });
 

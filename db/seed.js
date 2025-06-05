@@ -178,9 +178,11 @@ async function seed() {
             recensioniInserite.push(recensioneRes.rows[0].recensione_id);
         }
 
+    
         // --- CREAZIONE SEGNALAZIONI ---
         console.log('Inserimento segnalazioni...');
         const segnalazioni = [
+            // Segnalazioni ordini
             { 
                 utente_segnalatore_id: clientiRes.rows[2].id,
                 ordine_id: ordiniInseriti[2],
@@ -191,6 +193,17 @@ async function seed() {
                 stato_segnalazione: 'in attesa'
             },
             { 
+                utente_segnalatore_id: clientiRes.rows[1].id,
+                ordine_id: ordiniInseriti[1],
+                artigiano_id: null,
+                recensione_id: null,
+                testo: 'Prodotto danneggiato',
+                motivazione: 'Problemi qualità',
+                stato_segnalazione: 'risolta'
+            },
+            
+            // Segnalazioni artigiani
+            { 
                 utente_segnalatore_id: clientiRes.rows[0].id,
                 ordine_id: null,
                 artigiano_id: artigianiIds.rows[1].artigiano_id,
@@ -199,6 +212,17 @@ async function seed() {
                 motivazione: 'Comunicazione inappropriata',
                 stato_segnalazione: 'in attesa'
             },
+            { 
+                utente_segnalatore_id: clientiRes.rows[1].id,
+                ordine_id: null,
+                artigiano_id: artigianiIds.rows[2].artigiano_id,
+                recensione_id: null,
+                testo: 'Ritardi eccessivi',
+                motivazione: 'Scarsa professionalità',
+                stato_segnalazione: 'risolta'
+            },
+        
+            // Segnalazioni recensioni
             {
                 utente_segnalatore_id: artigianiIds.rows[0].artigiano_id,
                 ordine_id: null,
@@ -207,6 +231,15 @@ async function seed() {
                 testo: 'Recensione ingiustificata',
                 motivazione: 'Diffamazione',
                 stato_segnalazione: 'in attesa'
+            },
+            {
+                utente_segnalatore_id: artigianiIds.rows[1].artigiano_id,
+                ordine_id: null,
+                artigiano_id: null,
+                recensione_id: recensioniInserite[1],
+                testo: 'Recensione falsa',
+                motivazione: 'Contenuto inappropriato',
+                stato_segnalazione: 'risolta'
             }
         ];
         
@@ -233,7 +266,16 @@ async function seed() {
                     segnalazione.stato_segnalazione
                 ]
             );
+        
+            // Update has_reports flag for orders if it's an order report
+            if (segnalazione.ordine_id) {
+                await pool.query(
+                    `UPDATE ordini SET has_reports = true WHERE ordine_id = $1`,
+                    [segnalazione.ordine_id]
+                );
+            }
         }
+        
 
         console.log('Seed completato con successo.');
     } catch (error) {

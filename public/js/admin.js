@@ -625,6 +625,22 @@ function renderOrders(orders) {
         return;
     }
 
+    // Check each order's status and update if needed
+    orders.forEach(order => {
+        if (order.has_reports && order.stato !== 'controversia aperta') {
+            updateOrderStatus(order.id, 'controversia aperta', false);
+        }
+        else if (order.stato === 'spedito' && !order.has_reports) {
+            const shippingDate = new Date(order.data_spedizione);
+            const now = new Date();
+            const daysSinceShipped = (now - shippingDate) / (1000 * 60 * 60 * 24);
+            
+            if (daysSinceShipped >= 3) {
+                updateOrderStatus(order.id, 'consegnato', false);
+            }
+        }
+    });
+
     tbody.innerHTML = orders.map(order => `
         <tr>
             <td>${order.id}</td>
@@ -793,9 +809,33 @@ async function loadReviews() {
         if (!response.ok) throw new Error('Errore nel recupero delle recensioni');
 
         const data = await response.json();
-        const tbody = document.getElementById('reviewsTableBody');
+        const reviews = data.reviews;
 
-        tbody.innerHTML = data.reviews.map(review => `
+        // Setup filter functionality
+        setupReviewFilters(reviews);
+
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        showReviewsError(error.message);
+    }
+}
+
+function setupReviewFilters(reviews) {
+    const tbody = document.getElementById('reviewsTableBody');
+    const filterButtons = document.querySelectorAll('#reviewsTab .btn-group button');
+    
+    // Function to render reviews table
+    function renderFilteredReviews(filteredReviews) {
+        if (!filteredReviews.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center">Nessuna recensione trovata</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = filteredReviews.map(review => `
             <tr>
                 <td>${review.recensione_id}</td>
                 <td>${review.cliente_nome}</td>
@@ -820,18 +860,48 @@ async function loadReviews() {
                 </td>
             </tr>
         `).join('');
-
-    } catch (error) {
-        console.error('Error loading reviews:', error);
-        const tbody = document.getElementById('reviewsTableBody');
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="9" class="text-center text-danger">
-                    Errore nel caricamento delle recensioni: ${error.message}
-                </td>
-            </tr>
-        `;
     }
+
+    // Add click event listeners to filter buttons
+    filterButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            // Update active button state
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+
+            // Apply filter
+            const filter = e.target.dataset.filter;
+            let filteredReviews;
+
+            switch(filter) {
+                case 'reported':
+                    filteredReviews = reviews.filter(review => review.segnalazioni > 0);
+                    break;
+                case 'removed':
+                    filteredReviews = reviews.filter(review => review.stato === 'rimossa');
+                    break;
+                default: // 'all'
+                    filteredReviews = reviews;
+                    break;
+            }
+
+            renderFilteredReviews(filteredReviews);
+        });
+    });
+
+    // Initial render with all reviews
+    renderFilteredReviews(reviews);
+}
+
+function showReviewsError(message) {
+    const tbody = document.getElementById('reviewsTableBody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="9" class="text-center text-danger">
+                Errore nel caricamento delle recensioni: ${message}
+            </td>
+        </tr>
+    `;
 }
 
 function generateStars(rating) {
@@ -842,40 +912,89 @@ function generateStars(rating) {
 
 async function viewReviewDetails(reviewId) {
     try {
-        const response = await fetch(`/reviews/${reviewId}`);
+        const response = await fetch(`/admin/reviews/${reviewId}/details`, {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+
         if (!response.ok) throw new Error('Errore nel recupero dei dettagli della recensione');
         const review = await response.json();
 
-        const modal = document.getElementById('reviewDetailsModal');
-        const detailsContainer = modal.querySelector('.review-details');
-        
-        detailsContainer.innerHTML = `
-            <div class="mb-3">
-                <h6>Cliente</h6>
-                <p>${review.cliente_nome}</p>
-            </div>
-            <div class="mb-3">
-                <h6>Artigiano</h6>
-                <p>${review.artigiano_nome}</p>
-            </div>
-            <div class="mb-3">
-                <h6>Valutazione</h6>
-                <div class="stars">
-                    ${generateStars(review.valutazione)}
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal fade" id="reviewDetailsModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Dettagli Recensione #${reviewId}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-4">
+                                <h6>Cliente</h6>
+                                <p>${review.cliente_nome}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Artigiano</h6>
+                                <p>${review.artigiano_nome}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Data Recensione</h6>
+                                <p>${new Date(review.data_recensione).toLocaleDateString()}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Valutazione</h6>
+                                <div class="stars">
+                                    ${generateStars(review.valutazione)}
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Testo</h6>
+                                <p>${review.testo}</p>
+                            </div>
+                            <div class="mb-4">
+                                <h6>Stato</h6>
+                                <span class="badge bg-${review.stato === 'attiva' ? 'success' : 'danger'}">
+                                    ${review.stato === 'attiva' ? 'Attiva' : 'Rimossa'}
+                                </span>
+                            </div>
+                            ${review.segnalazioni > 0 ? `
+                                <div class="mb-4">
+                                    <h6>Segnalazioni</h6>
+                                    <span class="badge bg-warning">${review.segnalazioni}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                            ${review.stato === 'attiva' ? `
+                                <button type="button" class="btn btn-danger" onclick="toggleReviewStatus(${review.recensione_id}, true)">
+                                    Rimuovi Recensione
+                                </button>
+                            ` : `
+                                <button type="button" class="btn btn-success" onclick="toggleReviewStatus(${review.recensione_id}, false)">
+                                    Ripristina Recensione
+                                </button>
+                            `}
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="mb-3">
-                <h6>Recensione</h6>
-                <p>${review.testo}</p>
-            </div>
-            <div class="mb-3">
-                <h6>Data</h6>
-                <p>${new Date(review.data_recensione).toLocaleDateString()}</p>
             </div>
         `;
 
-        const modal_instance = new bootstrap.Modal(modal);
-        modal_instance.show();
+        // Remove existing modal if any
+        const existingModal = document.getElementById('reviewDetailsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to document
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('reviewDetailsModal'));
+        modal.show();
 
     } catch (error) {
         console.error('Errore:', error);
@@ -951,21 +1070,25 @@ async function loadReports() {
 function populateReportsTable(tableId, reports) {
     // Determine which table to populate based on ID
     const tables = {
-        'artisansReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'artigiano'),
-        'ordersReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'ordine'),
-        'reviewsReportsTableBody': reports.filter(r => r.tipo_segnalazione === 'recensione')
+        'artisansReportsTableBody': reports.filter(r => r.artigiano_id !== null),
+        'ordersReportsTableBody': reports.filter(r => r.ordine_id !== null),
+        'reviewsReportsTableBody': reports.filter(r => r.recensione_id !== null)
     };
 
     const tbody = document.getElementById(tableId);
     if (!tbody) return;
 
-    // Get all reports for this table type
     let filteredReports = tables[tableId] || [];
-    let filterType = 'all'; // Default filter type
+    let filterType = 'all';
 
-    // Add filter functionality for both artisan and order reports
-    if (tableId === 'artisansReportsTableBody' || tableId === 'ordersReportsTableBody') {
-        const tabId = tableId === 'artisansReportsTableBody' ? 'artisansReportsTab' : 'reportsTab';
+    // Add filter functionality for all report types
+    if (['artisansReportsTableBody', 'ordersReportsTableBody', 'reviewsReportsTableBody'].includes(tableId)) {
+        const tabId = {
+            'artisansReportsTableBody': 'artisansReportsTab',
+            'ordersReportsTableBody': 'reportsTab',
+            'reviewsReportsTableBody': 'reviewsReportsTab'
+        }[tableId];
+
         const activeFilter = document.querySelector(`#${tabId} .btn-group button.active`);
         filterType = activeFilter?.dataset.filter || 'all';
 
@@ -975,15 +1098,12 @@ function populateReportsTable(tableId, reports) {
             if (!button.hasListener) {
                 button.hasListener = true;
                 button.addEventListener('click', (e) => {
-                    // Update active state
                     filterButtons.forEach(btn => btn.classList.remove('active'));
                     e.target.classList.add('active');
                     
-                    // Get current filter
                     const currentFilter = e.target.dataset.filter;
-                    
-                    // Filter reports based on status
                     let currentReports = tables[tableId] || [];
+                    
                     switch(currentFilter) {
                         case 'pending':
                             currentReports = currentReports.filter(r => r.stato === 'in attesa');
@@ -991,11 +1111,9 @@ function populateReportsTable(tableId, reports) {
                         case 'resolved':
                             currentReports = currentReports.filter(r => r.stato === 'risolta');
                             break;
-                        // 'all' shows everything, no additional filtering needed
                     }
 
-                    // Render filtered reports
-                    renderReports(tbody, currentReports, currentFilter);
+                    renderReports(tbody, currentReports, currentFilter, tableId);
                 });
             }
         });
@@ -1008,34 +1126,58 @@ function populateReportsTable(tableId, reports) {
             case 'resolved':
                 filteredReports = filteredReports.filter(r => r.stato === 'risolta');
                 break;
-            // 'all' shows everything, no additional filtering needed
         }
     }
 
-    // Helper function to render reports
-    function renderReports(tbody, reports, filterType) {
-        tbody.innerHTML = reports.map(report => `
-            <tr>
-                <td>${report.id}</td>
-                <td>${report.tipo_segnalazione === 'ordine' ? `#${report.ordine_id}` : 'N/A'}</td>
-                <td>${report.segnalatore_nome}</td>
-                <td>${report.tipo}</td>
-                <td>${report.descrizione}</td>
-                <td>${new Date(report.data).toLocaleDateString()}</td>
-                <td>
-                    <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
-                        ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
-                    </span>
-                </td>
-                <td class="text-end">
-                    ${report.stato === 'in attesa' ? `
-                        <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
-                            <i class="bi bi-check-lg"></i> Risolvi
-                        </button>
-                    ` : ''}
-                </td>
-            </tr>
-        `).join('');
+    function renderReports(tbody, reports, filterType, tableId) {
+        tbody.innerHTML = reports.map(report => {
+            // Determine which ID to show based on table type
+            let linkedId = '';
+            switch(tableId) {
+                case 'ordersReportsTableBody':
+                    linkedId = `
+                        <td>
+                            <a href="#" onclick="viewOrderDetails(${report.ordine_id}); return false;">
+                                #${report.ordine_id}
+                            </a>
+                        </td>`;
+                    break;
+                case 'artisansReportsTableBody':
+                    linkedId = `<td>${report.utente_nome}</td>`;
+                    break;
+                case 'reviewsReportsTableBody':
+                    linkedId = `
+                        <td>
+                            <a href="#" onclick="viewReviewDetails(${report.recensione_id}); return false;">
+                                #${report.recensione_id}
+                            </a>
+                        </td>`;
+                    break;
+            }
+
+            return `
+                <tr>
+                    <td>${report.id}</td>
+                    ${linkedId}
+                    <td>${report.utente_nome}</td>
+                    <td>${report.tipo}</td>
+                    <td>${report.descrizione}</td>
+                    <td>${new Date(report.data).toLocaleDateString()}</td>
+                    <td>
+                        <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
+                            ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        ${report.stato === 'in attesa' ? `
+                            <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
+                                <i class="bi bi-check-lg"></i> Risolvi
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
         if (reports.length === 0) {
             tbody.innerHTML = `
@@ -1051,7 +1193,7 @@ function populateReportsTable(tableId, reports) {
     }
 
     // Initial render
-    renderReports(tbody, filteredReports, filterType);
+    renderReports(tbody, filteredReports, filterType, tableId);
 }
 
 function updateReportCounters(artisanCount, orderCount, reviewCount) {
@@ -1070,6 +1212,65 @@ function updateReportCounters(artisanCount, orderCount, reviewCount) {
     });
 }
 
+function renderReports(tbody, reports, filterType, tableId) {
+    tbody.innerHTML = reports.map(report => {
+        // Determine which ID to show based on table type
+        let linkedId = '';
+        if (tableId === 'ordersReportsTableBody') {
+            linkedId = `
+                <td>
+                    <a href="#" onclick="viewOrderDetails(${report.ordine_id}); return false;">
+                        #${report.ordine_id}
+                    </a>
+                </td>`;
+        } else if (tableId === 'artisansReportsTableBody') {
+            linkedId = `<td>${report.utente_nome}</td>`;
+        } else if (tableId === 'reviewsReportsTableBody') {
+            linkedId = `
+                <td>
+                    <a href="#" onclick="viewReviewDetails(${report.recensione_id}); return false;">
+                        #${report.recensione_id}
+                    </a>
+                </td>`;
+        }
+
+        return `
+            <tr>
+                <td>${report.id}</td>
+                ${linkedId}
+                <td>${report.utente_nome}</td>
+                <td>${report.tipo}</td>
+                <td>${report.descrizione}</td>
+                <td>${new Date(report.data).toLocaleDateString()}</td>
+                <td>
+                    <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
+                        ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
+                    </span>
+                </td>
+                <td class="text-end">
+                    ${report.stato === 'in attesa' ? `
+                        <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
+                            <i class="bi bi-check-lg"></i> Risolvi
+                        </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    if (reports.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center">
+                    ${filterType === 'pending' ? 'Nessuna segnalazione in attesa' : 
+                      filterType === 'resolved' ? 'Nessuna segnalazione risolta' : 
+                      'Nessuna segnalazione presente'}
+                </td>
+            </tr>
+        `;
+    }
+}
+
 // Update the resolve endpoint as well
 async function resolveReport(reportId) {
     if (!confirm('Sei sicuro di voler contrassegnare questa segnalazione come risolta?')) {
@@ -1077,6 +1278,7 @@ async function resolveReport(reportId) {
     }
 
     try {
+        // First resolve the report
         const response = await fetch(`/reports/admin/${reportId}/resolve`, {
             method: 'PATCH',
             headers: {
@@ -1090,16 +1292,31 @@ async function resolveReport(reportId) {
             throw new Error(error.message || 'Errore nella risoluzione della segnalazione');
         }
 
-        // After resolving report, check if we need to update order status
+        // Get order info if it's an order report
         const orderResponse = await fetch(`/reports/${reportId}/order`);
         if (orderResponse.ok) {
             const { orderId } = await orderResponse.json();
             if (orderId) {
-                await updateOrderStatus(orderId, 'consegnato', false);
+                // Reset order to "spedito" status with new timestamp
+                await fetch(`/admin/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        status: 'spedito',
+                        resetTimestamp: true // This will reset the shipping date
+                    })
+                });
             }
         }
 
-        await loadReports();
+        // Refresh all relevant data
+        await Promise.all([
+            loadOrders(),
+            loadReports()
+        ]);
     } catch (error) {
         console.error('Error:', error);
         alert(error.message || 'Errore nella risoluzione della segnalazione');
