@@ -1,3 +1,4 @@
+// Inizializzazione della pagina
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const user = JSON.parse(sessionStorage.getItem('user'));
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // Fetch artisans data with new endpoint
+        // Recupera gli artigiani attivi
         const response = await fetch('/users/artisans', { headers });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -24,23 +25,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Formato risposta artigiani non valido');
         }
 
-        // Get unique categories from artisans data
+        // Filtra le categorie solo degli artigiani attivi
         const uniqueCategories = [...new Set(data.artisans.map(artisan => ({
             tipologia_id: artisan.tipologia_id,
             nome_tipologia: artisan.nome_tipologia
         })))].filter(cat => cat.tipologia_id && cat.nome_tipologia)
         .sort((a, b) => a.nome_tipologia.localeCompare(b.nome_tipologia));
 
-        // Populate category filter
+        // Popola il filtro delle categorie
         const categorySelect = document.getElementById('filterCategory');
         if (!categorySelect) {
             throw new Error('Elemento select delle categorie non trovato');
         }
 
-        // Add default option
         categorySelect.innerHTML = '<option value="">Tutte le categorie</option>';
-        
-        // Add categories from active artisans
         uniqueCategories.forEach(category => {
             const option = document.createElement('option');
             option.value = category.tipologia_id;
@@ -48,13 +46,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             categorySelect.appendChild(option);
         });
 
-        // Create category map
         const categoryMap = {};
         uniqueCategories.forEach(cat => {
             categoryMap[cat.tipologia_id] = cat.nome_tipologia;
         });
 
-        // Populate city filter
+        // Popula il filtro delle città
         const uniqueCities = [...new Set(data.artisans.map(artisan => artisan.citta))]
             .filter(Boolean)
             .sort();
@@ -64,9 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Elemento select delle città non trovato');
         }
 
-        // Add default option
         citySelect.innerHTML = '<option value="">Tutte le città</option>';
-        
         uniqueCities.forEach(city => {
             const option = document.createElement('option');
             option.value = city;
@@ -74,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             citySelect.appendChild(option);
         });
 
-        // Update filter handler
+        // Applica i filtri
         document.getElementById('applyFilters').addEventListener('click', () => {
             const selectedCategory = categorySelect.value;
             const selectedCity = citySelect.value;
@@ -88,7 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateArtisansDisplay(filteredArtisans, categoryMap);
         });
 
-        // Initial display
+        // Inizializza la visualizzazione degli artigiani
         updateArtisansDisplay(data.artisans, categoryMap);
 
     } catch (error) {
@@ -97,6 +92,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// Funzione per aggiornare la visualizzazione degli artigiani
 function updateArtisansDisplay(artisans, categoryMap) {
     const container = document.getElementById('artisans-container');
 
@@ -157,6 +153,7 @@ function updateArtisansDisplay(artisans, categoryMap) {
     }).join('');
 }
 
+// Funzione per mostrare un messaggio di errore
 function showError(error) {
     const artisansContainer = document.getElementById('artisans-container');
     if (artisansContainer) {
