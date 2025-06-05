@@ -18,25 +18,32 @@
             </a>
         </div>
     </div>
+
     <div class="sidebar">
         <nav class="nav flex-column">
             <a class="nav-link active" href="#dashboard" data-bs-toggle="tab">
-                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                <i class="bi bi-house-door me-2"></i>
+                <span class="nav-text">Dashboard</span>
             </a>
             <a class="nav-link" href="#users" data-bs-toggle="tab">
-                <i class="bi bi-people me-2"></i>Utenti
+                <i class="bi bi-people me-2"></i>
+                <span class="nav-text">Clienti</span>
             </a>
             <a class="nav-link" href="#artisans" data-bs-toggle="tab">
-                <i class="bi bi-tools me-2"></i>Artigiani
+                <i class="bi bi-tools me-2"></i>
+                <span class="nav-text">Artigiani</span>
             </a>
             <a class="nav-link" href="#products" data-bs-toggle="tab">
-                <i class="bi bi-box-seam me-2"></i>Prodotti
+                <i class="bi bi-box-seam me-2"></i>
+                <span class="nav-text">Prodotti</span>
             </a>
             <a class="nav-link" href="#orders" data-bs-toggle="tab">
-                <i class="bi bi-cart-check me-2"></i>Ordini
+                <i class="bi bi-cart3 me-2"></i>
+                <span class="nav-text">Ordini</span>
             </a>
             <a class="nav-link" href="#reviews" data-bs-toggle="tab">
-                <i class="bi bi-star me-2"></i>Recensioni
+                <i class="bi bi-star me-2"></i>
+                <span class="nav-text">Recensioni</span>
             </a>
         </nav>
     </div>
@@ -46,41 +53,53 @@
             <!-- Dashboard Overview -->
             <div class="tab-pane fade show active" id="dashboard">
                 <h2 class="mb-4">Dashboard Overview</h2>
-                <div class="row">
-                    <div class="col-md-4 mb-4">
+                <!-- Stats cards -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
                         <div class="card stat-card">
                             <div class="card-body">
-                                <h6 class="text-muted">Clienti Registrati</h6>
-                                <h3 id="totalClients">0</h3>
-                                <small class="text-muted">Utenti semplici</small>
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <h6 class="text-muted">Clienti Registrati</h6>
+                                    <i class="bi bi-people fs-4 text-primary"></i>
+                                </div>
+                                <h3 id="totalClients" class="mb-2">0</h3>
+                                <small class="text-muted">Utenti con ruolo cliente</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-4">
+                    <div class="col-md-6">
                         <div class="card stat-card">
                             <div class="card-body">
-                                <h6 class="text-muted">Artigiani</h6>
-                                <h3 id="totalArtisans">0</h3>
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <h6 class="text-muted">Artigiani</h6>
+                                    <i class="bi bi-tools fs-4 text-primary"></i>
+                                </div>
+                                <h3 id="totalArtisans" class="mb-2">0</h3>
                                 <small class="text-muted">Professionisti registrati</small>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="row mt-4">
+                <!-- Charts -->
+                <div class="row">
                     <div class="col-md-8">
-                        <div class="card">
+                        <div class="card chart-card">
                             <div class="card-body">
                                 <h5 class="card-title">Vendite Mensili</h5>
-                                <canvas id="salesChart"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="salesChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card">
+                        <div class="card chart-card">
                             <div class="card-body">
                                 <h5 class="card-title">Top Categorie</h5>
-                                <canvas id="categoriesChart"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="categoriesChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -89,79 +108,28 @@
 
             <!-- Users Management -->
             <div class="tab-pane fade" id="users">
-                <!-- Tab navigation per gli utenti -->
-                <ul class="nav nav-tabs mb-4">
-                    <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="tab" href="#usersTab">
-                            <i class="bi bi-people me-2"></i>Utenti
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" data-bs-toggle="tab" href="#usersReportsTab">
-                            <i class="bi bi-exclamation-triangle me-2"></i>Segnalazioni
-                            <span class="badge bg-danger" id="userReportsCount">0</span>
-                        </a>
-                    </li>
-                </ul>
-
-                <div class="tab-content">
-                    <!-- Users Tab -->
-                    <div class="tab-pane fade show active" id="usersTab">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2>Gestione Utenti</h2>
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
-                                <i class="bi bi-plus-lg me-2"></i>Nuovo Utente
-                            </button>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Username</th>
-                                        <th>Email</th>
-                                        <th>Stato</th>
-                                        <th>Segnalazioni</th>
-                                        <th>Azioni</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="usersTableBody">
-                                    <!-- Populated via JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Gestione Clienti</h2>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary active" data-filter="all">Tutti</button>
+                        <button class="btn btn-outline-secondary" data-filter="active">Attivi</button>
+                        <button class="btn btn-outline-secondary" data-filter="suspended">Sospesi</button>
                     </div>
-
-                    <!-- Users Reports Tab -->
-                    <div class="tab-pane fade" id="usersReportsTab">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <h2>Segnalazioni Utenti</h2>
-                            <div class="btn-group">
-                                <button class="btn btn-outline-secondary active" data-filter="all">Tutte</button>
-                                <button class="btn btn-outline-secondary" data-filter="pending">In Attesa</button>
-                                <button class="btn btn-outline-secondary" data-filter="resolved">Risolte</button>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Utente ID</th>
-                                        <th>Segnalato da</th>
-                                        <th>Tipo</th>
-                                        <th>Descrizione</th>
-                                        <th>Data</th>
-                                        <th>Stato</th>
-                                        <th>Azioni</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="usersReportsTableBody">
-                                    <!-- Populated via JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Stato</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Populated via JavaScript -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
             
@@ -172,6 +140,11 @@
                     <li class="nav-item">
                         <a class="nav-link active" data-bs-toggle="tab" href="#artisansTab">
                             <i class="bi bi-tools me-2"></i>Artigiani
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#suspendedArtisansTab">
+                            <i class="bi bi-person-x me-2"></i>Sospesi
                         </a>
                     </li>
                     <li class="nav-item">
@@ -187,9 +160,6 @@
                     <div class="tab-pane fade show active" id="artisansTab">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Gestione Artigiani</h2>
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addArtisanModal">
-                                <i class="bi bi-plus-lg me-2"></i>Nuovo Artigiano
-                            </button>
                         </div>
                         <div class="table-responsive">
                             <table class="table">
@@ -200,11 +170,34 @@
                                         <th>Email</th>
                                         <th>Categoria</th>
                                         <th>Stato</th>
-                                        <th>Segnalazioni</th>
                                         <th>Azioni</th>
                                     </tr>
                                 </thead>
                                 <tbody id="artisansTableBody">
+                                    <!-- Populated via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="suspendedArtisansTab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2>Artigiani Sospesi</h2>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nome utente</th>
+                                        <th>Email</th>
+                                        <th>Categoria</th>
+                                        <th>Data Sospensione</th>
+                                        <th>N° Sospensioni</th>
+                                        <th>Azioni</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="suspendedArtisansTableBody">
                                     <!-- Populated via JavaScript -->
                                 </tbody>
                             </table>
@@ -226,7 +219,7 @@
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>Artigiano ID</th>
+                                        <th>Artigiano</th>
                                         <th>Segnalato da</th>
                                         <th>Tipo</th>
                                         <th>Descrizione</th>
@@ -244,17 +237,19 @@
                 </div>
             </div>
 
-            <!-- Products Management -->
+            <!-- Replace the Products Management section -->
             <div class="tab-pane fade" id="products">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Gestione Prodotti</h2>
-                    <div>
-                        <button class="btn btn-secondary me-2" id="filterProducts">
-                            <i class="bi bi-funnel me-2"></i>Filtra
-                        </button>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">
-                            <i class="bi bi-plus-lg me-2"></i>Nuovo Prodotto
-                        </button>
+                    <div class="d-flex gap-3">
+                        <select id="categoryFilter" class="form-select">
+                            <option value="">Tutte le categorie</option>
+                            <!-- Populated via JavaScript -->
+                        </select>
+                        <select id="artisanFilter" class="form-select">
+                            <option value="">Tutti gli artigiani</option>
+                            <!-- Populated via JavaScript -->
+                        </select>
                     </div>
                 </div>
                 <div class="table-responsive">
@@ -267,7 +262,6 @@
                                 <th>Prezzo</th>
                                 <th>Quantità</th>
                                 <th>Artigiano</th>
-                                <th>Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="productsTableBody">
@@ -299,10 +293,18 @@
                     <div class="tab-pane fade show active" id="ordersTab">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Gestione Ordini</h2>
-                            <div>
-                                <button class="btn btn-secondary me-2" id="filterOrders">
-                                    <i class="bi bi-funnel me-2"></i>Filtra
-                                </button>
+                            <div class="d-flex gap-3">
+                                <select id="customerFilter" class="form-select">
+                                    <option value="">Tutti i clienti</option>
+                                    <!-- Populated via JavaScript -->
+                                </select>
+                                <select id="statusFilter" class="form-select">
+                                    <option value="">Tutti gli stati</option>
+                                    <option value="in preparazione">In preparazione</option>
+                                    <option value="spedito">Spedito</option>
+                                    <option value="controversia aperta">Controversia aperta</option>
+                                    <option value="consegnato">Consegnato</option>
+                                </select>
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -311,7 +313,6 @@
                                     <tr>
                                         <th>ID</th>
                                         <th>Cliente</th>
-                                        <th>Artigiano</th>
                                         <th>Totale</th>
                                         <th>Data</th>
                                         <th>Stato</th>
@@ -325,7 +326,7 @@
                         </div>
                     </div>
             
-                    <!-- Reports Tab -->
+                    <!-- Orders Reports Tab -->
                     <div class="tab-pane fade" id="reportsTab">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h2>Segnalazioni Ordini</h2>
@@ -349,7 +350,7 @@
                                         <th>Azioni</th>
                                     </tr>
                                 </thead>
-                                <tbody id="reportsTableBody">
+                                <tbody id="ordersReportsTableBody">
                                     <!-- Populated via JavaScript -->
                                 </tbody>
                             </table>
@@ -425,7 +426,6 @@
                                         <th>ID</th>
                                         <th>Recensione ID</th>
                                         <th>Segnalato da</th>
-                                        <th>Tipo</th>
                                         <th>Descrizione</th>
                                         <th>Data</th>
                                         <th>Stato</th>

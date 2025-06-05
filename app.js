@@ -27,6 +27,7 @@ const cartRouter = require('./routes/cart');
 const ordersRouter = require('./routes/orders');
 const reviewsRouter = require('./routes/reviews');
 const reportsRouter = require('./routes/reports');
+const adminRouter = require('./routes/admin'); // Add this line
 
 // Only use routes that are properly defined
 app.use('/', indexRouter);
@@ -39,6 +40,7 @@ if (ordersRouter) app.use('/orders', ordersRouter);
 if (reviewsRouter) app.use('/reviews', reviewsRouter);
 if (reportsRouter) app.use('/reports', reportsRouter);
 if (usersRouter) app.use('/users', usersRouter);
+if (adminRouter) app.use('/admin', adminRouter);
 
 app.get('/profile.html', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/profile.html'));

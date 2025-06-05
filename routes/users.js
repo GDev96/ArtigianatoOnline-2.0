@@ -170,54 +170,91 @@ router.get('/api/artisan/:id', async (req, res) => {
     }
 });
 
-// API per aggiornare i dati dell'utente
+// API per aggiornare i dati dell'utente/artigiano
 router.put('/update/:id', async (req, res) => {
     try {
         const userId = req.params.id;
         const updates = req.body;
-
-        // Build dynamic query based on provided fields
-        const fields = Object.keys(updates).filter(key => updates[key] !== null);
-        if (fields.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Nessun campo da aggiornare'
-            });
-        }
-
-        const values = fields.map(field => updates[field]);
-        const setClause = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
         
-        // Modified query to explicitly select username
-        const query = `
-            UPDATE utente 
-            SET ${setClause}
-            WHERE id = $${fields.length + 1}
-            RETURNING 
-                id, 
-                username,  /* Explicitly include username */
-                nome, 
-                cognome, 
-                email, 
-                numero_telefono, 
-                indirizzo, 
-                citta`;
-
-        const result = await pool.query(query, [...values, userId]);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Utente non trovato'
-            });
-        }
-
-        console.log('Updated user data:', result.rows[0]); // Add logging for debugging
-
-        res.json({
-            success: true,
-            user: result.rows[0]
+        // Separate updates for utente and artigiani tables
+        const userFields = {};
+        const artisanFields = {};
+        
+        // Split fields between tables
+        Object.entries(updates).forEach(([key, value]) => {
+            if (key === 'tipologia_id') {
+                artisanFields[key] = value;
+            } else {
+                userFields[key] = value;
+            }
         });
+
+        // Start a transaction
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            let userData = null;
+
+            // Update user table if we have user fields
+            if (Object.keys(userFields).length > 0) {
+                const userSetClause = Object.keys(userFields)
+                    .map((key, index) => `${key} = $${index + 1}`)
+                    .join(', ');
+                
+                const userQuery = `
+                    UPDATE utente 
+                    SET ${userSetClause}
+                    WHERE id = $${Object.keys(userFields).length + 1}
+                    RETURNING id, username, nome, cognome, email, numero_telefono, indirizzo, citta`;
+
+                const userResult = await client.query(
+                    userQuery, 
+                    [...Object.values(userFields), userId]
+                );
+                userData = userResult.rows[0];
+            }
+
+            // Update artisan table if we have tipologia_id
+            if (artisanFields.tipologia_id) {
+                await client.query(
+                    `UPDATE artigiani 
+                     SET tipologia_id = $1 
+                     WHERE artigiano_id = $2`,
+                    [artisanFields.tipologia_id, userId]
+                );
+            }
+
+            // If we didn't update user data, get it
+            if (!userData) {
+                const getUserQuery = `
+                    SELECT id, username, nome, cognome, email, numero_telefono, indirizzo, citta
+                    FROM utente 
+                    WHERE id = $1`;
+                const userResult = await client.query(getUserQuery, [userId]);
+                userData = userResult.rows[0];
+            }
+
+            await client.query('COMMIT');
+
+            // Add tipologia_id to response
+            if (artisanFields.tipologia_id) {
+                userData.tipologia_id = artisanFields.tipologia_id;
+            }
+
+            console.log('Updated user data:', userData);
+
+            res.json({
+                success: true,
+                user: userData
+            });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
 
     } catch (error) {
         console.error('Error updating user:', error);
@@ -229,10 +266,7 @@ router.put('/update/:id', async (req, res) => {
     }
 });
 
-//TODO: API per modificare un artigiano - admin
+//TODO: API per eliminare un utente/artigiano - admin
 
-//TODO: API per eliminare un utente - admin
-
-//TODO: API per eliminare un artigiano - admin
 
 module.exports = router;

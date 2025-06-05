@@ -6,7 +6,63 @@ const createAuthMiddleware = require('../middleware/auth');
 // Create auth middleware
 const requireAuth = createAuthMiddleware();
 
-//TODO: GET tutte le recensioni - admin
+// Get all reports (admin only)
+router.get('/all', requireAuth, async (req, res) => {
+    try {
+        if (req.user.ruolo_id !== 3) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accesso non autorizzato'
+            });
+        }
+
+        const query = `
+            SELECT 
+                s.segnalazione_id as id,
+                s.data_segnalazione as data,
+                s.ordine_id,
+                s.recensione_id,
+                s.artigiano_id,
+                s.testo as descrizione,
+                s.motivazione as tipo,
+                s.stato_segnalazione as stato,
+                us.username as segnalatore_nome,
+                CASE 
+                    WHEN s.ordine_id IS NOT NULL THEN 'ordine'
+                    WHEN s.recensione_id IS NOT NULL THEN 'recensione'
+                    WHEN s.artigiano_id IS NOT NULL THEN 'artigiano'
+                END as tipo_segnalazione,
+                CASE 
+                    WHEN s.ordine_id IS NOT NULL THEN o.cliente_id
+                    WHEN s.recensione_id IS NOT NULL THEN r.cliente_id
+                    WHEN s.artigiano_id IS NOT NULL THEN a.artigiano_id
+                END as target_id,
+                CASE
+                    WHEN s.ordine_id IS NOT NULL THEN uc.username
+                    WHEN s.recensione_id IS NOT NULL THEN ur.username
+                    WHEN s.artigiano_id IS NOT NULL THEN ua.username
+                END as target_nome
+            FROM segnalazioni s
+            JOIN utente us ON s.utente_segnalatore_id = us.id
+            LEFT JOIN ordini o ON s.ordine_id = o.ordine_id
+            LEFT JOIN utente uc ON o.cliente_id = uc.id
+            LEFT JOIN recensioni r ON s.recensione_id = r.recensione_id
+            LEFT JOIN utente ur ON r.cliente_id = ur.id
+            LEFT JOIN artigiani a ON s.artigiano_id = a.artigiano_id
+            LEFT JOIN utente ua ON a.artigiano_id = ua.id
+            WHERE s.stato_segnalazione = 'in attesa'
+            ORDER BY s.data_segnalazione DESC`;
+
+        const result = await pool.query(query);
+        res.json({ reports: result.rows });
+    } catch (error) {
+        console.error('Error fetching all reports:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero delle segnalazioni'
+        });
+    }
+});
 
 // Get segnalazioni dell'utente
 router.get('/user', requireAuth, async (req, res) => {
@@ -16,16 +72,17 @@ router.get('/user', requireAuth, async (req, res) => {
                 s.segnalazione_id,
                 s.data_segnalazione,
                 s.ordine_id,
+                s.recensione_id,
+                s.artigiano_id,
                 s.testo,
                 s.motivazione,
                 s.stato_segnalazione
             FROM segnalazioni s
-            WHERE s.utente_id = $1
+            WHERE s.utente_segnalatore_id = $1
             ORDER BY s.data_segnalazione DESC`;
 
         const result = await pool.query(query, [req.user.id]);
         res.json(result.rows);
-
     } catch (error) {
         console.error('Error fetching user reports:', error);
         res.status(500).json({
@@ -39,7 +96,7 @@ router.get('/user', requireAuth, async (req, res) => {
 router.post('/artisan', requireAuth, async (req, res) => {
     try {
         const { artisan_id, reason, description } = req.body;
-        const user_id = req.user.id;
+        const segnalatore_id = req.user.id;
 
         // Validation
         if (!artisan_id || !reason || !description) {
@@ -64,10 +121,16 @@ router.post('/artisan', requireAuth, async (req, res) => {
 
         // Insert report
         const result = await pool.query(`
-            INSERT INTO segnalazioni (utente_id, recensione_id, testo, motivazione, stato_segnalazione)
-            VALUES ($1, NULL, $2, $3, 'in attesa')
+            INSERT INTO segnalazioni (
+                utente_segnalatore_id, 
+                artigiano_id,
+                testo, 
+                motivazione, 
+                stato_segnalazione
+            )
+            VALUES ($1, $2, $3, $4, 'in attesa')
             RETURNING segnalazione_id
-        `, [user_id, description, reason]);
+        `, [segnalatore_id, artisan_id, description, reason]);
 
         res.status(201).json({
             success: true,
@@ -182,7 +245,48 @@ router.post('/order', requireAuth, async (req, res) => {
     }
 });
 
-//TODO: PUT modifica segnalazione - admin
+// Update report status (admin only)
+router.patch('/admin/:id/resolve', requireAuth, async (req, res) => {
+    try {
+        // Verifica che l'utente sia admin
+        if (req.user.ruolo_id !== 3) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accesso non autorizzato'
+            });
+        }
+
+        const { id } = req.params;
+        
+        const query = `
+            UPDATE segnalazioni
+            SET stato_segnalazione = 'risolta'
+            WHERE segnalazione_id = $1
+            RETURNING *`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Segnalazione non trovata'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Segnalazione risolta con successo',
+            report: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error resolving report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nella risoluzione della segnalazione'
+        });
+    }
+});
 
 // DELETE elimina segnalazione - solo utente che ha fatto la segnalazione
 router.delete('/:id', requireAuth, async (req, res) => {
@@ -192,7 +296,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
         // Verifica proprietà della segnalazione
         const reportCheck = await pool.query(
-            'SELECT segnalazione_id FROM segnalazioni WHERE segnalazione_id = $1 AND utente_id = $2',
+            'SELECT segnalazione_id FROM segnalazioni WHERE segnalazione_id = $1 AND utente_segnalatore_id = $2',
             [id, user_id]
         );
 
