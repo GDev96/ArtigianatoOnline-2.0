@@ -39,9 +39,45 @@
                         <button type="submit" class="btn w-100 mt-3">Accedi</button>
                     </form>
                     <div class="text-center mt-0">
-                        <!--Aggiungi link per recupero password, da cui si aprirà un modale in cui si chiede di inserire la propria mail, il link per la pagina di modifica password verrà inviato alla mail-->
-                        <a href="/signup.html" class="register-link">Non hai un account? Registrati!</a>
+                        <a href="#" class="recover-link me-2" data-bs-toggle="modal" data-bs-target="#recoverPasswordModal">
+                            Password dimenticata?
+                        </a>
+                        <span class="text-muted">|</span>
+                        <a href="/signup.html" class="register-link ms-2">Non hai un account? Registrati!</a>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Password Recovery Modal -->
+    <div class="modal fade" id="recoverPasswordModal" tabindex="-1" aria-labelledby="recoverPasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="recoverPasswordModalLabel">Recupera Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="recoverPasswordForm">
+                        <div class="mb-3">
+                            <label for="emailInput" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="emailInput" 
+                                placeholder="Inserisci la tua email" required>
+                        </div>
+                        <div id="recoverError" class="alert alert-danger d-none" role="alert">
+                            <!-- Error message will be inserted here -->
+                        </div>
+                        <div id="recoverSuccess" class="alert alert-success d-none" role="alert">
+                            <!-- Success message will be inserted here -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                    <button type="button" class="btn btn-primary" onclick="requestPasswordRecovery()">
+                        Invia Link di Recupero
+                    </button>
                 </div>
             </div>
         </div>

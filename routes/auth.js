@@ -3,7 +3,9 @@ const bcrypt = require('bcrypt');
 const { pool } = require('../db/db');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
+const { sendPasswordRecoveryEmail } = require('../services/emailService');
 require('dotenv').config();
+
 
 // Validazione del formato dell'immagine per la registrazione - corretto
 function isValidImageData(base64String) {
@@ -203,6 +205,130 @@ router.post('/logout', (req, res) => {
             success: false,
             message: 'Errore durante il logout',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+// Password recovery request
+router.post('/recover-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        console.log('Ricevuta richiesta recupero password per:', email);
+
+        // Validate email
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                error: 'Email richiesta'
+            });
+        }
+
+        // Check if user exists
+        const user = await pool.query(
+            'SELECT id, username FROM utente WHERE email = $1 AND stato = $2',
+            [email, 'attivo']
+        );
+
+        if (user.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Nessun account trovato con questa email'
+            });
+        }
+
+        // Generate recovery token
+        const recoveryToken = jwt.sign(
+            { id: user.rows[0].id, action: 'password-recovery' },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        // Create recovery link
+        const recoveryLink = `${process.env.APP_URL}/resetPass.html?token=${recoveryToken}`;
+
+        try {
+            await sendPasswordRecoveryEmail(email, recoveryLink);
+            
+            res.json({
+                success: true,
+                message: 'Email di recupero inviata con successo'
+            });
+        } catch (emailError) {
+            console.error('Errore invio email:', emailError);
+            res.status(500).json({
+                success: false,
+                error: 'Errore nell\'invio dell\'email di recupero'
+            });
+        }
+
+    } catch (error) {
+        console.error('Password recovery error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante il recupero della password'
+        });
+    }
+});
+
+// Reset password endpoint
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+
+        if (!token || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                error: 'Token e nuova password sono richiesti'
+            });
+        }
+
+        // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Check if token is for password reset
+        if (decoded.action !== 'password-recovery') {
+            return res.status(400).json({
+                success: false,
+                error: 'Token non valido per il reset della password'
+            });
+        }
+
+        // Hash new password
+        const saltRounds = 10;
+        const hash = await bcrypt.hash(newPassword, saltRounds);
+
+        // Update password in database
+        const result = await pool.query(
+            'UPDATE utente SET password_hash = $1 WHERE id = $2 AND stato = $3 RETURNING id',
+            [hash, decoded.id, 'attivo']
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Utente non trovato'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Password aggiornata con successo'
+        });
+
+    } catch (error) {
+        console.error('Password reset error:', error);
+        
+        if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            return res.status(400).json({
+                success: false,
+                error: 'Token non valido o scaduto'
+            });
+        }
+
+        res.status(500).json({
+            success: false,
+            error: 'Errore durante il reset della password'
         });
     }
 });
