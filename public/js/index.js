@@ -144,7 +144,7 @@ function updateArtisansDisplay(artisans, categoryMap) {
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h5 class="card-title">${artisan.nome} ${artisan.cognome}</h5>
-                        <p class="card-text">${artisan.citta || ''} </p>
+                        <p class="card-text mb-2">${artisan.citta || ''} </p>
                     </div>
                     <p class="card-category">${categoryMap[artisan.tipologia_id] || 'Categoria non specificata'}</p>
                     <div class="d-flex justify-content-end">
