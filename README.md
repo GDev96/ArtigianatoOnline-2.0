@@ -1,5 +1,3 @@
-
-
 # TO-DO LIST
 ## FRONTEND
 
@@ -17,23 +15,23 @@ Legenda:
 | Pagina carrello             | Gaia         | cartpage          | ✅ Completato    |
 | Pagina dashboard             | Gaia         | dashboard          | ✅ Completato   |
 | Pagina admin             | Gaia         | adminconsole          | ✅ Completato  |
-| Pagina di recupero password             | Gaia         | resetpass          | ⏳ In corso    |
-
+| Pagina di recupero password             | Gaia         | resetpass          | ✅ Completato     |
+| Correzioni errori vari            | Gaia         | fixes          | ⏳ In corso    |
 
 ## BACKEND PAGINE HTML
 | Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
 |-----------------------------------------------------------------------------|-----------|-------------|-------------|
 | Correggere API vecchio progetto             | Gaia         | fixAPI          | ✅ Completato   |
-| -             | -         | -          | ⏳ In corso   |
-| API Utenti             | -         | -          | ❌ Da fare   |
-| API Artigiani             | -         | -          | ❌ Da fare   |
-| API prodotti             | -         | -          | ❌ Da fare   |
-| API recensioni             | -         | -          | ❌ Da fare   |
-| API segnalazioni             | -         | -          | ❌ Da fare   |
-| API Ordini             | -         | -          | ❌ Da fare   |
+| -             | -         | Gaia          | ⏳ In corso   |
+| API Utenti             | Gaia         | profilepage          | ✅ Completato   |
+| API Artigiani             | Gaia         | catalogpage          | ✅ Completato   |
+| API prodotti             | Gaia         | dashboard          | ✅ Completato   |
+| API recensioni             | Gaia         | catalogpage          | ✅ Completato   |
+| API segnalazioni             | Gaia         | adminconsole          | ✅ Completato   |
+| API Ordini             | Gaia         | cartpage          | ✅ Completato   |
 | API admin             | Gaia         | adminconsole          | ✅ Completato   |
 | Correzione logout token             | Gaia         | fixtokenlogout          |✅ Completato  |
-| Recupero password             | -         | -          | ❌ Da fare   |
+| Recupero password             | Gaia         | resetPass          | ✅ Completato   |
 | Docker             | -         | -          | ❌ Da fare   |
 
 ## DATABASE
