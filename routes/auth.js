@@ -226,7 +226,7 @@ router.post('/recover-password', async (req, res) => {
 
         // Check if user exists
         const user = await pool.query(
-            'SELECT id, username FROM utente WHERE email = $1 AND stato = $2',
+            'SELECT id, username, email FROM utente WHERE email = $1 AND stato = $2',
             [email, 'attivo']
         );
 
@@ -237,12 +237,15 @@ router.post('/recover-password', async (req, res) => {
             });
         }
 
-        // Generate recovery token
-        const recoveryToken = jwt.sign(
-            { id: user.rows[0].id, action: 'password-recovery' },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
+        // Generate recovery token including email
+        const recoveryToken = jwt.sign({
+            id: user.rows[0].id,
+            email: user.rows[0].email, // Include email in token
+            action: 'password-recovery'
+        }, process.env.JWT_SECRET, { 
+            expiresIn: '1h' 
+        });
+
 
         // Create recovery link
         const recoveryLink = `${process.env.APP_URL}/resetPass.html?token=${recoveryToken}`;
@@ -273,6 +276,8 @@ router.post('/recover-password', async (req, res) => {
 
 // Reset password endpoint
 router.post('/reset-password', async (req, res) => {
+    const client = await pool.connect();
+    
     try {
         const { token, newPassword } = req.body;
 
@@ -286,8 +291,8 @@ router.post('/reset-password', async (req, res) => {
         // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
-        // Check if token is for password reset
-        if (decoded.action !== 'password-recovery') {
+        // Check if token is for password reset and has email
+        if (decoded.action !== 'password-recovery' || !decoded.email) {
             return res.status(400).json({
                 success: false,
                 error: 'Token non valido per il reset della password'
@@ -298,18 +303,36 @@ router.post('/reset-password', async (req, res) => {
         const saltRounds = 10;
         const hash = await bcrypt.hash(newPassword, saltRounds);
 
-        // Update password in database
-        const result = await pool.query(
-            'UPDATE utente SET password_hash = $1 WHERE id = $2 AND stato = $3 RETURNING id',
-            [hash, decoded.id, 'attivo']
-        );
+        await client.query('BEGIN');
+
+        // Update password using both id and email for security
+        const result = await client.query(`
+            UPDATE utente 
+            SET password_hash = $1
+            WHERE id = $2 
+            AND email = $3 
+            AND stato = 'attivo'
+            RETURNING id, email, username
+        `, [hash, decoded.id, decoded.email]);
 
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({
                 success: false,
-                error: 'Utente non trovato'
+                error: 'Utente non trovato o non autorizzato'
             });
         }
+
+        // Log password change
+        await client.query(`
+            INSERT INTO log_utenti (utente_id, azione, descrizione)
+            VALUES ($1, 'reset_password', $2)
+        `, [
+            result.rows[0].id,
+            `Password reimpostata tramite recupero password per l'email ${decoded.email}`
+        ]);
+
+        await client.query('COMMIT');
 
         res.json({
             success: true,
@@ -317,6 +340,7 @@ router.post('/reset-password', async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Password reset error:', error);
         
         if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
@@ -330,6 +354,8 @@ router.post('/reset-password', async (req, res) => {
             success: false,
             error: 'Errore durante il reset della password'
         });
+    } finally {
+        client.release();
     }
 });
 

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS utente (
     password_hash VARCHAR(100) NOT NULL,
     stato VARCHAR(20) NOT NULL DEFAULT 'attivo',
     ruolo_id INTEGER NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT utente_stato_check CHECK (stato IN ('attivo', 'sospeso')),
     CONSTRAINT utente_ruolo_id_fkey FOREIGN KEY (ruolo_id)
         REFERENCES ruoli (ruolo_id)
@@ -174,4 +175,13 @@ CREATE TABLE IF NOT EXISTS sospensioni_artigiani (
         REFERENCES artigiani (artigiano_id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS log_utenti (
+    id SERIAL PRIMARY KEY,
+    utente_id INTEGER REFERENCES utente(id),
+    azione VARCHAR(50) NOT NULL,
+    descrizione TEXT,
+    data_creazione TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
