@@ -60,4 +60,20 @@
             </div>
         </div>
     </div>
+
+    <!-- Aggiungi prima della chiusura del nav -->
+    <div class="modal fade" id="sessionExpiredModal" data-bs-backdrop="static" tabindex="-1" aria-labelledby="sessionExpiredModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body d-flex flex-column align-items-center justify-content-center" style="min-height: 200px;">
+                    <i class="bi bi-exclamation-circle text-warning" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <h5 class="modal-title text-center mb-3">Sessione Scaduta</h5>
+                    <p class="text-center">
+                        La tua sessione è scaduta per motivi di sicurezza.<br>
+                        Sarai reindirizzato alla pagina di login tra <span id="countdown">5</span> secondi.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
 </nav>

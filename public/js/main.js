@@ -1,3 +1,21 @@
+// Aggiungi all'inizio del file, dopo gli import
+function createFetchInterceptor() {
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        try {
+            const response = await originalFetch(...args);
+            
+            if (AuthService.handleTokenExpiration(response)) {
+                return Promise.reject(new Error('Sessione scaduta'));
+            }
+            
+            return response;
+        } catch (error) {
+            throw error;
+        }
+    };
+}
+
 // Add fetch interceptor for authentication
 const originalFetch = window.fetch;
 window.fetch = async function(...args) {
@@ -60,8 +78,6 @@ setInterval(changeBackground, 10000);
 
 // Imposta l'immagine iniziale
 changeBackground();
-
-
 
 // Caricamento dei componenti
 function loadComponent(selector, file, callback) {
@@ -279,6 +295,8 @@ document.addEventListener('DOMContentLoaded', checkAuthForNavigation);
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', () => {
+    createFetchInterceptor();
+    checkAuthForNavigation();
     initNavbar();
 });
 
