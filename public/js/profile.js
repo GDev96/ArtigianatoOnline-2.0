@@ -379,8 +379,11 @@ async function submitOrderReport() {
         // Show success message
         showSuccessMessage('Segnalazione inviata con successo');
 
-        // Reload reports table
-        await loadUserReports();
+        // Reload orders and reports tables
+        await Promise.all([
+            loadOrders(),
+            loadUserReports()
+        ]);
 
     } catch (error) {
         console.error('Error:', error);
