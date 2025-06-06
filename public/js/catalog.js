@@ -524,15 +524,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <p class="card-text">${review.descrizione}</p>
                         ${user && user.id === review.cliente_id ? 
                             `<div class="d-flex justify-content-end mt-3">
-                                <button class="btn btn-link text-primary me-2" 
+                                <button class="btn-review bg-light btn-link text-primary" 
                                         onclick="editReview(${review.recensione_id})"
                                         title="Modifica recensione">
-                                    <i class="fas fa-edit"></i> Modifica
+                                    modifica
                                 </button>
-                                <button class="btn btn-link text-danger" 
+                                <hr style="border: 1px solid; margin: 0.5rem 0;">
+                                <button class="btn-review bg-light btn-link text-danger" 
                                         onclick="deleteReview(${review.recensione_id})"
                                         title="Elimina recensione">
-                                    <i class="fas fa-trash"></i> Elimina
+                                    elimina
                                 </button>
                             </div>` : 
                             ''
