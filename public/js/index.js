@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('Error loading home page:', error);
-        showError(error);
+        showErrorMessage(error);
     }
 });
 
@@ -151,27 +151,4 @@ function updateArtisansDisplay(artisans, categoryMap) {
         </div>
         `;
     }).join('');
-}
-
-// Funzione per mostrare un messaggio di errore
-function showError(error) {
-    const artisansContainer = document.getElementById('artisans-container');
-    if (artisansContainer) {
-        artisansContainer.innerHTML = `
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body text-center p-5">
-                        <i class="bi bi-exclamation-triangle mb-3" style="font-size: 2rem; color: var(--danger-color);"></i>
-                        <h5 class="card-title">Si è verificato un errore</h5>
-                        <p class="card-text text-muted">
-                            Non è stato possibile caricare gli artigiani.
-                            <br>Dettaglio: ${error.message}
-                        </p>
-                        <button onclick="location.reload()" class="btn btn-outline-secondary mt-3">
-                            <i class="bi bi-arrow-clockwise me-2"></i>Riprova
-                        </button>
-                    </div>
-                </div>
-            </div>`;
-    }
 }

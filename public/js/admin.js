@@ -475,7 +475,7 @@ async function loadProducts() {
 
     } catch (error) {
         console.error('Error loading products:', error);
-        showError('Errore nel caricamento dei prodotti: ' + error.message);
+        showErrorMessage('Errore nel caricamento dei prodotti: ' + error.message);
     }
 }
 function populateFilters(products) {
@@ -541,14 +541,6 @@ function renderProducts(products) {
         </tr>
     `).join('');
 }
-function showError(message) {
-    const tbody = document.getElementById('productsTableBody');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="6" class="text-center text-danger">${message}</td>
-        </tr>
-    `;
-}
 
 
 
@@ -576,7 +568,7 @@ async function loadOrders() {
 
     } catch (error) {
         console.error('Error loading orders:', error);
-        showOrderError('Errore nel caricamento degli ordini: ' + error.message);
+        showErrorMessage('Errore nel caricamento degli ordini: ' + error.message);
     }
 }
 function populateCustomerFilter(orders) {
@@ -660,14 +652,7 @@ function renderOrders(orders) {
         </tr>
     `).join('');
 }
-function showOrderError(message) {
-    const tbody = document.getElementById('ordersTableBody');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="6" class="text-center text-danger">${message}</td>
-        </tr>
-    `;
-}
+
 async function updateOrderStatus(orderId, newStatus, showConfirm = true) {
     if (showConfirm && !confirm(`Sei sicuro di voler aggiornare lo stato dell'ordine?`)) {
         return;

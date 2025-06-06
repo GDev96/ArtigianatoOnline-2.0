@@ -178,17 +178,6 @@ function showSuccessMessage(message) {
     setTimeout(() => container.remove(), 3000);
 }
 
-function showErrorMessage(message) {
-    const container = document.createElement('div');
-    container.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    container.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(container);
-    setTimeout(() => container.remove(), 3000);
-}
-
 //Caricamento immagine profilo
 function uploadProfilePicture(event) {
   const file = event.target.files[0];

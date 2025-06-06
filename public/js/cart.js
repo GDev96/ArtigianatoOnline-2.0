@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
     } catch (error) {
         console.error('Error initializing cart:', error);
-        showError(error);
+        showErrorMessage(error);
     }
 });
 
@@ -115,7 +115,7 @@ async function loadCartContent() {
 
     } catch (error) {
         console.error('Error loading cart:', error);
-        showError(error);
+        showErrorMessage(error);
     }
 }
 
@@ -230,7 +230,7 @@ async function updateQuantity(productId, newQuantity) {
         await loadCartContent();
     } catch (error) {
         console.error('Error updating quantity:', error);
-        showError(error);
+        showErrorMessage(error);
     }
 }
 
@@ -255,7 +255,7 @@ async function removeFromCart(productId) {
         await loadCartContent();
     } catch (error) {
         console.error('Error removing item:', error);
-        showError(error);
+        showErrorMessage(error);
     }
 }
 

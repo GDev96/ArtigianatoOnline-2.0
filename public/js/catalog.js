@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const artisanId = urlParams.get('id');
 
     if (!artisanId) {
-        showError('ID artigiano non trovato');
+        showErrorMessage('ID artigiano non trovato');
         return;
     }
     
@@ -993,37 +993,4 @@ async function submitReviewReport() {
         console.error('Error submitting review report:', error);
         showErrorMessage(error.message);
     }
-}
-
-
-
-// Messaggi di successo e errore
-function showSuccessMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed bottom-100 start-50 translate-middle-x mt-3';
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        <i class="fas fa-check-circle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(alertDiv);
-
-    // Auto remove after 3 seconds
-    setTimeout(() => alertDiv.remove(), 3000);
-}
-
-function showErrorMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed bottom-100 start-50 translate-middle-x mt-3';
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        <i class="fas fa-exclamation-circle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(alertDiv);
-
-    // Auto remove after 5 seconds
-    setTimeout(() => alertDiv.remove(), 5000);
 }

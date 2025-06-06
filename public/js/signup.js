@@ -59,13 +59,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Add these functions at the top of the file
-function showError(message) {
-    const errorDiv = document.getElementById('formError');
-    errorDiv.textContent = message;
-    errorDiv.classList.remove('d-none');
-}
-
 function validatePassword(password) {
     const validations = {
         upperCase: /[A-Z]/.test(password),
@@ -290,7 +283,7 @@ document.querySelector('form').addEventListener('submit', async (e) => {
 
     } catch (error) {
         console.error('Registration error:', error);
-        showError(error.message);
+        showErrorMessage(error.message);
         window.scrollTo({
             top: document.getElementById('formError').offsetTop - 20,
             behavior: 'smooth'

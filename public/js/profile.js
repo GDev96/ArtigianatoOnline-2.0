@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('Error loading profile:', error);
-        showError(error);
+        showErrorMessage(error);
     }
 });
 
