@@ -301,7 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-/************** Modale Conferma ordine **************/
+/************** TOFIX: spostare Modale Conferma ordine in cart.js**************/ 
 //Gestione del metodo di pagamento
 document.addEventListener('DOMContentLoaded', () => {
   const paymentDetails = document.getElementById('paymentDetails');
@@ -365,4 +365,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Imposta il metodo di pagamento iniziale
   updatePaymentDetails('creditCard');
-});
+}); 
+
+
+// Global message functions
+function showSuccessMessage(message) {
+    const container = document.createElement('div');
+    container.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    container.setAttribute('role', 'alert');
+    container.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(container);
+    
+    setTimeout(() => {
+        container.remove();
+    }, 3000);
+}
+
+function showErrorMessage(message) {
+    const container = document.createElement('div');
+    container.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+    container.setAttribute('role', 'alert');
+    container.innerHTML = `
+        <i class="fas fa-exclamation-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(container);
+    
+    setTimeout(() => {
+        container.remove();
+    }, 3000);
+}
+
+// ...existing code...

@@ -45,6 +45,41 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Get recensioni dell'utente
+router.get('/user', requireAuth, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                r.recensione_id,
+                r.data_recensione,
+                r.valutazione,
+                r.descrizione,
+                r.stato,
+                u.nome as nome_artigiano,
+                u.cognome as cognome_artigiano,
+                a.artigiano_id
+            FROM recensioni r
+            INNER JOIN artigiani a ON r.artigiano_id = a.artigiano_id
+            INNER JOIN utente u ON a.artigiano_id = u.id
+            WHERE r.cliente_id = $1
+            ORDER BY r.data_recensione DESC`;
+
+        const result = await pool.query(query, [req.user.id]);
+        
+        res.json({
+            success: true,
+            reviews: result.rows
+        });
+
+    } catch (error) {
+        console.error('Error fetching user reviews:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero delle recensioni'
+        });
+    }
+});
+
 // GET single review by ID
 router.get('/:id', requireAuth, async (req, res) => {
     try {
@@ -85,37 +120,6 @@ router.get('/:id', requireAuth, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Errore nel recupero della recensione'
-        });
-    }
-});
-
-// Get recensioni dell'utente
-router.get('/user', requireAuth, async (req, res) => {
-    try {
-        const query = `
-            SELECT 
-                r.recensione_id,
-                r.data_recensione,
-                r.valutazione,
-                r.descrizione,
-                r.stato,
-                u.nome as nome_artigiano,
-                u.cognome as cognome_artigiano,
-                a.artigiano_id
-            FROM recensioni r
-            INNER JOIN artigiani a ON r.artigiano_id = a.artigiano_id
-            INNER JOIN utente u ON a.artigiano_id = u.id
-            WHERE r.cliente_id = $1
-            ORDER BY r.data_recensione DESC`;
-
-        const result = await pool.query(query, [req.user.id]);
-        res.json(result.rows);
-
-    } catch (error) {
-        console.error('Error fetching user reviews:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Errore nel recupero delle recensioni'
         });
     }
 });

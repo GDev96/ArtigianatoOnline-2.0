@@ -48,8 +48,10 @@ Tabelle e attributi:
 
 | Descrizione                     | Assegnato a | Nome Branch | Stato       |
 |---------------------------------|-----------|-------------|-------------|
-| Creare nuovo db    | Gaia    | main   |✅ Completato
-
+| Creare nuovo db    | Gaia    | main   |✅ Completato |
+| Test   | Gaia    | test   |✅ Completato |
+| ReadMe.md   | Gaia    | main   |✅ Completato |
+| Documentazione   | Gaia    | main   |✅ Completato |
 
 ***
 

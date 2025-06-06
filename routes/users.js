@@ -5,8 +5,6 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 require('dotenv').config();
 
-//TODO: API per visualizzare tutti gli utenti
-
 // Get user by ID
 router.get('/api/:id', async (req, res) => {
     try {

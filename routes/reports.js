@@ -229,9 +229,15 @@ router.post('/order', requireAuth, async (req, res) => {
             });
         }
 
-        // Insert report
+        // Insert report with correct column name
         const result = await pool.query(`
-            INSERT INTO segnalazioni (utente_id, ordine_id, testo, motivazione, stato_segnalazione)
+            INSERT INTO segnalazioni (
+                utente_segnalatore_id, 
+                ordine_id, 
+                testo, 
+                motivazione, 
+                stato_segnalazione
+            )
             VALUES ($1, $2, $3, $4, 'in attesa')
             RETURNING segnalazione_id
         `, [user_id, order_id, description, reason]);

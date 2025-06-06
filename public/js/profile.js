@@ -1,146 +1,4 @@
-/***********Header dati utente ******************/
-// Add error handling functions at the top
-function showError(error) {
-    const container = document.querySelector('.container');
-    if (container) {
-        container.innerHTML = `
-            <div class="alert alert-danger" role="alert">
-                <h4 class="alert-heading">Errore!</h4>
-                <p>${error.message}</p>
-                <hr>
-                <p class="mb-0">Torna alla <a href="/" class="alert-link">home page</a>.</p>
-            </div>`;
-    }
-}
-
-function updateUserProfile(user) {
-    console.log('Updating user profile with:', user);
-
-    // Update profile name and username in header
-    const profileNameEl = document.getElementById('profileName');
-    const usernameEl = document.querySelector('#username .username'); // Changed selector
-
-    if (profileNameEl) {
-        profileNameEl.textContent = `${user.nome} ${user.cognome}`;
-    }
-    
-    if (usernameEl) {
-        usernameEl.textContent = user.username; // Username will be after @ in HTML
-    }
-
-    // Update info cards
-    const cards = {
-        'card-address': { value: user.indirizzo && user.citta ? `${user.indirizzo} - ${user.citta}` : 'Non specificato' },
-        'card-phone': { value: user.numero_telefono || 'Non specificato' },
-        'card-mail': { value: user.email || 'Non specificato' }
-    };
-
-    Object.entries(cards).forEach(([cardClass, data]) => {
-        const card = document.querySelector(`.${cardClass} p`);
-        if (card) {
-            card.textContent = data.value;
-        }
-    });
-
-    // Update form fields
-    const formFields = {
-        'editNameInput': user.nome,
-        'editSurnameInput': user.cognome,
-        'editEmailInput': user.email,
-        'editPhoneInput': user.numero_telefono || '',
-        'editAddressInput': user.indirizzo || '',
-        'editCityInput': user.citta || ''
-    };
-
-    Object.entries(formFields).forEach(([fieldId, value]) => {
-        const field = document.getElementById(fieldId);
-        if (field) {
-            field.value = value;
-        }
-    });
-}
-// Add error message function at the top with other message functions
-function showErrorMessage(message) {
-    const container = document.createElement('div');
-    container.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    container.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(container);
-    
-    setTimeout(() => {
-        container.remove();
-    }, 3000);
-}
-
-// Update the updateProfile function
-async function updateProfile(event) {
-    event.preventDefault();
-    
-    try {
-        const userId = new URLSearchParams(window.location.search).get('id');
-        const formData = {
-            nome: document.getElementById('editNameInput').value.trim() || null,
-            cognome: document.getElementById('editSurnameInput').value.trim() || null,
-            email: document.getElementById('editEmailInput').value.trim() || null,
-            numero_telefono: document.getElementById('editPhoneInput').value.trim() || null,
-            indirizzo: document.getElementById('editAddressInput').value.trim() || null,
-            citta: document.getElementById('editCityInput').value.trim() || null
-        };
-
-        // Filter out null values
-        Object.keys(formData).forEach(key => 
-            formData[key] === null && delete formData[key]
-        );
-
-        console.log('Sending update with data:', formData);
-
-        const response = await fetch(`/users/update/${userId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-            },
-            body: JSON.stringify(formData)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Errore nell\'aggiornamento del profilo');
-        }
-
-        const data = await response.json();
-        
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
-        modal.hide();
-
-        // Update the profile display with new data
-        updateUserProfile(data.user);
-
-        // Show success message
-        showSuccessMessage('Profilo aggiornato con successo');
-
-    } catch (error) {
-        console.error('Error updating profile:', error);
-        showErrorMessage(error.message || 'Errore nell\'aggiornamento del profilo');
-    }
-}
-// Add a success message function
-function showSuccessMessage(message) {
-    const container = document.createElement('div');
-    container.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    container.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(container);
-    
-    setTimeout(() => {
-        container.remove();
-    }, 3000);
-}
+//********Header profilo********** 
 // Update the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -194,12 +52,112 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+//Funzione per aggiornare il profilo utente
+function updateUserProfile(user) {
+    console.log('Updating user profile with:', user);
+
+    // Update profile name and username in header
+    const profileNameEl = document.getElementById('profileName');
+    const usernameEl = document.querySelector('.username span'); // Changed selector to target span inside .username class
+
+    if (profileNameEl) {
+        profileNameEl.textContent = `${user.nome} ${user.cognome}`;
+    }
+    
+    if (usernameEl) {
+        usernameEl.textContent = user.username;
+    }
+
+    // Update info cards
+    const cards = {
+        'card-address': { value: user.indirizzo && user.citta ? `${user.indirizzo} - ${user.citta}` : 'Non specificato' },
+        'card-phone': { value: user.numero_telefono || 'Non specificato' },
+        'card-mail': { value: user.email || 'Non specificato' }
+    };
+
+    Object.entries(cards).forEach(([cardClass, data]) => {
+        const card = document.querySelector(`.${cardClass} p`);
+        if (card) {
+            card.textContent = data.value;
+        }
+    });
+
+    // Update form fields
+    const formFields = {
+        'editNameInput': user.nome,
+        'editSurnameInput': user.cognome,
+        'editEmailInput': user.email,
+        'editPhoneInput': user.numero_telefono || '',
+        'editAddressInput': user.indirizzo || '',
+        'editCityInput': user.citta || ''
+    };
+
+    Object.entries(formFields).forEach(([fieldId, value]) => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.value = value;
+        }
+    });
+}
+
+// Modale di modifica profilo
+async function updateProfile(event) {
+    event.preventDefault();
+    
+    try {
+        const userId = new URLSearchParams(window.location.search).get('id');
+        const formData = {
+            nome: document.getElementById('editNameInput').value.trim() || null,
+            cognome: document.getElementById('editSurnameInput').value.trim() || null,
+            email: document.getElementById('editEmailInput').value.trim() || null,
+            numero_telefono: document.getElementById('editPhoneInput').value.trim() || null,
+            indirizzo: document.getElementById('editAddressInput').value.trim() || null,
+            citta: document.getElementById('editCityInput').value.trim() || null
+        };
+
+        // Filter out null values
+        Object.keys(formData).forEach(key => 
+            formData[key] === null && delete formData[key]
+        );
+
+        console.log('Sending update with data:', formData);
+
+        const response = await fetch(`/users/update/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            },
+            body: JSON.stringify(formData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nell\'aggiornamento del profilo');
+        }
+
+        const data = await response.json();
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+        modal.hide();
+
+        // Update the profile display with new data
+        updateUserProfile(data.user);
+
+        // Show success message
+        showSuccessMessage('Profilo aggiornato con successo');
+
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showErrorMessage(error.message || 'Errore nell\'aggiornamento del profilo');
+    }
+}
 
 
 
 //********Tabella visualizzazione ordini********** 
-
-
+// Carica gli ordini dell'utente
 async function loadOrders() {
     try {
         const response = await fetch('/orders/user', {
@@ -260,6 +218,7 @@ async function loadOrders() {
         `;
     }
 }
+
 //Mostra i dettagli dell'ordine
 async function viewOrderDetails(orderId) {
     try {
@@ -374,17 +333,19 @@ async function viewOrderDetails(orderId) {
         showErrorMessage('Errore nel caricamento dei dettagli dell\'ordine');
     }
 }
+
 // Apre modale per segnalare un ordine
 function reportOrder(orderId) {
     document.getElementById('reportOrderId').value = orderId;
     const modal = new bootstrap.Modal(document.getElementById('reportOrderModal'));
     modal.show();
 }
+
 // Funzione per inviare la segnalazione di un ordine
 async function submitOrderReport() {
     try {
         const reportData = {
-            order_id: document.getElementById('reportOrderId').value,
+            order_id: parseInt(document.getElementById('reportOrderId').value),
             reason: document.getElementById('reportReason').value,
             description: document.getElementById('reportDescription').value
         };
@@ -426,24 +387,24 @@ async function submitOrderReport() {
         showErrorMessage(error.message);
     }
 }
+
 // Funzioni per gestire i colori e i testi degli stati degli ordini
 function getStatusColor(status) {
     const colors = {
-        'pending': 'warning',
-        'processing': 'info',
-        'shipped': 'primary',
-        'delivered': 'success',
-        'cancelled': 'danger'
+        'in preparazione': 'warning',
+        'spedito': 'primary',
+        'controversia aperta': 'danger',
+        'consegnato': 'success'
     };
     return colors[status] || 'secondary';
 }
+
 function getStatusText(status) {
     const texts = {
-        'pending': 'In attesa',
-        'processing': 'In lavorazione',
-        'shipped': 'Spedito',
-        'delivered': 'Consegnato',
-        'cancelled': 'Annullato'
+        'in preparazione': 'In preparazione',
+        'spedito': 'Spedito',
+        'controversia aperta': 'Controversia aperta',
+        'consegnato': 'Consegnato'
     };
     return texts[status] || status;
 }
@@ -460,9 +421,13 @@ async function loadUserReviews() {
             }
         });
         
-        if (!response.ok) throw new Error('Errore nel caricamento delle recensioni');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nel caricamento delle recensioni');
+        }
         
-        const reviews = await response.json();
+        const data = await response.json();
+        const reviews = Array.isArray(data.reviews) ? data.reviews : [];
         const tbody = document.getElementById('reviewsTableBody');
         
         if (!tbody) {
@@ -496,7 +461,7 @@ async function loadUserReviews() {
                     </span>
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-primary me-1" onclick="editReview(${JSON.stringify(review).replace(/"/g, '&quot;')})">
+                    <button class="btn btn-sm btn-primary me-1" onclick="editReview(${review.recensione_id}, ${review.valutazione}, '${review.descrizione.replace(/'/g, "\\'")}')">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteReview(${review.recensione_id})">
@@ -508,30 +473,49 @@ async function loadUserReviews() {
 
     } catch (error) {
         console.error('Error:', error);
-        document.getElementById('reviewsTableBody').innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center text-muted">
-                    Errore nel caricamento delle recensioni
-                </td>
-            </tr>
-        `;
+        const tbody = document.getElementById('reviewsTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
     }
 }
-function editReview(review) {
-    document.getElementById('editReviewId').value = review.recensione_id;
-    document.getElementById('editReviewRating').value = review.valutazione;
-    document.getElementById('editReviewText').value = review.descrizione;
-    
-    const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
-    modal.show();
+
+function editReview(reviewId, rating, description) {
+    // Set values in modal form
+    const editReviewForm = document.getElementById('editReviewForm');
+    if (editReviewForm) {
+        document.getElementById('editReviewId').value = reviewId;
+        document.getElementById('editReviewRating').value = rating;
+        document.getElementById('editReviewText').value = description;
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
+        modal.show();
+    } else {
+        console.error('Edit review form not found');
+        showErrorMessage('Errore nel caricamento del form di modifica');
+    }
 }
+
 async function updateReview() {
     try {
         const reviewId = document.getElementById('editReviewId').value;
         const data = {
-            valutazione: document.getElementById('editReviewRating').value,
-            descrizione: document.getElementById('editReviewText').value
+            valutazione: parseInt(document.getElementById('editReviewRating').value),
+            descrizione: document.getElementById('editReviewText').value.trim()
         };
+
+        // Validation
+        if (!data.valutazione || !data.descrizione) {
+            showErrorMessage('Tutti i campi sono obbligatori');
+            return;
+        }
 
         const response = await fetch(`/reviews/${reviewId}`, {
             method: 'PUT',
@@ -542,24 +526,40 @@ async function updateReview() {
             body: JSON.stringify(data)
         });
 
-        if (!response.ok) throw new Error('Errore nell\'aggiornamento della recensione');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nell\'aggiornamento della recensione');
+        }
 
-        // Chiudi il modale
+        // Close modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('editReviewModal'));
         modal.hide();
 
-        // Ricarica le recensioni
+        // Reset form
+        document.getElementById('editReviewForm').reset();
+
+        // Show success message
+        showSuccessMessage('Recensione aggiornata con successo');
+
+        // Reload reviews
         await loadUserReviews();
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nell\'aggiornamento della recensione');
+        showErrorMessage(error.message || 'Errore nell\'aggiornamento della recensione');
     }
 }
-async function deleteReview(reviewId) {
-    if (!confirm('Sei sicuro di voler eliminare questa recensione?')) return;
 
+function deleteReview(reviewId) {
+    document.getElementById('deleteReviewId').value = reviewId;
+    const modal = new bootstrap.Modal(document.getElementById('deleteReviewModal'));
+    modal.show();
+}
+
+async function confirmDeleteReview() {
     try {
+        const reviewId = document.getElementById('deleteReviewId').value;
+        
         const response = await fetch(`/reviews/${reviewId}`, {
             method: 'DELETE',
             headers: {
@@ -569,14 +569,22 @@ async function deleteReview(reviewId) {
 
         if (!response.ok) throw new Error('Errore nell\'eliminazione della recensione');
 
-        // Ricarica le recensioni
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteReviewModal'));
+        modal.hide();
+
+        // Show success message
+        showSuccessMessage('Recensione eliminata con successo');
+
+        // Reload reviews
         await loadUserReviews();
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nell\'eliminazione della recensione');
+        showErrorMessage('Errore nell\'eliminazione della recensione');
     }
 }
+
 // Helper function per i colori dello stato recensione
 function getReviewStatusColor(status) {
     const colors = {
@@ -655,10 +663,16 @@ async function loadUserReports() {
         `;
     }
 }
-async function deleteReport(reportId) {
-    if (!confirm('Sei sicuro di voler eliminare questa segnalazione?')) return;
+function deleteReport(reportId) {
+    document.getElementById('deleteReportId').value = reportId;
+    const modal = new bootstrap.Modal(document.getElementById('deleteReportModal'));
+    modal.show();
+}
 
+async function confirmDeleteReport() {
     try {
+        const reportId = document.getElementById('deleteReportId').value;
+        
         const response = await fetch(`/reports/${reportId}`, {
             method: 'DELETE',
             headers: {
@@ -668,12 +682,19 @@ async function deleteReport(reportId) {
 
         if (!response.ok) throw new Error('Errore nell\'eliminazione della segnalazione');
 
-        // Ricarica le segnalazioni
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteReportModal'));
+        modal.hide();
+
+        // Show success message
+        showSuccessMessage('Segnalazione eliminata con successo');
+
+        // Reload reports
         await loadUserReports();
 
     } catch (error) {
         console.error('Error:', error);
-        alert('Errore nell\'eliminazione della segnalazione');
+        showErrorMessage('Errore nell\'eliminazione della segnalazione');
     }
 }
 // Helper functions for report status and reason
