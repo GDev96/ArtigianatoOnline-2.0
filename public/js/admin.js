@@ -645,7 +645,7 @@ async function loadSuspendedArtisans() {
 async function showArtisanReportResolution(reportId, reportData) {
     try {
         // Get report details if not already present
-        if (!reportData.tipo || !reportData.descrizione || !reportData.data_segnalazione) {
+        if (!reportData.artigiano_nome) {
             const response = await fetch(`/admin/reports/${reportId}`, {
                 headers: {
                     'Authorization': `Bearer ${sessionStorage.getItem('token')}`
@@ -657,8 +657,8 @@ async function showArtisanReportResolution(reportId, reportData) {
         }
 
         // Populate modal with report details
-        document.getElementById('reportedArtisanName').textContent = reportData.utente_nome || '';
-        document.getElementById('reporterName').textContent = reportData.segnalatore_nome || '';
+        document.getElementById('reportedArtisanName').textContent = reportData.artigiano_nome || '';
+        document.getElementById('reporterName').textContent = reportData.utente_nome || reportData.segnalatore_nome || '';
         document.getElementById('reportType').textContent = reportData.motivazione || reportData.tipo || '';
         document.getElementById('reportDescription').textContent = reportData.testo || reportData.descrizione || '';
         document.getElementById('reportDate').textContent = reportData.data_segnalazione ? 
@@ -1451,10 +1451,11 @@ function populateReportsTable(tableId, reports) {
                         </td>`;
                     break;
                 case 'artisansReportsTableBody':
-                    linkedId = `<td>${report.utente_nome}</td>`;
+                    // Cambiato da utente_nome a artigiano_nome
+                    linkedId = `<td>${report.artigiano_nome}</td>`;
                     break;
                 case 'reviewsReportsTableBody':
-                    linkedId = `
+                    linkedId = `S
                         <td>
                             <a href="#" onclick="viewReviewDetails(${report.recensione_id}); return false;">
                                 #${report.recensione_id}
@@ -1462,7 +1463,7 @@ function populateReportsTable(tableId, reports) {
                         </td>`;
                     break;
             }
-
+    
             return `
                 <tr>
                     <td>${report.id}</td>
@@ -1486,18 +1487,6 @@ function populateReportsTable(tableId, reports) {
                 </tr>
             `;
         }).join('');
-
-        if (reports.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="8" class="text-center">
-                        ${filterType === 'pending' ? 'Nessuna segnalazione in attesa' : 
-                          filterType === 'resolved' ? 'Nessuna segnalazione risolta' : 
-                          'Nessuna segnalazione presente'}
-                    </td>
-                </tr>
-            `;
-        }
     }
 
     // Initial render
@@ -1518,53 +1507,6 @@ function updateReportCounters(artisanCount, orderCount, reviewCount) {
             badge.style.display = count > 0 ? 'inline' : 'none';
         }
     });
-}
-
-function renderReports(tbody, reports, filterType, tableId) {
-    tbody.innerHTML = reports.map(report => {
-        // Determine which ID to show based on table type
-        let linkedId = '';
-        if (tableId === 'ordersReportsTableBody') {
-            linkedId = `
-                <td>
-                    <a href="#" onclick="viewOrderDetails(${report.ordine_id}); return false;">
-                        #${report.ordine_id}
-                    </a>
-                </td>`;
-        } else if (tableId === 'artisansReportsTableBody') {
-            linkedId = `<td>${report.artigiano_nome}</td>`;
-        } else if (tableId === 'reviewsReportsTableBody') {
-            linkedId = `
-                <td>
-                    <a href="#" onclick="viewReviewDetails(${report.recensione_id}); return false;">
-                        #${report.recensione_id}
-                    </a>
-                </td>`;
-        }
-
-        return `
-            <tr>
-                <td>${report.id}</td>
-                ${linkedId}
-                <td>${report.utente_nome}</td>
-                <td>${report.tipo}</td>
-                <td>${report.descrizione}</td>
-                <td>${new Date(report.data).toLocaleDateString()}</td>
-                <td>
-                    <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
-                        ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
-                    </span>
-                </td>
-                <td class="text-end">
-                    ${report.stato === 'in attesa' ? `
-                        <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
-                            <i class="bi bi-check-lg"></i> Risolvi
-                        </button>
-                    ` : ''}
-                </td>
-            </tr>
-        `;
-    }).join('');
 }
 
 async function resolveReport(reportId, withAction = false) {

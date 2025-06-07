@@ -566,7 +566,15 @@ router.get('/reports', requireAuth, async (req, res) => {
             ORDER BY s.data_segnalazione DESC`;
 
         const result = await pool.query(query);
-        res.json({ reports: result.rows });
+        
+        // Fix per il nome dell'artigiano nel modale
+        const reports = result.rows.map(report => ({
+            ...report,
+            artigiano_nome: report.artigiano_id ? report.artigiano_nome : null,
+            utente_nome: report.utente_nome
+        }));
+
+        res.json({ reports });
     } catch (error) {
         console.error('Error fetching reports:', error);
         res.status(500).json({ message: 'Errore nel recupero delle segnalazioni' });
