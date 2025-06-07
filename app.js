@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser');
 const { initializeDatabase, pool } = require('./db/db');
 const path = require('path');
 const createAuthMiddleware = require('./middleware/auth');
-
+const { initializeJobs } = require('./jobs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -67,36 +67,20 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Start server
 async function startServer() {
     try {
-        // Inizializza il database (crea DB se non esiste, crea tabelle, esegue seed)
+        // Initialize database
         await initializeDatabase();
         
-        // Rotte base di esempio
-        app.get('/', (req, res) => {
-            res.send('API per e-commerce artigianato online');
+        // Initialize scheduled jobs
+        await initializeJobs();
+        
+        app.listen(PORT, () => {
+            console.log(`Server is running on http://localhost:${PORT}`);
         });
 
-        // Rotta per testare la connessione al database
-        app.get('/test-db', async (req, res) => {
-            try {
-                const result = await pool.query('SELECT NOW()');
-                res.json({
-                    status: 'success',
-                    message: 'Connessione al database riuscita',
-                    timestamp: result.rows[0].now
-                });
-            } catch (error) {
-                res.status(500).json({
-                    status: 'error',
-                    message: 'Errore nella connessione al database',
-                    error: error.message
-                });
-            }
-        });
     } catch (error) {
-        console.error('Errore durante l\'avvio del server:', error);
+        console.error('Error starting server:', error);
         process.exit(1);
     }
 }

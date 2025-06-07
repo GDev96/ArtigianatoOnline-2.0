@@ -116,8 +116,6 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { nome_utente, password } = req.body;
-        
-        console.log('Login attempt for user:', nome_utente);
 
         // Check for required fields
         if (!nome_utente || !password) {
@@ -127,17 +125,39 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Get user from database
+        // Modify the user status check:
+        const userStatusCheck = await pool.query(`
+            SELECT u.stato, su.data_fine_prevista 
+            FROM utente u
+            LEFT JOIN sospensioni_utenti su ON u.id = su.utente_id 
+            WHERE u.username = $1 
+            AND su.data_fine IS NULL
+            ORDER BY su.data_inizio DESC 
+            LIMIT 1
+        `, [nome_utente]);
+        
+        if (userStatusCheck.rows.length > 0 && userStatusCheck.rows[0].stato === 'sospeso') {
+            return res.status(403).json({
+                success: false,
+                error: 'Account sospeso',
+                code: 'ACCOUNT_SUSPENDED',
+                suspension: {
+                    dataFine: userStatusCheck.rows[0].data_fine_prevista
+                }
+            });
+        }
+
+        // Get active user from database
         const result = await pool.query(
-            'SELECT * FROM utente WHERE username = $1 AND stato = $2',
-            [nome_utente, 'attivo']
+            'SELECT * FROM utente WHERE username = $1',
+            [nome_utente]
         );
 
         if (result.rows.length === 0) {
-            console.log('User not found:', nome_utente);
             return res.status(401).json({
                 success: false,
-                error: 'Username o password errati'
+                error: 'Credenziali non valide',
+                code: 'INVALID_CREDENTIALS'
             });
         }
 
@@ -145,27 +165,28 @@ router.post('/login', async (req, res) => {
         const isMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!isMatch) {
-            console.log('Invalid password for user:', nome_utente);
             return res.status(401).json({
                 success: false,
-                error: 'Username o password errati'
+                error: 'Credenziali non valide',
+                code: 'INVALID_CREDENTIALS'
             });
         }
 
-        // Create token with role information
+        // Check if user is active
+        if (user.stato !== 'attivo') {
+            return res.status(403).json({
+                success: false,
+                error: 'Account non attivo',
+                code: 'ACCOUNT_INACTIVE'
+            });
+        }
+
         const token = jwt.sign({
             id: user.id,
             username: user.username,
             ruolo_id: user.ruolo_id
         }, process.env.JWT_SECRET, { 
             expiresIn: '30m' 
-        });
-
-        // Set token in cookie and headers
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 30 * 60 * 1000 // 30 minutes
         });
 
         res.json({
@@ -184,7 +205,8 @@ router.post('/login', async (req, res) => {
         console.error('Login error:', error);
         res.status(500).json({
             success: false,
-            error: 'Errore del server durante il login'
+            error: 'Errore durante il login',
+            code: 'SERVER_ERROR'
         });
     }
 });

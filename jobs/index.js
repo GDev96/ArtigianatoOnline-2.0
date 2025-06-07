@@ -1,0 +1,36 @@
+const cron = require('node-cron');
+const { updateOrderStatuses } = require('./orderStatusUpdater');
+const { checkAndRemoveSuspensions } = require('./userSuspensionManager');
+
+async function initializeJobs() {
+    try {
+        // Schedule order status updates (every hour)
+        cron.schedule('0 * * * *', async () => {
+            try {
+                await updateOrderStatuses();
+                console.log('Order statuses updated successfully');
+            } catch (error) {
+                console.error('Error in order status update job:', error);
+            }
+        });
+        
+        // Schedule suspension checks (every hour)
+        cron.schedule('0 * * * *', async () => {
+            try {
+                await checkAndRemoveSuspensions();
+                console.log('Suspension checks completed successfully');
+            } catch (error) {
+                console.error('Error in suspension check job:', error);
+            }
+        });
+        
+        console.log('All scheduled jobs initialized successfully');
+    } catch (error) {
+        console.error('Error initializing jobs:', error);
+        throw error;
+    }
+}
+
+module.exports = {
+    initializeJobs
+};

@@ -65,13 +65,61 @@ router.get('/user', requireAuth, async (req, res) => {
             ORDER BY r.data_recensione DESC`;
 
         const result = await pool.query(query, [req.user.id]);
-        res.json(result.rows);
+        
+        res.json({
+            success: true,
+            reviews: result.rows
+        });
 
     } catch (error) {
         console.error('Error fetching user reviews:', error);
         res.status(500).json({
             success: false,
             message: 'Errore nel recupero delle recensioni'
+        });
+    }
+});
+
+// GET single review by ID
+router.get('/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        const query = `
+            SELECT 
+                r.recensione_id,
+                r.cliente_id,
+                r.artigiano_id,
+                r.valutazione,
+                r.descrizione,
+                r.data_recensione,
+                r.stato,
+                c.nome as cliente_nome,
+                c.cognome as cliente_cognome
+            FROM recensioni r
+            INNER JOIN utente c ON r.cliente_id = c.id
+            WHERE r.recensione_id = $1 AND r.cliente_id = $2`;
+
+        const result = await pool.query(query, [id, userId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Recensione non trovata o non autorizzato'
+            });
+        }
+
+        res.json({
+            success: true,
+            review: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error fetching review:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero della recensione'
         });
     }
 });

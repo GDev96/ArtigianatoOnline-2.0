@@ -151,7 +151,7 @@ router.post('/artisan', requireAuth, async (req, res) => {
 router.post('/review', requireAuth, async (req, res) => {
     try {
         const { review_id, reason, description } = req.body;
-        const user_id = req.user.id;
+        const segnalatore_id = req.user.id;
 
         // Validation
         if (!review_id || !reason || !description) {
@@ -174,12 +174,18 @@ router.post('/review', requireAuth, async (req, res) => {
             });
         }
 
-        // Insert report
+        // Insert report with correct field names
         const result = await pool.query(`
-            INSERT INTO segnalazioni (utente_id, recensione_id, testo, motivazione, stato_segnalazione)
+            INSERT INTO segnalazioni (
+                utente_segnalatore_id, 
+                recensione_id,
+                testo, 
+                motivazione, 
+                stato_segnalazione
+            )
             VALUES ($1, $2, $3, $4, 'in attesa')
             RETURNING segnalazione_id
-        `, [user_id, review_id, description, reason]);
+        `, [segnalatore_id, review_id, description, reason]);
 
         res.status(201).json({
             success: true,
@@ -202,45 +208,56 @@ router.post('/order', requireAuth, async (req, res) => {
         const { order_id, reason, description } = req.body;
         const user_id = req.user.id;
 
-        // Validation
-        if (!order_id || !reason || !description) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tutti i campi sono richiesti'
+        // Start transaction
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Check if order exists and belongs to user
+            const orderCheck = await client.query(
+                'SELECT ordine_id FROM ordini WHERE ordine_id = $1 AND cliente_id = $2',
+                [order_id, user_id]
+            );
+
+            if (orderCheck.rows.length === 0) {
+                throw new Error('Ordine non trovato o non autorizzato');
+            }
+
+            // Insert report
+            await client.query(`
+                INSERT INTO segnalazioni (
+                    utente_segnalatore_id, 
+                    ordine_id, 
+                    testo, 
+                    motivazione, 
+                    stato_segnalazione
+                )
+                VALUES ($1, $2, $3, $4, 'in attesa')
+            `, [user_id, order_id, description, reason]);
+
+            // Update order status
+            await client.query(
+                `UPDATE ordini SET stato = 'controversia aperta' WHERE ordine_id = $1`,
+                [order_id]
+            );
+
+            await client.query('COMMIT');
+
+            res.status(201).json({
+                success: true,
+                message: 'Segnalazione inviata con successo'
             });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
         }
-
-        // Check if order exists and belongs to user
-        const orderCheck = await pool.query(
-            'SELECT ordine_id FROM ordini WHERE ordine_id = $1 AND cliente_id = $2',
-            [order_id, user_id]
-        );
-
-        if (orderCheck.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Ordine non trovato o non autorizzato'
-            });
-        }
-
-        // Insert report
-        const result = await pool.query(`
-            INSERT INTO segnalazioni (utente_id, ordine_id, testo, motivazione, stato_segnalazione)
-            VALUES ($1, $2, $3, $4, 'in attesa')
-            RETURNING segnalazione_id
-        `, [user_id, order_id, description, reason]);
-
-        res.status(201).json({
-            success: true,
-            message: 'Segnalazione inviata con successo',
-            report_id: result.rows[0].segnalazione_id
-        });
-
     } catch (error) {
         console.error('Error creating order report:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore durante l\'invio della segnalazione'
+            message: error.message || 'Errore durante l\'invio della segnalazione'
         });
     }
 });

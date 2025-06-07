@@ -17,7 +17,7 @@
             <div class="col-md-6 col-lg-5">
                 <div class="card shadow p-4">
                     <h2 class="text-center mb-4">Accedi</h2>
-                    <form id="loginForm">
+                    <form id="loginForm" novalidate onsubmit="event.preventDefault(); return false;" action="javascript:void(0);">
                         <div class="mb-3">
                             <label for="usernameInput" class="form-label">Username</label>
                             <input type="text" class="form-control" id="usernameInput" 
@@ -31,12 +31,10 @@
                                 <i class="bi bi-eye-slash password-toggle" id="togglePassword"></i>
                             </div>
                         </div>
-
                         <div id="loginError" class="alert alert-danger d-none" role="alert">
                             <!-- Messaggio di errore sarà inserito qui -->
                         </div>
-
-                        <button type="submit" class="btn w-100 mt-3">Accedi</button>
+                        <button type="button" id="loginButton" class="btn w-100 mt-3">Accedi</button>
                     </form>
                     <div class="text-center mt-0">
                         <a href="#" class="recover-link me-2" data-bs-toggle="modal" data-bs-target="#recoverPasswordModal">
@@ -45,6 +43,22 @@
                         <span class="text-muted">|</span>
                         <a href="/signup.html" class="register-link ms-2">Non hai un account? Registrati!</a>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="suspensionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center px-4 py-4">
+                    <!-- Content will be inserted dynamically -->
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Chiudi</button>
                 </div>
             </div>
         </div>

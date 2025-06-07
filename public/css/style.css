@@ -59,9 +59,11 @@ body * {
 body {
   margin: 0;
   padding: 56px 0;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background-attachment: fixed;
   background-size: cover;
-  background-position: center;
   background-repeat: no-repeat;
+  min-height: 100vh;
   transition: background-image 1s ease-in-out;
   overflow-x: hidden;
 }

@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const artisanId = urlParams.get('id');
 
     if (!artisanId) {
-        showError('ID artigiano non trovato');
+        showErrorMessage('ID artigiano non trovato');
         return;
     }
     
@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         // Load artisan's products
+        await setupFilters();
         await loadProducts(artisanId);
 
     } catch (error) {
@@ -67,25 +68,36 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.getElementById('artisan-category').textContent = 'Errore nel caricamento della categoria';
     }
 });
+// Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato - corretta
+document.addEventListener('DOMContentLoaded', function() {
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    const addReviewButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#addReviewModal"]');
+    const reportButtons = document.querySelectorAll('.btn-outline-danger');
+    const reportArtisanButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#reportArtisanModal"]');
 
+    if (!user) {
+        // Hide add review button
+        if (addReviewButton) {
+            addReviewButton.style.display = 'none';
+        }
+        
+        // Hide report buttons
+        reportButtons.forEach(btn => {
+            btn.style.display = 'none';
+        });
 
-
-// Add error handling utility function
-function showError(message) {
-    const container = document.querySelector('.container.my-5 .row');
-    if (container) {
-        container.innerHTML = `
-            <div class="co-12">
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    ${message}
-                </div>
-            </div>`;
+        // Hide report artisan button
+        if (reportArtisanButton) {
+            reportArtisanButton.style.display = 'none';
+        }
     }
-}
+});
 
 
 
+/** SEZIONE PRODOTTI */
+// Funzione per caricare i prodotti dell'artigiano
+let allProducts = [];
 async function loadProducts(artisanId) {
     try {
         const headers = {
@@ -93,61 +105,147 @@ async function loadProducts(artisanId) {
             'Content-Type': 'application/json'
         };
 
-        console.log('Fetching products for artisan:', artisanId);
-
-        const response = await fetch('/products', { 
-            headers,
-            method: 'GET'
-        });
+        const response = await fetch('/products', { headers });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Server error details:', errorData);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log('Products data received:', data);
         
         if (!data.success || !data.products) {
             throw new Error('Formato dati prodotti non valido');
         }
 
-        // Filter products by artisan ID
-        const artisanProducts = data.products.filter(product => 
+        // Store all products for the artisan globally
+        allProducts = data.products.filter(product => 
             product.artigiano_id && product.artigiano_id.toString() === artisanId
         );
 
-        if (artisanProducts.length === 0) {
-            const container = document.querySelector('.container.my-5 .row');
-            if (container) {
-                container.innerHTML = `
-                    <div class="col-12">
-                        <div class="card text-center p-5">
-                            <div class="card-body">
-                                <h3 class="card-title text-muted">
-                                    <i class="fas fa-box-open mb-3 d-block" style="font-size: 3rem;"></i>
-                                    Nessun prodotto disponibile
-                                </h3>
-                                <p class="card-text text-muted">
-                                    Questo artigiano non ha ancora inserito prodotti.
-                                </p>
-                            </div>
-                        </div>
-                    </div>`;
-            }
-            return;
-        }
-
-        // Update display with fetched products
-        updateProductsDisplay(artisanProducts);
+        // Initial display of all products
+        updateProductsDisplay(allProducts);
 
     } catch (error) {
         console.error('Errore nel caricamento prodotti:', error);
-        showError(error.message || 'Si è verificato un errore nel caricamento dei prodotti');
+        showErrorMessage(error.message);
     }
 }
 
+// Funzione per applicare i filtri sui prodotti
+async function setupFilters() {
+    try {
+        // Fetch categories
+        const response = await fetch('/categories', {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore nel recupero delle categorie');
+        }
+
+        const data = await response.json();
+        
+        // Populate category select
+        const filterCategory = document.getElementById('filterCategory');
+        if (filterCategory && data.categories) {
+            filterCategory.innerHTML = `
+                <option value="placeholdercategory">Tutte le categorie</option>
+                ${data.categories.map(category => `
+                    <option value="${category.tipologia_id}">
+                        ${category.nome_tipologia}
+                    </option>
+                `).join('')}
+            `;
+        }
+
+        // Add event listener only for price input validation
+        const priceInputs = [
+            document.getElementById('rangeMin'),
+            document.getElementById('rangeMax')
+        ];
+
+        priceInputs.forEach(input => {
+            if (input) {
+                input.addEventListener('input', function() {
+                    let value = parseFloat(this.value);
+                    if (isNaN(value) || value < 0) {
+                        this.value = 0;
+                    }
+                });
+            }
+        });
+
+        // Add event listener for apply filters button
+        document.getElementById('applyFilters')?.addEventListener('click', applyFilters);
+
+    } catch (error) {
+        console.error('Error setting up filters:', error);
+        showErrorMessage('Errore nel caricamento delle categorie');
+    }
+}
+
+// Funzione per applicare i filtri sui prodotti
+function applyFilters() {
+    if (!allProducts.length) return;
+
+    let filteredProducts = [...allProducts];
+
+    // Get filter values
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
+    const selectedCategory = document.getElementById('filterCategory')?.value;
+    const minPrice = parseFloat(document.getElementById('rangeMin')?.value) || 0;
+    const maxPrice = parseFloat(document.getElementById('rangeMax')?.value) || Infinity;
+    const onlyAvailable = document.getElementById('onlyAvailabily')?.checked;
+
+    // Apply search filter
+    if (searchTerm) {
+        filteredProducts = filteredProducts.filter(product => 
+            product.nome_prodotto.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // Apply category filter
+    if (selectedCategory && selectedCategory !== 'placeholdercategory') {
+        filteredProducts = filteredProducts.filter(product => 
+            product.tipologia_id.toString() === selectedCategory
+        );
+    }
+
+    // Apply price range filter
+    filteredProducts = filteredProducts.filter(product => {
+        const price = parseFloat(product.prezzo);
+        return price >= minPrice && (maxPrice === Infinity || price <= maxPrice);
+    });
+
+    // Apply availability filter
+    if (onlyAvailable) {
+        filteredProducts = filteredProducts.filter(product => product.quantita > 0);
+    }
+
+    // Check if any products match the filters
+    if (filteredProducts.length === 0) {
+        const productsContainer = document.querySelector('.container.my-5 .row');
+        if (productsContainer) {
+            productsContainer.innerHTML = `
+                <div class="col-12 text-center">
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nessun prodotto corrisponde ai filtri selezionati.
+                    </div>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    // Update display with filtered products
+    updateProductsDisplay(filteredProducts);
+}
+
+// Funzione per aggiornare la visualizzazione dei prodotti
 async function updateProductsDisplay(products) {
     const productsContainer = document.querySelector('.container.my-5 .row');
     const user = JSON.parse(sessionStorage.getItem('user'));
@@ -179,7 +277,7 @@ async function updateProductsDisplay(products) {
         return `
             <div class="col-md-4 mb-4">
                 <div class="card h-60">
-                    <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/wallpaper3.jpg'}" 
+                    <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/default/product.jpg'}" 
                         class="card-img-top" 
                         alt="${product.nome_prodotto}"
                         style="height: 200px; object-fit: cover;">
@@ -225,6 +323,7 @@ async function updateProductsDisplay(products) {
     }).join('');
 }
 
+// Funzione per mostrare un messaggio di errore
 async function addToCart(productId) {
     try {
         const token = sessionStorage.getItem('token');
@@ -295,6 +394,7 @@ async function addToCart(productId) {
     }
 }
 
+// Funzione per aggiornare la quantità del prodotto nel carrello
 async function updateCartQuantity(productId, newQuantity, maxQuantity) {
     if (newQuantity < 0) return;
     if (maxQuantity && newQuantity > maxQuantity) {
@@ -337,36 +437,15 @@ async function updateCartQuantity(productId, newQuantity, maxQuantity) {
 
 
 
-// Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato - corretta
-document.addEventListener('DOMContentLoaded', function() {
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    const addReviewButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#addReviewModal"]');
-    const reportButtons = document.querySelectorAll('.btn-outline-danger');
-    const reportArtisanButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#reportArtisanModal"]');
-
-    if (!user) {
-        // Hide add review button
-        if (addReviewButton) {
-            addReviewButton.style.display = 'none';
-        }
-        
-        // Hide report buttons
-        reportButtons.forEach(btn => {
-            btn.style.display = 'none';
-        });
-
-        // Hide report artisan button
-        if (reportArtisanButton) {
-            reportArtisanButton.style.display = 'none';
-        }
-    }
-});
-
-// Popola le recensioni - corretta
+/** SEZIONE RECENSIONI */
+// Popola le recensioni
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const urlParams = new URLSearchParams(window.location.search);
         const artisanId = urlParams.get('id');
+        
+        // Get user info at the start
+        const user = JSON.parse(sessionStorage.getItem('user'));
 
         if (!artisanId) {
             console.error('ID artigiano non trovato');
@@ -402,57 +481,63 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (artisanReviews.length === 0) {
-            const user = JSON.parse(sessionStorage.getItem('user'));
-            //TODO: aggiungi pulsante per modificare ed per eliminare recensione se l'id dell'utente loggato corrisponde a quello dell'utente che ha scritto la recensione
             reviewsContainer.innerHTML = `
-                <div class="col-9">
-                    <div class="card text-center p-5">
-                        <div class="card-body">
-                            <h3 class="card-title text-muted">
-                                <i class="far fa-comment-dots mb-3 d-block" style="font-size: 3rem;"></i>
-                                Nessuna recensione disponibile
-                            </h3>
-                            <p class="card-text text-muted">
-                                Questo artigiano non ha ancora ricevuto recensioni.
-                            </p>
-                            ${user ? 
-                                `<button class="btn btn-brown mt-3" data-bs-toggle="modal" data-bs-target="#addReviewModal">
-                                    <i class="fas fa-star me-2"></i>Scrivi la prima recensione
-                                </button>` :
-                                `<a href="/login.html" class="btn btn-brown mt-3">
-                                    <i class="fas fa-sign-in-alt me-2"></i>Accedi per recensire
-                                </a>`
-                            }
-                        </div>
+                <div class="col-12 text-center">
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Non ci sono ancora recensioni per questo artigiano.
                     </div>
                 </div>`;
-            
             updateAverageRating(0, 0);
             return;
         }
 
         // Calcola la valutazione media
-        const averageRating = artisanReviews.reduce((acc, review) => acc + parseFloat(review.valutazione), 0) / artisanReviews.length;
+        const averageRating = artisanReviews.reduce((acc, review) => 
+            acc + parseFloat(review.valutazione), 0) / artisanReviews.length;
         
         // Aggiorna la sezione della valutazione media
         updateAverageRating(averageRating, artisanReviews.length);
 
-        // Popola le recensioni
+        // Popola le recensioni con controllo proprietario
         reviewsContainer.innerHTML = artisanReviews.map(review => `
             <div class="col-9 mb-4">
                 <div class="card bg-light w-100">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between">
+                        <div class="d-flex justify-content-between align-items-center">
                             <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
-                            <button class="btn btn-outline-danger btn-sm" onclick="openReviewReport(${review.recensione_id})">
-                                <i class="fas fa-flag"></i>
-                            </button>
+                            ${user && user.id !== review.cliente_id ? 
+                                `<button class="btn btn-outline-danger btn-sm" 
+                                        onclick="openReviewReport(${review.recensione_id})"
+                                        title="Segnala questa recensione">
+                                    <i class="fas fa-flag"></i>
+                                </button>` : 
+                                ''
+                            }
                         </div>
                         <div class="stars mb-2 d-flex align-items-center">
                             ${generateStars(review.valutazione)}
-                            <small class="text-muted ms-2">${new Date(review.data_recensione).toLocaleDateString()}</small>
+                            <small class="text-muted ms-2">
+                                ${new Date(review.data_recensione).toLocaleDateString()}
+                            </small>
                         </div>
                         <p class="card-text">${review.descrizione}</p>
+                        ${user && user.id === review.cliente_id ? 
+                            `<div class="d-flex justify-content-end mt-3">
+                                <button class="btn-review bg-light btn-link text-primary" 
+                                        onclick="editReview(${review.recensione_id})"
+                                        title="Modifica recensione">
+                                    modifica
+                                </button>
+                                <hr style="border: 1px solid; margin: 0.5rem 0;">
+                                <button class="btn-review bg-light btn-link text-danger" 
+                                        onclick="deleteReview(${review.recensione_id})"
+                                        title="Elimina recensione">
+                                    elimina
+                                </button>
+                            </div>` : 
+                            ''
+                        }
                     </div>
                 </div>
             </div>
@@ -567,23 +652,196 @@ async function submitReview() {
     }
 }
 
-function resetReviewForm() {
-    const form = document.getElementById('reviewForm');
-    if (form) {
-        form.reset();
-        document.getElementById('ratingValue').value = '';
-        
-        // Reset stars
-        const stars = document.querySelectorAll('.rating-input .fa-star');
-        stars.forEach(star => {
-            star.classList.remove('fas');
-            star.classList.add('far');
+async function editReview(reviewId) {
+    try {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            throw new Error('Devi essere loggato per modificare una recensione');
+        }
+
+        // Fetch existing review data
+        const response = await fetch(`/reviews/${reviewId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore nel recupero della recensione');
+        }
+
+        // Populate edit modal with existing data
+        document.getElementById('editReviewId').value = reviewId;
+        document.getElementById('editReviewText').value = data.review.descrizione;
+        
+        // Set rating stars
+        const ratingStars = document.querySelectorAll('#editReviewModal .rating-input .fa-star');
+        ratingStars.forEach(star => {
+            const starRating = parseInt(star.dataset.rating);
+            if (starRating <= data.review.valutazione) {
+                star.classList.remove('far');
+                star.classList.add('fas');
+            } else {
+                star.classList.remove('fas');
+                star.classList.add('far');
+            }
+        });
+        document.getElementById('editRatingValue').value = data.review.valutazione;
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
+        modal.show();
+
+    } catch (error) {
+        console.error('Error fetching review:', error);
+        showErrorMessage(error.message);
     }
 }
 
+async function updateReview() {
+    try {
+        const reviewId = document.getElementById('editReviewId').value;
+        const rating = document.getElementById('editRatingValue').value;
+        const reviewText = document.getElementById('editReviewText').value;
+        const token = sessionStorage.getItem('token');
 
+        if (!token) {
+            throw new Error('Devi essere loggato per modificare una recensione');
+        }
 
+        if (!rating) {
+            throw new Error('Per favore seleziona una valutazione');
+        }
+
+        if (!reviewText.trim()) {
+            throw new Error('Per favore scrivi una recensione');
+        }
+
+        const response = await fetch(`/reviews/${reviewId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                valutazione: parseInt(rating),
+                descrizione: reviewText.trim()
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore durante la modifica della recensione');
+        }
+
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editReviewModal'));
+        modal.hide();
+
+        // Show success message
+        showSuccessMessage('Recensione modificata con successo');
+
+        // Reload reviews after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error updating review:', error);
+        showErrorMessage(error.message);
+    }
+}
+
+function deleteReview(reviewId) {
+    try {
+        // Get the modal element
+        const deleteModal = document.getElementById('deleteReviewModal');
+        if (!deleteModal) {
+            throw new Error('Modal element not found');
+        }
+
+        // Set the review ID in the hidden input
+        const hiddenInput = deleteModal.querySelector('#deleteReviewId');
+        if (!hiddenInput) {
+            throw new Error('Hidden input not found');
+        }
+        hiddenInput.value = reviewId;
+
+        // Create and show the modal
+        const modal = new bootstrap.Modal(deleteModal);
+        modal.show();
+
+    } catch (error) {
+        console.error('Error showing delete modal:', error);
+        showErrorMessage('Errore nell\'apertura del modale di conferma');
+    }
+}
+
+async function confirmDeleteReview() {
+    let modal = null;
+    try {
+        const reviewId = document.getElementById('deleteReviewId').value;
+        const token = sessionStorage.getItem('token');
+        
+        if (!token) {
+            throw new Error('Devi essere loggato per eliminare una recensione');
+        }
+
+        if (!reviewId) {
+            throw new Error('ID recensione non valido');
+        }
+
+        const response = await fetch(`/reviews/${reviewId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore durante l\'eliminazione della recensione');
+        }
+
+        // Get the modal instance before closing
+        modal = bootstrap.Modal.getInstance(document.getElementById('deleteReviewModal'));
+        if (modal) {
+            modal.hide();
+        }
+
+        // Show success message
+        showSuccessMessage('Recensione eliminata con successo');
+
+        // Reload reviews after a short delay
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        showErrorMessage(error.message);
+        // Make sure to close modal even on error
+        if (modal) {
+            modal.hide();
+        }
+    }
+}
+
+function resetReviewForm() {
+    // Reset form
+    document.getElementById('reviewForm').reset();
+    document.getElementById('ratingValue').value = '';
+    
+    // Reset stars
+    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
+    ratingStars.forEach(star => {
+        star.classList.remove('fas', 'hover');
+        star.classList.add('far');
+    });
+}
 
 // Gestione delle stelle per la valutazione
 document.addEventListener('DOMContentLoaded', function() {
@@ -625,35 +883,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Aggiorna anche la funzione resetReviewForm esistente
-function resetReviewForm() {
-    document.getElementById('reviewForm').reset();
-    document.getElementById('ratingValue').value = '';
-    
-    // Reset stelle
-    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
-    ratingStars.forEach(star => {
-        star.classList.remove('fas');
-        star.classList.add('far');
-    });
-}
-
-function resetReviewForm() {
-    // Reset form
-    document.getElementById('reviewForm').reset();
-    document.getElementById('ratingValue').value = '';
-    
-    // Reset stars
-    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
-    ratingStars.forEach(star => {
-        star.classList.remove('fas', 'hover');
-        star.classList.add('far');
-    });
-}
 
 
 
-//Funzioni per segnalazioni - funzionano tutti
+
+/** SEGNALAZIONI */
+//Funzioni per segnalazioni
 function openReviewReport(reviewId) {
     document.getElementById('reportedReviewId').value = reviewId;
     const modal = new bootstrap.Modal(document.getElementById('reportReviewModal'));
@@ -726,6 +961,7 @@ async function submitReviewReport() {
             throw new Error('Per favore compila tutti i campi');
         }
 
+        // Updated API endpoint and request structure
         const response = await fetch('/reports/review', {
             method: 'POST',
             headers: {
@@ -733,7 +969,7 @@ async function submitReviewReport() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                review_id: reviewId,
+                review_id: parseInt(reviewId),
                 reason: reason,
                 description: description
             })
@@ -745,50 +981,16 @@ async function submitReviewReport() {
             throw new Error(data.message || 'Errore nell\'invio della segnalazione');
         }
 
-        // Close modal
+        // Close modal and reset form
         const modal = bootstrap.Modal.getInstance(document.getElementById('reportReviewModal'));
         modal.hide();
-
-        // Reset form
         document.getElementById('reportReviewForm').reset();
 
         // Show success message
         showSuccessMessage('Segnalazione inviata con successo');
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error submitting review report:', error);
         showErrorMessage(error.message);
     }
-}
-
-
-// Messaggi di successo e errore
-function showSuccessMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        <i class="fas fa-check-circle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(alertDiv);
-
-    // Auto remove after 3 seconds
-    setTimeout(() => alertDiv.remove(), 3000);
-}
-
-function showErrorMessage(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    alertDiv.setAttribute('role', 'alert');
-    alertDiv.innerHTML = `
-        <i class="fas fa-exclamation-circle me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(alertDiv);
-
-    // Auto remove after 5 seconds
-    setTimeout(() => alertDiv.remove(), 5000);
 }

@@ -54,9 +54,11 @@ async function loadArtisanProfile(user) {
         // Update profile image
         const profilePicture = document.getElementById('profilePicture');
         if (profilePicture) {
-            profilePicture.src = artisan.immagine 
-                ? `data:image/jpeg;base64,${artisan.immagine}`
-                : '/assets/images/wallpaper1.jpg';
+            if (artisan.immagine) {
+                profilePicture.src = `data:image/jpeg;base64,${artisan.immagine}`;
+            } else {
+                profilePicture.src = '/assets/images/default/artisan-default.jpg';
+            }
         }
 
         // Update profile name and category
@@ -167,43 +169,43 @@ document.getElementById('editProfileForm').addEventListener('submit', async (e) 
     }
 });
 
-function showSuccessMessage(message) {
-    const container = document.createElement('div');
-    container.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    container.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(container);
-    setTimeout(() => container.remove(), 3000);
-}
-
-function showErrorMessage(message) {
-    const container = document.createElement('div');
-    container.className = 'alert alert-danger alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
-    container.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
-    document.body.appendChild(container);
-    setTimeout(() => container.remove(), 3000);
-}
-
 //Caricamento immagine profilo
-function uploadProfilePicture(event) {
-  const file = event.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function (e) {
-      // Aggiorna l'immagine profilo con l'anteprima
-      document.getElementById('profilePicture').src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+async function uploadProfilePicture(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-    // TODO: Salva il file nel db
-    console.log('Immagine caricata:', file.name);
-  }
+    try {
+        // Create FormData object
+        const formData = new FormData();
+        formData.append('profileImage', file);
+
+        // Send request to server
+        const response = await fetch('/users/profile/image', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            },
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore durante il caricamento dell\'immagine');
+        }
+
+        const data = await response.json();
+
+        // Update profile image preview
+        document.getElementById('profilePicture').src = `data:image/jpeg;base64,${data.image}`;
+        
+        // Show success message
+        showSuccessMessage('Immagine del profilo aggiornata con successo');
+
+    } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        showErrorMessage('Errore durante il caricamento dell\'immagine');
+    }
 }
+
 // Update the profile image upload endpoint //FIXME: non salva l'immagine nuova a db
 document.getElementById('profilePictureInput')?.addEventListener('change', async (event) => {
     const file = event.target.files[0];

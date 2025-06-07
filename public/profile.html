@@ -292,7 +292,45 @@
         </div>
     </div>
 
+    <!-- Modale conferma eliminazione recensione -->
+    <div class="modal fade" id="deleteReviewModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Conferma eliminazione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Sei sicuro di voler eliminare questa recensione?</p>
+                    <input type="hidden" id="deleteReviewId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteReview()">Elimina</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Modale conferma eliminazione segnalazione -->
+    <div class="modal fade" id="deleteReportModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Conferma eliminazione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Sei sicuro di voler eliminare questa segnalazione?</p>
+                    <input type="hidden" id="deleteReportId">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteReport()">Elimina</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 
     <div id="footer"></div>
@@ -301,5 +339,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/main.js"></script>
     <script src="/js/profile.js"></script>
+    <script src="/js/services/AuthService.js"></script>
 </body>
 </html>
