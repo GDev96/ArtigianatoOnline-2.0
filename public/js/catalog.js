@@ -277,7 +277,7 @@ async function updateProductsDisplay(products) {
         return `
             <div class="col-md-4 mb-4">
                 <div class="card h-60">
-                    <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/wallpaper3.jpg'}" 
+                    <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/default/product.jpg'}" 
                         class="card-img-top" 
                         alt="${product.nome_prodotto}"
                         style="height: 200px; object-fit: cover;">

@@ -3,7 +3,13 @@ const bcrypt = require('bcrypt');
 const { pool } = require('../db/db');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
+const multer = require('multer');
+const upload = multer();
 require('dotenv').config();
+const createAuthMiddleware = require('../middleware/auth');
+
+const requireAuth = createAuthMiddleware();
+
 
 // Get user by ID
 router.get('/api/:id', async (req, res) => {
@@ -260,6 +266,43 @@ router.put('/update/:id', async (req, res) => {
             success: false,
             message: 'Errore nell\'aggiornamento del profilo',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+router.post('/profile/image', requireAuth, upload.single('profileImage'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Nessuna immagine caricata' });
+        }
+
+        // Convert image to base64
+        const imageBase64 = req.file.buffer;
+
+        // Update artisan profile image in database
+        const result = await pool.query(
+            'UPDATE artigiani SET immagine = $1 WHERE artigiano_id = $2 RETURNING immagine',
+            [imageBase64, req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            throw new Error('Errore nell\'aggiornamento dell\'immagine');
+        }
+
+        // Convert image buffer to base64 for response
+        const base64Image = result.rows[0].immagine.toString('base64');
+
+        res.json({ 
+            success: true, 
+            message: 'Immagine aggiornata con successo',
+            image: base64Image
+        });
+
+    } catch (error) {
+        console.error('Error updating profile image:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Errore durante l\'aggiornamento dell\'immagine' 
         });
     }
 });
