@@ -547,8 +547,9 @@
                             <h2>Gestione Recensioni</h2>
                             <div class="btn-group">
                                 <button class="btn btn-outline-secondary active" data-filter="all">Tutte</button>
+                                <button class="btn btn-outline-secondary" data-filter="active">Attive</button>
+                                <button class="btn btn-outline-secondary" data-filter="hidden">Nascoste</button>
                                 <button class="btn btn-outline-secondary" data-filter="reported">Segnalate</button>
-                                <button class="btn btn-outline-secondary" data-filter="removed">Rimosse</button>
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -587,9 +588,9 @@
                             <table class="table">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
-                                        <th>Recensione ID</th>
-                                        <th>Segnalato da</th>
+                                        <th>ID Recensione</th>
+                                        <th>Segnalatore</th>
+                                        <th>Motivazione</th>
                                         <th>Descrizione</th>
                                         <th>Data</th>
                                         <th>Stato</th>
@@ -627,6 +628,49 @@
                     </div>
                 </div>
             </div>
+
+             <!-- Add this before the closing body tag -->
+            <div class="modal fade" id="reviewReportResolutionModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Risoluzione Segnalazione Recensione</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="report-details mb-4">
+                                <div class="mb-3">
+                                    <strong>ID Recensione:</strong>
+                                    <span id="reportedReviewId"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Segnalato da:</strong>
+                                    <span id="reviewReporterName"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Motivazione:</strong>
+                                    <span id="reviewReportMotivation"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Descrizione:</strong>
+                                    <p id="reviewReportDescription"></p>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Data:</strong>
+                                    <span id="reviewReportDate"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                            <button type="button" class="btn btn-danger" id="hideReviewBtn">
+                                <i class="bi bi-eye-slash"></i> Nascondi Recensione
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 

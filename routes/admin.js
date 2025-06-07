@@ -425,7 +425,7 @@ router.get('/reviews', requireAuth, async (req, res) => {
             JOIN utente c ON r.cliente_id = c.id
             JOIN utente a ON r.artigiano_id = a.id
             LEFT JOIN segnalazioni s ON s.recensione_id = r.recensione_id
-            GROUP BY r.recensione_id, c.username, a.username
+            GROUP BY r.recensione_id, c.username, a.username, r.valutazione, r.descrizione, r.data_recensione, r.stato
             ORDER BY r.data_recensione DESC`;
 
         const result = await pool.query(query);
@@ -467,6 +467,45 @@ router.get('/reviews/:id/details', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching review details:', error);
         res.status(500).json({ message: 'Errore nel recupero dei dettagli della recensione' });
+    }
+});
+
+// Hide review
+router.patch('/reviews/:id/hide', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Update review status to hidden
+        const updateQuery = `
+            UPDATE recensioni 
+            SET stato = 'nascosta'
+            WHERE recensione_id = $1
+            RETURNING *`;
+
+        const result = await client.query(updateQuery, [req.params.id]);
+
+        if (result.rows.length === 0) {
+            throw new Error('Recensione non trovata');
+        }
+
+        await client.query('COMMIT');
+        
+        res.json({
+            success: true,
+            message: 'Recensione nascosta con successo',
+            review: result.rows[0]
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error hiding review:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel nascondere la recensione'
+        });
+    } finally {
+        client.release();
     }
 });
 

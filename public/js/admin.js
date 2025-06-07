@@ -1102,39 +1102,6 @@ async function viewOrderDetails(orderId) {
     }
 }
 
-async function resolveReport(reportId, withAction = false) {
-    try {
-        const reportResponse = await fetch(`/admin/reports/${reportId}`, {
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-            }
-        });
-        
-        if (!reportResponse.ok) throw new Error('Errore nel recupero della segnalazione');
-        
-        const reportData = await reportResponse.json();
-        
-        if (reportData.artigiano_id) {
-            await showArtisanReportResolution(reportId, reportData);
-            return;
-        } else if (reportData.ordine_id) {
-            await showOrderReportResolution(reportId, reportData);
-            return;
-        }
-
-        // Per altri tipi di segnalazioni, procedi con la logica esistente
-        if (!confirm('Sei sicuro di voler risolvere questa segnalazione?')) {
-            return;
-        }
-
-        await resolveReportRequest(reportId, withAction);
-        
-    } catch (error) {
-        console.error('Error:', error);
-        showErrorMessage(error.message || 'Errore nella risoluzione della segnalazione');
-    }
-}
-
 async function showOrderReportResolution(reportId, reportData) {
     try {
         // Populate modal with report details
@@ -1201,6 +1168,7 @@ async function resolveReportRequest(reportId, withAction) {
 }
 
 
+
 // --- REVIEWS ---
 async function loadReviews() {
     try {
@@ -1228,7 +1196,6 @@ function setupReviewFilters(reviews) {
     const tbody = document.getElementById('reviewsTableBody');
     const filterButtons = document.querySelectorAll('#reviewsTab .btn-group button');
     
-    // Function to render reviews table
     function renderFilteredReviews(filteredReviews) {
         if (!filteredReviews.length) {
             tbody.innerHTML = `
@@ -1249,7 +1216,7 @@ function setupReviewFilters(reviews) {
                 <td>${new Date(review.data_recensione).toLocaleDateString()}</td>
                 <td>
                     <span class="badge bg-${review.stato === 'attiva' ? 'success' : 'danger'}">
-                        ${review.stato === 'attiva' ? 'Attiva' : 'Rimossa'}
+                        ${review.stato}
                     </span>
                 </td>
                 <td>
@@ -1278,11 +1245,14 @@ function setupReviewFilters(reviews) {
             let filteredReviews;
 
             switch(filter) {
+                case 'active':
+                    filteredReviews = reviews.filter(review => review.stato === 'attiva');
+                    break;
+                case 'hidden':
+                    filteredReviews = reviews.filter(review => review.stato === 'nascosta');
+                    break;
                 case 'reported':
                     filteredReviews = reviews.filter(review => review.segnalazioni > 0);
-                    break;
-                case 'removed':
-                    filteredReviews = reviews.filter(review => review.stato === 'rimossa');
                     break;
                 default: // 'all'
                     filteredReviews = reviews;
@@ -1360,7 +1330,7 @@ async function viewReviewDetails(reviewId) {
                             <div class="mb-4">
                                 <h6>Stato</h6>
                                 <span class="badge bg-${review.stato === 'attiva' ? 'success' : 'danger'}">
-                                    ${review.stato === 'attiva' ? 'Attiva' : 'Rimossa'}
+                                    ${review.stato === 'attiva' ? 'Attiva' : 'Nascosta'}
                                 </span>
                             </div>
                             ${review.segnalazioni > 0 ? `
@@ -1372,15 +1342,6 @@ async function viewReviewDetails(reviewId) {
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
-                            ${review.stato === 'attiva' ? `
-                                <button type="button" class="btn btn-danger" onclick="toggleReviewStatus(${review.recensione_id}, true)">
-                                    Rimuovi Recensione
-                                </button>
-                            ` : `
-                                <button type="button" class="btn btn-success" onclick="toggleReviewStatus(${review.recensione_id}, false)">
-                                    Ripristina Recensione
-                                </button>
-                            `}
                         </div>
                     </div>
                 </div>
@@ -1431,6 +1392,75 @@ async function toggleReviewStatus(reviewId, shouldRemove) {
     }
 }
 
+async function showReviewReportResolution(reportId, reportData) {
+    try {
+        // Se necessario, recupera i dettagli completi della segnalazione
+        if (!reportData.motivazione || !reportData.utente_nome) {
+            const response = await fetch(`/admin/reports/${reportId}`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Errore nel recupero dettagli segnalazione');
+            reportData = await response.json();
+        }
+
+        // Popola il modale con i dettagli della segnalazione
+        document.getElementById('reportedReviewId').textContent = `#${reportData.recensione_id}`;
+        document.getElementById('reviewReporterName').textContent = reportData.utente_nome || reportData.segnalatore_nome;
+        document.getElementById('reviewReportMotivation').textContent = reportData.motivazione || reportData.tipo;
+        document.getElementById('reviewReportDescription').textContent = reportData.descrizione || reportData.testo;
+        document.getElementById('reviewReportDate').textContent = new Date(reportData.data).toLocaleDateString();
+
+        // Get modal instance
+        const modalElement = document.getElementById('reviewReportResolutionModal');
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // Setup hide button listener
+        const hideBtn = document.getElementById('hideReviewBtn');
+        hideBtn.replaceWith(hideBtn.cloneNode(true));
+        
+        document.getElementById('hideReviewBtn').addEventListener('click', async () => {
+            try {
+                // Prima nascondi la recensione
+                const hideResponse = await fetch(`/admin/reviews/${reportData.recensione_id}/hide`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!hideResponse.ok) {
+                    throw new Error('Errore nel nascondere la recensione');
+                }
+
+                // Poi risolvi la segnalazione
+                await resolveReportRequest(reportId, true);
+                
+                modal.hide();
+                modalElement.addEventListener('hidden.bs.modal', async () => {
+                    showSuccessMessage('Segnalazione risolta e recensione nascosta');
+                    await loadReviews();
+                    await loadReports();
+                }, { once: true });
+            } catch (error) {
+                console.error('Error:', error);
+                showErrorMessage('Errore nella risoluzione della segnalazione');
+            }
+        });
+
+        // Show modal
+        modal.show();
+    } catch (error) {
+        console.error('Error showing review report resolution modal:', error);
+        showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
+    }
+}
+
+
+
 
 // --- REPORTS ---
 async function loadReports() {
@@ -1468,6 +1498,43 @@ async function loadReports() {
     } catch (error) {
         console.error('Error loading reports:', error);
         showErrorInTables('Errore nel caricamento delle segnalazioni');
+    }
+}
+
+
+async function resolveReport(reportId, withAction = false) {
+    try {
+        const reportResponse = await fetch(`/admin/reports/${reportId}`, {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+        
+        if (!reportResponse.ok) throw new Error('Errore nel recupero della segnalazione');
+        
+        const reportData = await reportResponse.json();
+        
+        if (reportData.artigiano_id) {
+            await showArtisanReportResolution(reportId, reportData);
+            return;
+        } else if (reportData.ordine_id) {
+            await showOrderReportResolution(reportId, reportData);
+            return;
+        } else if (reportData.recensione_id) {
+            await showReviewReportResolution(reportId, reportData);
+            return;
+        }
+
+        // Per altri tipi di segnalazioni, procedi con la logica esistente
+        if (!confirm('Sei sicuro di voler risolvere questa segnalazione?')) {
+            return;
+        }
+
+        await resolveReportRequest(reportId, withAction);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showErrorMessage(error.message || 'Errore nella risoluzione della segnalazione');
     }
 }
 
@@ -1550,6 +1617,7 @@ function populateReportsTable(tableId, reports) {
         }
     }
 
+    // Inside the renderReports function in populateReportsTable
     function renderReports(tbody, reports, filterType, tableId) {
         tbody.innerHTML = reports.map(report => {
             // Determine which ID to show based on table type
@@ -1564,19 +1632,39 @@ function populateReportsTable(tableId, reports) {
                         </td>`;
                     break;
                 case 'artisansReportsTableBody':
-                    // Cambiato da utente_nome a artigiano_nome
                     linkedId = `<td>${report.artigiano_nome}</td>`;
                     break;
                 case 'reviewsReportsTableBody':
-                    linkedId = `S
-                        <td>
-                            <a href="#" onclick="viewReviewDetails(${report.recensione_id}); return false;">
-                                #${report.recensione_id}
-                            </a>
-                        </td>`;
+                    linkedId = `<td>#${report.recensione_id}</td>`;  // Changed to simple text
                     break;
             }
     
+            // Modify the table row structure for reviews reports
+            if (tableId === 'reviewsReportsTableBody') {
+                return `
+                    <tr>
+                        ${linkedId}
+                        <td>${report.utente_nome}</td>
+                        <td>${report.tipo}</td>
+                        <td>${report.descrizione}</td>
+                        <td>${new Date(report.data).toLocaleDateString()}</td>
+                        <td>
+                            <span class="badge bg-${report.stato === 'in attesa' ? 'warning' : 'success'}">
+                                ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            ${report.stato === 'in attesa' ? `
+                                <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
+                                    <i class="bi bi-check-lg"></i> Risolvi
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }
+    
+            // Return original structure for other tables
             return `
                 <tr>
                     <td>${report.id}</td>
