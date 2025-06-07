@@ -125,17 +125,25 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Check user status first
-        const userStatusCheck = await pool.query(
-            'SELECT stato FROM utente WHERE username = $1',
-            [nome_utente]
-        );
-
+        // Modify the user status check:
+        const userStatusCheck = await pool.query(`
+            SELECT u.stato, su.data_fine_prevista 
+            FROM utente u
+            LEFT JOIN sospensioni_utenti su ON u.id = su.utente_id 
+            WHERE u.username = $1 
+            AND su.data_fine IS NULL
+            ORDER BY su.data_inizio DESC 
+            LIMIT 1
+        `, [nome_utente]);
+        
         if (userStatusCheck.rows.length > 0 && userStatusCheck.rows[0].stato === 'sospeso') {
             return res.status(403).json({
                 success: false,
                 error: 'Account sospeso',
-                code: 'ACCOUNT_SUSPENDED'
+                code: 'ACCOUNT_SUSPENDED',
+                suspension: {
+                    dataFine: userStatusCheck.rows[0].data_fine_prevista
+                }
             });
         }
 
