@@ -67,29 +67,27 @@ app.use((err, req, res, next) => {
     });
 });
 
+
 async function startServer() {
     try {
-        // Initialize database
+        // Initialize database and get pool
         await initializeDatabase();
+        console.log('Database inizializzato con successo');
         
         // Initialize scheduled jobs
         await initializeJobs();
+        console.log('Job schedulati inizializzati');
         
+        // Start server
         app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
+            console.log(`Server in esecuzione su http://localhost:${PORT}`);
         });
-
     } catch (error) {
-        console.error('Error starting server:', error);
+        console.error('Errore durante l\'avvio del server:', error);
         process.exit(1);
     }
 }
 
-// Avvia il server
 startServer();
-
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
 
 module.exports = app;
