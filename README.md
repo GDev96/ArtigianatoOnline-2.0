@@ -88,14 +88,18 @@ Una piattaforma web per connettere artigiani e clienti, permettendo l'acquisto d
 - **Backend**: Node.js, Express.js
 - **Database**: PostgreSQL
 - **Autenticazione**: JWT (JSON Web Tokens)
+- **Containerization**: Docker & Docker Compose
 
 ## 💻 Requisiti di Sistema
 
 - Node.js (v14+)
 - PostgreSQL (v12+)
 - npm o yarn
+- Docker & Docker Compose
 
 ## 🚦 Getting Started
+
+### Metodo Tradizionale
 
 1. Clona il repository
 ```bash
@@ -126,6 +130,20 @@ node db/seed.js
 5. Avvia l'applicazione
 ```bash
 node app.js
+```
+
+### Utilizzo con Docker
+
+1. Assicurati di avere Docker e Docker Compose installati
+
+2. Build e avvio dei container:
+```bash
+docker-compose up --build
+```
+
+3. Per arrestare i container:
+```bash
+docker-compose down
 ```
 
 L'applicazione sarà disponibile all'indirizzo: `http://localhost:3000`
