@@ -185,3 +185,17 @@ CREATE TABLE IF NOT EXISTS log_utenti (
     descrizione TEXT,
     data_creazione TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add table for tracking user suspensions
+CREATE TABLE IF NOT EXISTS sospensioni_utenti (
+    sospensione_id SERIAL PRIMARY KEY,
+    utente_id INTEGER NOT NULL,
+    data_inizio TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_fine TIMESTAMP,
+    data_fine_prevista TIMESTAMP,
+    rimossa_da_admin BOOLEAN DEFAULT false,
+    CONSTRAINT sospensioni_utenti_utente_fkey FOREIGN KEY (utente_id)
+        REFERENCES utente (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);

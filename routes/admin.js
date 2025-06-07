@@ -94,7 +94,16 @@ router.get('/users', requireAuth, async (req, res) => {
                 u.id as utente_id,
                 u.username,
                 u.email,
-                u.stato
+                u.stato,
+                COALESCE(
+                    (SELECT data_inizio 
+                     FROM sospensioni_utenti su 
+                     WHERE su.utente_id = u.id 
+                     AND su.data_fine IS NULL
+                     ORDER BY data_inizio DESC 
+                     LIMIT 1),
+                    NULL
+                ) as data_sospensione
             FROM utente u
             WHERE u.ruolo_id = 1 AND u.stato != 'eliminato'
             ORDER BY u.username`;
@@ -107,19 +116,16 @@ router.get('/users', requireAuth, async (req, res) => {
     }
 });
 
-// Update user status
-router.patch('/users/:id/status', requireAuth, async (req, res) => {
+// Get specific user
+router.get('/users/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
-
         const query = `
-            UPDATE utente 
-            SET stato = $1 
-            WHERE id = $2 AND ruolo_id = 1 
-            RETURNING *`;
+            SELECT u.id, u.username, u.email, u.stato
+            FROM utente u
+            WHERE u.id = $1 AND u.ruolo_id = 1`;
 
-        const result = await pool.query(query, [status, id]);
+        const result = await pool.query(query, [id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Utente non trovato' });
@@ -127,8 +133,95 @@ router.patch('/users/:id/status', requireAuth, async (req, res) => {
 
         res.json(result.rows[0]);
     } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({ message: 'Errore nel recupero dell\'utente' });
+    }
+});
+
+// Update user status
+router.patch('/users/:id/status', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            if (status === 'sospeso') {
+                // Add suspension record with automatic end date after 3 days
+                await client.query(`
+                    INSERT INTO sospensioni_utenti (
+                        utente_id, 
+                        data_inizio, 
+                        data_fine_prevista
+                    )
+                    VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '3 days')
+                `, [id]);
+            } else if (status === 'attivo') {
+                // Admin is manually removing suspension
+                await client.query(`
+                    UPDATE sospensioni_utenti
+                    SET data_fine = CURRENT_TIMESTAMP,
+                        rimossa_da_admin = true
+                    WHERE utente_id = $1 AND data_fine IS NULL
+                `, [id]);
+            }
+
+            // Update user status
+            const updateQuery = `
+                UPDATE utente 
+                SET stato = $1 
+                WHERE id = $2 AND ruolo_id = 1 
+                RETURNING id, username, email, stato`;
+
+            const result = await client.query(updateQuery, [status, id]);
+
+            if (result.rows.length === 0) {
+                throw new Error('Utente non trovato');
+            }
+
+            await client.query('COMMIT');
+            res.json(result.rows[0]);
+
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
         console.error('Error updating user status:', error);
         res.status(500).json({ message: 'Errore nella modifica dello stato utente' });
+    }
+});
+
+// Get user reports count
+router.get('/users/reports-count/:userId', requireAuth, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const query = `
+            SELECT COUNT(*) as report_count
+            FROM segnalazioni s
+            JOIN recensioni r ON s.recensione_id = r.recensione_id
+            WHERE r.cliente_id = $1
+            AND s.stato_segnalazione = 'in attesa'  -- Conta solo le segnalazioni non risolte
+            GROUP BY r.cliente_id`;
+
+        const result = await pool.query(query, [userId]);
+        
+        res.json({
+            success: true,
+            reportCount: result.rows.length > 0 ? parseInt(result.rows[0].report_count) : 0
+        });
+
+    } catch (error) {
+        console.error('Error counting user reports:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel conteggio delle segnalazioni'
+        });
     }
 });
 
@@ -155,6 +248,8 @@ router.delete('/users/:id', requireAuth, async (req, res) => {
         res.status(500).json({ message: 'Errore nell\'eliminazione dell\'utente' });
     }
 });
+
+
 
 /* Artisan Management Routes */
 // Get all artisans
@@ -285,6 +380,8 @@ router.get('/artisans/suspended', requireAuth, async (req, res) => {
     }
 });
 
+
+
 /* Reviews Management */
 router.get('/reviews', requireAuth, async (req, res) => {
     try {
@@ -313,6 +410,42 @@ router.get('/reviews', requireAuth, async (req, res) => {
     }
 });
 
+// Get review details
+router.get('/reviews/:id/details', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT 
+                r.recensione_id,
+                c.username as cliente_nome,
+                a.username as artigiano_nome,
+                r.valutazione,
+                r.descrizione as testo,
+                r.data_recensione,
+                r.stato,
+                COUNT(s.segnalazione_id) as segnalazioni
+            FROM recensioni r
+            JOIN utente c ON r.cliente_id = c.id
+            JOIN utente a ON r.artigiano_id = a.id
+            LEFT JOIN segnalazioni s ON s.recensione_id = r.recensione_id
+            WHERE r.recensione_id = $1
+            GROUP BY r.recensione_id, c.username, a.username`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Recensione non trovata' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching review details:', error);
+        res.status(500).json({ message: 'Errore nel recupero dei dettagli della recensione' });
+    }
+});
+
+
+
 /* Products Management */
 router.get('/products', requireAuth, async (req, res) => {
     try {
@@ -339,6 +472,8 @@ router.get('/products', requireAuth, async (req, res) => {
         res.status(500).json({ message: 'Errore nel recupero dei prodotti' });
     }
 });
+
+
 
 /* Orders Management */
 router.get('/orders', requireAuth, async (req, res) => {
@@ -405,39 +540,7 @@ router.get('/orders/:id/details', requireAuth, async (req, res) => {
     }
 });
 
-// Get review details
-router.get('/reviews/:id/details', requireAuth, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const query = `
-            SELECT 
-                r.recensione_id,
-                c.username as cliente_nome,
-                a.username as artigiano_nome,
-                r.valutazione,
-                r.descrizione as testo,
-                r.data_recensione,
-                r.stato,
-                COUNT(s.segnalazione_id) as segnalazioni
-            FROM recensioni r
-            JOIN utente c ON r.cliente_id = c.id
-            JOIN utente a ON r.artigiano_id = a.id
-            LEFT JOIN segnalazioni s ON s.recensione_id = r.recensione_id
-            WHERE r.recensione_id = $1
-            GROUP BY r.recensione_id, c.username, a.username`;
 
-        const result = await pool.query(query, [id]);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Recensione non trovata' });
-        }
-
-        res.json(result.rows[0]);
-    } catch (error) {
-        console.error('Error fetching review details:', error);
-        res.status(500).json({ message: 'Errore nel recupero dei dettagli della recensione' });
-    }
-});
 
 /* Reports Management */
 // Get reports
@@ -449,13 +552,17 @@ router.get('/reports', requireAuth, async (req, res) => {
                 s.ordine_id,
                 s.recensione_id,
                 s.artigiano_id,
-                u.username as utente_nome,
+                u_segnalatore.username as utente_nome,
+                u_artigiano.username as artigiano_nome,
+                r.cliente_id,
                 s.motivazione as tipo,
                 s.testo as descrizione,
                 s.data_segnalazione as data,
                 s.stato_segnalazione as stato
             FROM segnalazioni s
-            JOIN utente u ON s.utente_segnalatore_id = u.id
+            JOIN utente u_segnalatore ON s.utente_segnalatore_id = u_segnalatore.id
+            LEFT JOIN utente u_artigiano ON s.artigiano_id = u_artigiano.id
+            LEFT JOIN recensioni r ON s.recensione_id = r.recensione_id
             ORDER BY s.data_segnalazione DESC`;
 
         const result = await pool.query(query);
@@ -463,6 +570,38 @@ router.get('/reports', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching reports:', error);
         res.status(500).json({ message: 'Errore nel recupero delle segnalazioni' });
+    }
+});
+
+// Get report details
+router.get('/reports/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const query = `
+            SELECT 
+                s.segnalazione_id,
+                s.motivazione as tipo,
+                s.testo as descrizione,
+                s.data_segnalazione as data,
+                s.stato_segnalazione as stato,
+                u_artigiano.username as artigiano_nome,
+                u_segnalatore.username as segnalatore_nome,
+                s.artigiano_id
+            FROM segnalazioni s
+            JOIN utente u_artigiano ON s.artigiano_id = u_artigiano.id
+            JOIN utente u_segnalatore ON s.utente_segnalatore_id = u_segnalatore.id
+            WHERE s.segnalazione_id = $1`;
+
+        const result = await pool.query(query, [id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Segnalazione non trovata' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching report details:', error);
+        res.status(500).json({ message: 'Errore nel recupero dei dettagli della segnalazione' });
     }
 });
 

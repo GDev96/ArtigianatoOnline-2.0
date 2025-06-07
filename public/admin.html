@@ -124,6 +124,8 @@
                                 <th>Username</th>
                                 <th>Email</th>
                                 <th>Stato</th>
+                                <th>Data inizio sospensione</th>
+                                <th>Azioni</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
@@ -132,7 +134,31 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Add this before the closing body tag -->
+            <div class="modal fade" id="reactivateUserModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Conferma Riattivazione</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Sei sicuro di voler riattivare questo utente?</p>
+                            <input type="hidden" id="userIdToReactivate">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                            <button type="button" class="btn btn-success" onclick="confirmReactivateUser()">
+                                <i class="bi bi-check-lg"></i> Conferma
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
+
+
             <!-- Artisans Management -->
             <div class="tab-pane fade" id="artisans">
                 <!-- Tab navigation per gli artigiani -->
@@ -237,7 +263,76 @@
                 </div>
             </div>
 
-            <!-- Replace the Products Management section -->
+            <!-- Add before closing body tag -->
+            <div class="modal fade" id="reactivateArtisanModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Conferma Riattivazione</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Sei sicuro di voler riattivare questo artigiano?</p>
+                            <input type="hidden" id="artisanIdToReactivate">
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                            <button type="button" class="btn btn-success" onclick="confirmReactivateArtisan()">
+                                <i class="bi bi-check-lg"></i> Conferma
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Artisan Report Resolution Modal -->
+            <div class="modal fade" id="artisanReportResolutionModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Risoluzione Segnalazione</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="report-details mb-4">
+                                <div class="mb-3">
+                                    <strong>Artigiano:</strong>
+                                    <span id="reportedArtisanName"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Segnalato da:</strong>
+                                    <span id="reporterName"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Tipo:</strong>
+                                    <span id="reportType"></span>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Descrizione:</strong>
+                                    <p id="reportDescription"></p>
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Data:</strong>
+                                    <span id="reportDate"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annulla</button>
+                            <button type="button" class="btn btn-warning" id="suspendArtisanBtn">
+                                <i class="bi bi-pause-circle"></i> Sospendi Artigiano
+                            </button>
+                            <button type="button" class="btn btn-success" id="resolveWithoutActionBtn">
+                                <i class="bi bi-check-circle"></i> Risolvi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Products Management section -->
             <div class="tab-pane fade" id="products">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h2>Gestione Prodotti</h2>
@@ -470,6 +565,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/main.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/services/AuthService.js"></script>
 </body>
