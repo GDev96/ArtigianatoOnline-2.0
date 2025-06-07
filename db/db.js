@@ -11,6 +11,13 @@ const pool = new Pool({
     port: parseInt(process.env.DB_PORT || '5432'),
 });
 
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('Database config:', {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || '5432',
+    database: process.env.DB_NAME || 'artigianato_online'
+});
+
 // Test connection
 pool.connect((err, client, release) => {
     if (err) {
@@ -56,11 +63,11 @@ module.exports = {
             
             // Colleghiamoci prima al database di default 'postgres' per controllare se il nostro database esiste
             const adminPool = new Pool({
-                user: 'postgres',
-                host: 'localhost',
-                database: 'postgres', // Database di default
-                password: 'postgres',
-                port: 5432,
+                user: process.env.DB_USER || 'postgres',
+                host: process.env.DB_HOST || 'localhost',  // ← USA LA VARIABILE D'AMBIENTE
+                database: 'postgres', // Database di default per la verifica
+                password: process.env.DB_PASSWORD || 'postgres',
+                port: parseInt(process.env.DB_PORT || '5432'),
             });
 
             // Verifica se il database esiste
