@@ -199,3 +199,9 @@ CREATE TABLE IF NOT EXISTS sospensioni_utenti (
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
+
+ALTER TABLE sospensioni_artigiani 
+ADD COLUMN IF NOT EXISTS rimossa_da_admin BOOLEAN DEFAULT false;
+
+ALTER TABLE sospensioni_artigiani 
+ADD COLUMN IF NOT EXISTS data_fine_prevista TIMESTAMP;

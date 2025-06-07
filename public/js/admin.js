@@ -239,7 +239,7 @@ async function loadUsers() {
                             new Date(user.data_sospensione).toLocaleDateString() : 
                             '-'}
                     </td>
-                    <td class="text-end">
+                    <td class="text-center">
                         <button class="btn btn-sm btn-success" 
                                 onclick="toggleUserStatus(${user.utente_id}, '${user.stato}')"
                                 ${user.stato === 'attivo' ? 'disabled' : ''}>
@@ -497,7 +497,7 @@ async function loadArtisans() {
                         ${artisan.stato === 'attivo' ? 'Attivo' : 'Sospeso'}
                     </span>
                 </td>
-                <td class="text-end">
+                <td class="text-center">
                     <button class="btn btn-sm ${artisan.stato === 'attivo' ? 'btn-warning' : 'btn-success'}" 
                             onclick="toggleArtisanStatus(${artisan.artisan_id}, '${artisan.stato}')">
                         <i class="bi bi-${artisan.stato === 'attivo' ? 'pause-fill' : 'play-fill'}"></i>
@@ -526,9 +526,21 @@ async function loadArtisans() {
 async function toggleArtisanStatus(artisanId, currentStatus) {
     const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
     
-    // Se stiamo riattivando
     if (newStatus === 'attivo') {
         try {
+            const reportsResponse = await fetch(`/admin/artisans/${artisanId}/reports-count`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            const data = await reportsResponse.json();
+            
+            if (data.reportCount > 3) {
+                showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
+                return;
+            }
+
             // Store artisanId and show reactivation modal
             document.getElementById('artisanIdToReactivate').value = artisanId;
             const modal = new bootstrap.Modal(document.getElementById('reactivateArtisanModal'));
@@ -536,17 +548,24 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
             return;
         } catch (error) {
             console.error('Error:', error);
-            showErrorMessage('Errore nell\'apertura del modale');
+            showErrorMessage('Errore nel controllo delle segnalazioni');
             return;
         }
+    } else {
+        // Per la sospensione mostra il modale di conferma
+        document.getElementById('artisanIdToSuspend').value = artisanId;
+        const modal = new bootstrap.Modal(document.getElementById('suspendArtisanConfirmModal'));
+        modal.show();
     }
+}
 
-    // Per la sospensione mostra conferma
-    if (!confirm(`Sei sicuro di voler sospendere questo artigiano?`)) {
-        return;
-    }
-
-    await updateArtisanStatus(artisanId, newStatus);
+// Aggiungi questa nuova funzione per gestire la conferma di sospensione
+async function confirmSuspendArtisan() {
+    const artisanId = document.getElementById('artisanIdToSuspend').value;
+    const modal = bootstrap.Modal.getInstance(document.getElementById('suspendArtisanConfirmModal'));
+    modal.hide();
+    
+    await updateArtisanStatus(artisanId, 'sospeso');
 }
 
 // Funzione per gestire la conferma di riattivazione
@@ -598,28 +617,7 @@ async function loadSuspendedArtisans() {
         const artisans = await response.json();
         const tbody = document.getElementById('suspendedArtisansTableBody');
         
-        tbody.innerHTML = artisans.map(artisan => `
-            <tr>
-                <td>${artisan.artisan_id}</td>
-                <td>${artisan.username}</td>
-                <td>${artisan.email}</td>
-                <td>${artisan.nome_tipologia}</td>
-                <td>${new Date(artisan.data_ultima_sospensione).toLocaleDateString()}</td>
-                <td>
-                    <span class="badge bg-warning">
-                        ${artisan.numero_sospensioni}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-success" 
-                            onclick="toggleArtisanStatus(${artisan.artisan_id}, '${artisan.stato}')">
-                        <i class="bi bi-play-fill"></i> Ripristina
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-
-        if (artisans.length === 0) {
+        if (!artisans || artisans.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="7" class="text-center">
@@ -627,7 +625,29 @@ async function loadSuspendedArtisans() {
                     </td>
                 </tr>
             `;
+            return;
         }
+
+        tbody.innerHTML = artisans.map(artisan => `
+            <tr>
+                <td>${artisan.artisan_id}</td>
+                <td>${artisan.username}</td>
+                <td>${artisan.email}</td>
+                <td>${artisan.nome_tipologia}</td>
+                <td>${artisan.data_ultima_sospensione ? new Date(artisan.data_ultima_sospensione).toLocaleDateString() : '-'}</td>
+                <td>
+                    <span class="badge bg-warning">
+                        ${artisan.numero_sospensioni || 0}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-success" 
+                            onclick="toggleArtisanStatus(${artisan.artisan_id}, 'sospeso')">
+                        <i class="bi bi-play-fill"></i> Riattiva
+                    </button>
+                </td>
+            </tr>
+        `).join('');
 
     } catch (error) {
         console.error('Error loading suspended artisans:', error);
@@ -746,6 +766,7 @@ async function showArtisanReportResolution(reportId, reportData) {
         showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
     }
 }
+
 
 
 // --- PRODUCTS ---
@@ -921,40 +942,34 @@ function renderOrders(orders) {
         return;
     }
 
-    // Check each order's status and update if needed
-    orders.forEach(order => {
-        if (order.has_reports && order.stato !== 'controversia aperta') {
-            updateOrderStatus(order.id, 'controversia aperta', false);
-        }
-        else if (order.stato === 'spedito' && !order.has_reports) {
-            const shippingDate = new Date(order.data_spedizione);
-            const now = new Date();
-            const daysSinceShipped = (now - shippingDate) / (1000 * 60 * 60 * 24);
-            
-            if (daysSinceShipped >= 3) {
-                updateOrderStatus(order.id, 'consegnato', false);
-            }
-        }
-    });
+    tbody.innerHTML = orders.map(order => {
+        // Get the correct status color
+        const statusColors = {
+            'in preparazione': 'info',
+            'spedito': 'primary',
+            'controversia aperta': 'danger',
+            'consegnato': 'success'
+        };
 
-    tbody.innerHTML = orders.map(order => `
-        <tr>
-            <td>${order.id}</td>
-            <td>${order.cliente_nome}</td>
-            <td>€${parseFloat(order.totale).toFixed(2)}</td>
-            <td>${new Date(order.data).toLocaleDateString()}</td>
-            <td>
-                <span class="badge bg-${getOrderStatusColor(order.stato)}">
-                    ${order.stato}
-                </span>
-            </td>
-            <td class="text-end">
-                <button class="btn btn-sm btn-info" onclick="viewOrderDetails(${order.id})">
-                    <i class="bi bi-eye"></i>
-                </button>
-            </td>
-        </tr>
-    `).join('');
+        return `
+            <tr>
+                <td>${order.id}</td>
+                <td>${order.cliente_nome}</td>
+                <td>€${parseFloat(order.totale).toFixed(2)}</td>
+                <td>${new Date(order.data).toLocaleDateString()}</td>
+                <td>
+                    <span class="badge bg-${statusColors[order.stato] || 'secondary'}">
+                        ${order.stato}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-info" onclick="viewOrderDetails(${order.id})">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 async function updateOrderStatus(orderId, newStatus, showConfirm = true) {
@@ -1087,6 +1102,104 @@ async function viewOrderDetails(orderId) {
     }
 }
 
+async function resolveReport(reportId, withAction = false) {
+    try {
+        const reportResponse = await fetch(`/admin/reports/${reportId}`, {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+        
+        if (!reportResponse.ok) throw new Error('Errore nel recupero della segnalazione');
+        
+        const reportData = await reportResponse.json();
+        
+        if (reportData.artigiano_id) {
+            await showArtisanReportResolution(reportId, reportData);
+            return;
+        } else if (reportData.ordine_id) {
+            await showOrderReportResolution(reportId, reportData);
+            return;
+        }
+
+        // Per altri tipi di segnalazioni, procedi con la logica esistente
+        if (!confirm('Sei sicuro di voler risolvere questa segnalazione?')) {
+            return;
+        }
+
+        await resolveReportRequest(reportId, withAction);
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showErrorMessage(error.message || 'Errore nella risoluzione della segnalazione');
+    }
+}
+
+async function showOrderReportResolution(reportId, reportData) {
+    try {
+        // Populate modal with report details
+        document.getElementById('reportedOrderId').textContent = `#${reportData.ordine_id}`;
+        document.getElementById('orderReporterName').textContent = reportData.utente_nome;
+        document.getElementById('orderReportType').textContent = reportData.tipo;
+        document.getElementById('orderReportDescription').textContent = reportData.descrizione;
+        document.getElementById('orderReportDate').textContent = new Date(reportData.data).toLocaleDateString();
+
+        // Get modal instance
+        const modalElement = document.getElementById('orderReportResolutionModal');
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // Setup resolve button listener
+        const resolveBtn = document.getElementById('resolveOrderReportBtn');
+        resolveBtn.replaceWith(resolveBtn.cloneNode(true));
+        
+        document.getElementById('resolveOrderReportBtn').addEventListener('click', async () => {
+            try {
+                await resolveReportRequest(reportId, false);
+                modal.hide();
+                modalElement.addEventListener('hidden.bs.modal', async () => {
+                    showSuccessMessage('Segnalazione risolta con successo');
+                    await loadReports();
+                }, { once: true });
+            } catch (error) {
+                console.error('Error:', error);
+                showErrorMessage('Errore nella risoluzione della segnalazione');
+            }
+        });
+
+        // Show modal
+        modal.show();
+    } catch (error) {
+        console.error('Error showing order report resolution modal:', error);
+        showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
+    }
+}
+
+async function resolveReportRequest(reportId, withAction) {
+    try {
+        const response = await fetch(`/admin/reports/${reportId}/resolve`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ withAction })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Errore nella risoluzione della segnalazione');
+        }
+
+        await loadOrders(); // Aggiorna la tabella ordini
+        await loadReports(); // Aggiorna la tabella segnalazioni
+        showSuccessMessage('Segnalazione risolta con successo');
+
+    } catch (error) {
+        console.error('Error resolving report:', error);
+        throw new Error('Errore nella risoluzione della segnalazione');
+    }
+}
+
 
 // --- REVIEWS ---
 async function loadReviews() {
@@ -1144,7 +1257,7 @@ function setupReviewFilters(reviews) {
                         ${review.segnalazioni}
                     </span>
                 </td>
-                <td class="text-end">
+                <td class="text-center">
                     <button class="btn btn-sm btn-info" onclick="viewReviewDetails(${review.recensione_id})">
                         <i class="bi bi-eye"></i>
                     </button>
@@ -1477,7 +1590,7 @@ function populateReportsTable(tableId, reports) {
                             ${report.stato === 'in attesa' ? 'In Attesa' : 'Risolta'}
                         </span>
                     </td>
-                    <td class="text-end">
+                    <td class="text-center">
                         ${report.stato === 'in attesa' ? `
                             <button class="btn btn-sm btn-success" onclick="resolveReport(${report.id})">
                                 <i class="bi bi-check-lg"></i> Risolvi
@@ -1509,46 +1622,6 @@ function updateReportCounters(artisanCount, orderCount, reviewCount) {
     });
 }
 
-async function resolveReport(reportId, withAction = false) {
-    try {
-        // If it's an artisan report, show resolution modal
-        const reportResponse = await fetch(`/admin/reports/${reportId}`, {
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-            }
-        });
-        
-        if (!reportResponse.ok) throw new Error('Errore nel recupero della segnalazione');
-        
-        const reportData = await reportResponse.json();
-        
-        if (reportData.artigiano_id) {
-            await showArtisanReportResolution(reportId, reportData);
-            return;
-        }
-
-        // For other types of reports, proceed with existing logic
-        const response = await fetch(`/reports/admin/${reportId}/resolve`, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ withAction })
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Errore nella risoluzione della segnalazione');
-        }
-
-        await loadReports();
-    } catch (error) {
-        console.error('Error:', error);
-        showErrorMessage(error.message || 'Errore nella risoluzione della segnalazione');
-    }
-}
-
 function showErrorInTables(message) {
     const tables = ['artisansReportsTableBody', 'ordersReportsTableBody', 'reviewsReportsTableBody'];
     tables.forEach(tableId => {
@@ -1564,6 +1637,9 @@ function showErrorInTables(message) {
         }
     });
 }
+
+
+
 
 // --- UTILITY FUNCTIONS ---
 async function loadTabData(tabId) {

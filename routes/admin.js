@@ -293,7 +293,27 @@ router.patch('/artisans/:id/status', requireAuth, async (req, res) => {
         try {
             await client.query('BEGIN');
 
-            // Update user status
+            if (status === 'sospeso') {
+                // Add suspension record with automatic end date after 3 days
+                await client.query(`
+                    INSERT INTO sospensioni_artigiani (
+                        artigiano_id, 
+                        data_inizio, 
+                        data_fine_prevista
+                    )
+                    VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '3 days')
+                `, [id]);
+            } else if (status === 'attivo') {
+                // Admin is manually removing suspension
+                await client.query(`
+                    UPDATE sospensioni_artigiani
+                    SET data_fine = CURRENT_TIMESTAMP,
+                        rimossa_da_admin = true
+                    WHERE artigiano_id = $1 AND data_fine IS NULL
+                `, [id]);
+            }
+
+            // Update artisan status
             const updateQuery = `
                 UPDATE utente 
                 SET stato = $1 
@@ -304,22 +324,6 @@ router.patch('/artisans/:id/status', requireAuth, async (req, res) => {
 
             if (result.rows.length === 0) {
                 throw new Error('Artigiano non trovato');
-            }
-
-            // Handle suspension tracking
-            if (status === 'sospeso') {
-                // Add new suspension record
-                await client.query(`
-                    INSERT INTO sospensioni_artigiani (artigiano_id, data_inizio)
-                    VALUES ($1, CURRENT_TIMESTAMP)
-                `, [id]);
-            } else {
-                // Close current suspension record
-                await client.query(`
-                    UPDATE sospensioni_artigiani
-                    SET data_fine = CURRENT_TIMESTAMP
-                    WHERE artigiano_id = $1 AND data_fine IS NULL
-                `, [id]);
             }
 
             await client.query('COMMIT');
@@ -337,6 +341,33 @@ router.patch('/artisans/:id/status', requireAuth, async (req, res) => {
     }
 });
 
+// Get artisan reports count
+router.get('/artisans/:id/reports-count', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const query = `
+            SELECT COUNT(*) as report_count
+            FROM segnalazioni s
+            WHERE s.artigiano_id = $1
+            AND s.stato_segnalazione = 'in attesa'`;
+
+        const result = await pool.query(query, [id]);
+        
+        res.json({
+            success: true,
+            reportCount: parseInt(result.rows[0].report_count)
+        });
+
+    } catch (error) {
+        console.error('Error counting artisan reports:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel conteggio delle segnalazioni'
+        });
+    }
+});
+
 // Get suspended artisans with suspension history
 router.get('/artisans/suspended', requireAuth, async (req, res) => {
     try {
@@ -346,31 +377,26 @@ router.get('/artisans/suspended', requireAuth, async (req, res) => {
                 u.username,
                 u.email,
                 u.stato,
-                a.artigiano_id,
                 t.nome_tipologia,
-                (
-                    SELECT COUNT(s.segnalazione_id) 
-                    FROM segnalazioni s 
-                    WHERE s.artigiano_id = a.artigiano_id
-                ) as segnalazioni,
                 (
                     SELECT COUNT(*) 
                     FROM sospensioni_artigiani sa 
                     WHERE sa.artigiano_id = a.artigiano_id
                 ) as numero_sospensioni,
                 (
-                    SELECT sa.data_inizio 
+                    SELECT data_inizio 
                     FROM sospensioni_artigiani sa 
                     WHERE sa.artigiano_id = a.artigiano_id 
-                    AND sa.data_fine IS NULL
+                    AND sa.data_fine IS NULL 
                     ORDER BY sa.data_inizio DESC 
                     LIMIT 1
                 ) as data_ultima_sospensione
             FROM utente u
-            INNER JOIN artigiani a ON a.artigiano_id = u.id
-            INNER JOIN tipologia t ON t.tipologia_id = a.tipologia_id
-            WHERE u.ruolo_id = 2 AND u.stato = 'sospeso'
-            ORDER BY data_ultima_sospensione DESC`;
+            JOIN artigiani a ON a.artigiano_id = u.id
+            JOIN tipologia t ON t.tipologia_id = a.tipologia_id
+            WHERE u.stato = 'sospeso'
+            AND u.ruolo_id = 2
+            ORDER BY data_ultima_sospensione DESC NULLS LAST`;
 
         const result = await pool.query(query);
         res.json(result.rows);
@@ -588,16 +614,18 @@ router.get('/reports/:id', requireAuth, async (req, res) => {
         const query = `
             SELECT 
                 s.segnalazione_id,
+                s.ordine_id,
+                s.recensione_id,
+                s.artigiano_id,
                 s.motivazione as tipo,
                 s.testo as descrizione,
                 s.data_segnalazione as data,
                 s.stato_segnalazione as stato,
-                u_artigiano.username as artigiano_nome,
                 u_segnalatore.username as segnalatore_nome,
-                s.artigiano_id
+                COALESCE(u_artigiano.username, '') as artigiano_nome
             FROM segnalazioni s
-            JOIN utente u_artigiano ON s.artigiano_id = u_artigiano.id
             JOIN utente u_segnalatore ON s.utente_segnalatore_id = u_segnalatore.id
+            LEFT JOIN utente u_artigiano ON s.artigiano_id = u_artigiano.id
             WHERE s.segnalazione_id = $1`;
 
         const result = await pool.query(query, [id]);
@@ -610,6 +638,65 @@ router.get('/reports/:id', requireAuth, async (req, res) => {
     } catch (error) {
         console.error('Error fetching report details:', error);
         res.status(500).json({ message: 'Errore nel recupero dei dettagli della segnalazione' });
+    }
+});
+
+// Update report status
+router.patch('/reports/:id/resolve', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Get report details
+        const reportQuery = `
+            SELECT ordine_id 
+            FROM segnalazioni 
+            WHERE segnalazione_id = $1`;
+        const reportResult = await client.query(reportQuery, [req.params.id]);
+        const orderId = reportResult.rows[0]?.ordine_id;
+
+        // Update report status
+        const updateQuery = `
+            UPDATE segnalazioni 
+            SET stato_segnalazione = 'risolta'
+            WHERE segnalazione_id = $1
+            RETURNING *`;
+
+        const result = await client.query(updateQuery, [req.params.id]);
+
+        if (result.rows.length === 0) {
+            throw new Error('Segnalazione non trovata');
+        }
+
+        // If it's an order report, reset the order status
+        if (orderId) {
+            const updateOrderQuery = `
+                UPDATE ordini 
+                SET stato = 'in preparazione',
+                    data_ordine = CURRENT_TIMESTAMP,
+                    has_reports = false
+                WHERE ordine_id = $1`;
+            
+            await client.query(updateOrderQuery, [orderId]);
+        }
+
+        await client.query('COMMIT');
+        
+        res.json({
+            success: true,
+            message: 'Segnalazione risolta con successo',
+            report: result.rows[0]
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error resolving report:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nella risoluzione della segnalazione'
+        });
+    } finally {
+        client.release();
     }
 });
 
@@ -655,6 +742,8 @@ router.patch('/admin/:id/resolve', requireAuth, async (req, res) => {
         });
     }
 });
+
+
 
 // Get categories for dropdown menus
 router.get('/categories', requireAuth, async (req, res) => {
