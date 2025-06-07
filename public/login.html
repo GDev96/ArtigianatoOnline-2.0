@@ -17,7 +17,7 @@
             <div class="col-md-6 col-lg-5">
                 <div class="card shadow p-4">
                     <h2 class="text-center mb-4">Accedi</h2>
-                    <form id="loginForm" novalidate>
+                    <form id="loginForm" novalidate onsubmit="event.preventDefault(); return false;" action="javascript:void(0);">
                         <div class="mb-3">
                             <label for="usernameInput" class="form-label">Username</label>
                             <input type="text" class="form-control" id="usernameInput" 
@@ -31,12 +31,10 @@
                                 <i class="bi bi-eye-slash password-toggle" id="togglePassword"></i>
                             </div>
                         </div>
-                    
                         <div id="loginError" class="alert alert-danger d-none" role="alert">
                             <!-- Messaggio di errore sarà inserito qui -->
                         </div>
-                    
-                        <button type="submit" class="btn w-100 mt-3">Accedi</button>
+                        <button type="button" id="loginButton" class="btn w-100 mt-3">Accedi</button>
                     </form>
                     <div class="text-center mt-0">
                         <a href="#" class="recover-link me-2" data-bs-toggle="modal" data-bs-target="#recoverPasswordModal">

@@ -26,7 +26,10 @@ window.fetch = async function(...args) {
         const publicRoutes = ['/', '/index.html', '/auth/login', '/auth/signup', '/categories', '/users/artisans'];
         const isPublicRoute = publicRoutes.some(route => resource.includes(route));
         
-        if (!isPublicRoute) {
+        // Special handling for login requests
+        const isLoginRequest = resource.includes('/auth/login');
+        
+        if (!isPublicRoute && !isLoginRequest) {
             const token = sessionStorage.getItem('token');
             if (!token) {
                 sessionStorage.clear();
@@ -43,11 +46,18 @@ window.fetch = async function(...args) {
 
         const response = await originalFetch(resource, config);
 
-        // Check for authentication errors
-        if (response.status === 401) {
-            sessionStorage.clear();
-            window.location.href = '/login.html';
-            return null;
+        // For login requests, return response as-is (don't handle 401 here)
+        if (isLoginRequest) {
+            return response;
+        }
+
+        // Only handle 401 for authenticated requests, not public routes or login
+        if (response.status === 401 && !isPublicRoute) {
+            // Don't call AuthService.handleTokenExpiration during login
+            if (!window.isLoggingIn) {
+                AuthService.handleTokenExpiration(response);
+            }
+            return response; // Return the response so the calling code can handle it
         }
 
         return response;

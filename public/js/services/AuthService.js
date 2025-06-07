@@ -47,6 +47,11 @@ class AuthService {
     }
 
     static checkTokenExpiration(response) {
+        // Non intercettare 401 durante il processo di login
+        if (window.isLoggingIn) {
+            return true; // Lascia che il login handler gestisca l'errore
+        }
+        
         if (response.status === 401) {
             this.handleAuthError();
             return false;
@@ -54,7 +59,27 @@ class AuthService {
         return true;
     }
 
+    static handleTokenExpiration(response) {
+        if (!response) return false;
+        
+        // NON mostrare il modale durante il login - lascia che sia il login handler a gestire l'errore
+        if (window.isLoggingIn) {
+            return false; // Non intercettare durante il login
+        }
+        
+        if (response.status === 401) {
+            this.showSessionExpiredModal();
+            return true;
+        }
+        return false;
+    }
+
     static async fetchWithAuth(url, options = {}) {
+        // Skip auth for login requests
+        if (url.includes('/auth/login')) {
+            return fetch(url, options);
+        }
+
         const token = this.getToken();
         if (!token) {
             this.handleAuthError();
@@ -117,13 +142,5 @@ class AuthService {
                     }, 1000);
                 }
             });
-    }
-
-    static handleTokenExpiration(response) {
-        if (response.status === 401) {
-            this.showSessionExpiredModal();
-            return true;
-        }
-        return false;
     }
 }

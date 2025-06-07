@@ -1,83 +1,178 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // BLOCCA QUALSIASI TENTATIVO DI RELOAD DELLA PAGINA
+    window.addEventListener('beforeunload', function(e) {
+        if (window.isLoggingIn) {
+            console.log('TENTATIVO DI RELOAD BLOCCATO DURANTE LOGIN');
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
+    });
+
+    // Intercetta e blocca tutti i submit di form
+    document.addEventListener('submit', function(e) {
+        console.log('Submit intercettato:', e.target);
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
+    }, true);
+
+    // Intercetta tutti i click sui link
+    document.addEventListener('click', function(e) {
+        if (e.target.tagName === 'A' && e.target.href) {
+            console.log('Click su link intercettato:', e.target.href);
+            if (window.isLoggingIn) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }
+    }, true);
+
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('passwordInput');
     const loginForm = document.getElementById('loginForm');
     const loginError = document.getElementById('loginError');
 
-    // Password toggle
-    togglePassword?.addEventListener('click', function() {
+    // Previeni il submit del form in tutti i modi possibili
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            console.log('Form submit intercettato');
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+        });
+    }
+
+    // Password toggle functionality
+    togglePassword?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
         passwordInput.setAttribute('type', type);
         this.classList.toggle('bi-eye');
         this.classList.toggle('bi-eye-slash');
     });
 
-    // Form submission
-    if (loginForm) {
-        // Use addEventListener instead of onsubmit
-        loginForm.addEventListener('submit', async function(e) {
+    // Button click event invece di form submit
+    const loginButton = document.getElementById('loginButton');
+    loginButton?.addEventListener('click', handleLogin);
+    
+    // Aggiungi anche gestione per Enter key nei campi input
+    passwordInput?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
             e.preventDefault();
-            e.stopImmediatePropagation(); // Stop any other handlers
-            
-            const submitButton = this.querySelector('button[type="submit"]');
+            handleLogin(e);
+        }
+    });
+    
+    document.getElementById('usernameInput')?.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleLogin(e);
+        }
+    });
+    
+    async function handleLogin(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        console.log('=== INIZIO LOGIN ===');
+        
+        const submitButton = document.getElementById('loginButton');
+        const originalButtonText = submitButton.textContent;
+        const loginError = document.getElementById('loginError');
+        
+        try {
+            window.isLoggingIn = true;
             submitButton.disabled = true;
+            submitButton.textContent = 'Accesso in corso...';
             loginError.classList.add('d-none');
+
+            const credentials = {
+                nome_utente: document.getElementById('usernameInput').value.trim(),
+                password: document.getElementById('passwordInput').value
+            };
+
+            // Basic validation
+            if (!credentials.nome_utente || !credentials.password) {
+                throw new Error('Username e password sono richiesti');
+            }
+
+            const response = await fetch('/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(credentials)
+            });
+
+            // Check if response is null (from fetch interceptor)
+            if (!response) {
+                throw new Error('Errore di comunicazione con il server');
+            }
+
+            let data;
+            const contentType = response.headers.get('content-type');
             
-            try {
-                const credentials = {
-                    nome_utente: document.getElementById('usernameInput').value.trim(),
-                    password: passwordInput.value
-                };
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                const responseText = await response.text();
+                console.error('Non-JSON response:', responseText);
+                throw new Error('Errore di comunicazione con il server');
+            }
 
-                if (!credentials.nome_utente || !credentials.password) {
-                    throw new Error('Username e password sono richiesti');
-                }
+            // Handle specific error codes
+            if (response.status === 401) {
+                throw new Error(data.error || 'Credenziali non valide');
+            }
+            
+            if (response.status === 403) {
+                throw new Error(data.error || 'Account non attivo o sospeso');
+            }
 
-                const response = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(credentials)
-                });
+            if (!response.ok) {
+                throw new Error(data.error || `Errore del server (${response.status})`);
+            }
 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Credenziali non valide');
-                }
-
-                if (!data.success || !data.token || !data.user) {
-                    throw new Error('Dati di login incompleti');
-                }
-
-                // Delay redirect slightly to ensure error handling completes
+            if (data?.success && data?.token && data?.user) {
                 AuthService.setSession(data.token, data.user);
-                setTimeout(() => {
-                    window.location.href = '/index.html';
-                }, 100);
-
-            } catch (error) {
-                console.error('Login error:', error);
-                loginError.textContent = error.message;
-                loginError.classList.remove('d-none');
-                passwordInput.value = '';
-                passwordInput.focus();
-            } finally {
-                submitButton.disabled = false;
+                window.location.href = '/index.html';
+            } else {
+                throw new Error('Dati di login incompleti');
             }
-        });
 
-        // Prevent form submission via Enter key
-        loginForm.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
+        } catch (error) {
+            console.error('=== CATCH BLOCK ===');
+            console.error('Errore login:', error);
+            
+            // Handle different error types
+            let errorMessage = 'Errore durante il login';
+            
+            if (error instanceof TypeError && error.message.includes('headers')) {
+                errorMessage = 'Errore di connessione al server';
+            } else if (error.message) {
+                errorMessage = error.message;
             }
-        });
+            
+            loginError.textContent = errorMessage;
+            loginError.classList.remove('d-none');
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('passwordInput').focus();
+            
+        } finally {
+            console.log('=== FINALLY BLOCK ===');
+            window.isLoggingIn = false;
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
     }
 });
-
-
 
 async function requestPasswordRecovery() {
     const emailInput = document.getElementById('emailInput');
@@ -119,7 +214,9 @@ async function requestPasswordRecovery() {
         // Automatically close modal after 3 seconds
         setTimeout(() => {
             const modal = bootstrap.Modal.getInstance(document.getElementById('recoverPasswordModal'));
-            modal.hide();
+            if (modal) {
+                modal.hide();
+            }
         }, 3000);
 
     } catch (error) {
