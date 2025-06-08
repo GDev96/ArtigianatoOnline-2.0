@@ -9,40 +9,22 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
     
     try {
-        const headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        };
-
-        const [artisansResponse, categoriesResponse] = await Promise.all([
-            fetch('/users/artisans', { headers }),
-            fetch('/categories', { headers })
-        ]);
-
-        if (!artisansResponse.ok || !categoriesResponse.ok) {
-            throw new Error(`HTTP error! status: ${artisansResponse.status || categoriesResponse.status}`);
+        // Get artisan details
+        const response = await fetch(`/users/api/artisan/${artisanId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const [artisansData, categoriesData] = await Promise.all([
-            artisansResponse.json(),
-            categoriesResponse.json()
-        ]);
-
-        if (!artisansData.success || !categoriesData.success) {
-            throw new Error('Invalid API response format');
+        const data = await response.json();
+        if (!data.success || !data.artisan) {
+            throw new Error('Formato risposta API non valido');
         }
 
-        const artisan = artisansData.artisans.find(a => a.id.toString() === artisanId);
-        if (!artisan) {
-            throw new Error('Artigiano non trovato');
-        }
+        const artisan = data.artisan;
 
-        const category = categoriesData.categories.find(c => c.tipologia_id === artisan.tipologia_id);
-        const categoryName = category ? category.nome_tipologia : 'Categoria non specificata';
-
-        // Update UI
+        // Update UI with artisan info
         document.getElementById('artisan-name').textContent = `${artisan.nome} ${artisan.cognome}`;
-        document.getElementById('artisan-category').textContent = categoryName;
+        document.getElementById('artisan-category').textContent = artisan.nome_tipologia || 'Categoria non specificata';
         document.getElementById('artisan-address').textContent = 
             `${artisan.indirizzo || ''} - ${artisan.citta || ''}`;
         document.getElementById('artisan-contact').textContent = 
@@ -54,20 +36,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             profilePic.src = `data:image/jpeg;base64,${artisan.immagine}`;
         }
 
-        // Update rating
-        if (artisan.valutazione_media) {
-            updateAverageRating(artisan.valutazione_media, artisan.numero_recensioni);
-        }
-
         // Load artisan's products
         await setupFilters();
         await loadProducts(artisanId);
 
     } catch (error) {
         console.error('Error:', error);
-        document.getElementById('artisan-category').textContent = 'Errore nel caricamento della categoria';
+        showErrorMessage('Errore nel caricamento dei dati dell\'artigiano');
     }
 });
+
 // Nascondi i pulsanti di recensione e segnalazione se l'utente non è loggato - corretta
 document.addEventListener('DOMContentLoaded', function() {
     const user = JSON.parse(sessionStorage.getItem('user'));
@@ -100,29 +78,17 @@ document.addEventListener('DOMContentLoaded', function() {
 let allProducts = [];
 async function loadProducts(artisanId) {
     try {
-        const headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        };
-
-        const response = await fetch('/products', { headers });
-
+        const response = await fetch(`/products/artisan/${artisanId}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        
-        if (!data.success || !data.products) {
+        if (!data.success) {
             throw new Error('Formato dati prodotti non valido');
         }
 
-        // Store all products for the artisan globally
-        allProducts = data.products.filter(product => 
-            product.artigiano_id && product.artigiano_id.toString() === artisanId
-        );
-
-        // Initial display of all products
+        allProducts = data.products;
         updateProductsDisplay(allProducts);
 
     } catch (error) {
@@ -131,204 +97,73 @@ async function loadProducts(artisanId) {
     }
 }
 
-// Funzione per applicare i filtri sui prodotti
-async function setupFilters() {
-    try {
-        // Fetch categories
-        const response = await fetch('/categories', {
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
+// Update product display function
+function updateProductsDisplay(products) {
+    const productsContainer = document.querySelector('.container.my-5 .row');
+    if (!productsContainer) return;
 
-        if (!response.ok) {
-            throw new Error('Errore nel recupero delle categorie');
-        }
+    const user = JSON.parse(sessionStorage.getItem('user'));
+    const isLoggedIn = !!sessionStorage.getItem('token');
+    const isArtisanOrAdmin = user && (user.ruolo_id === 2 || user.ruolo_id === 3);
 
-        const data = await response.json();
-        
-        // Populate category select
-        const filterCategory = document.getElementById('filterCategory');
-        if (filterCategory && data.categories) {
-            filterCategory.innerHTML = `
-                <option value="placeholdercategory">Tutte le categorie</option>
-                ${data.categories.map(category => `
-                    <option value="${category.tipologia_id}">
-                        ${category.nome_tipologia}
-                    </option>
-                `).join('')}
-            `;
-        }
-
-        // Add event listener only for price input validation
-        const priceInputs = [
-            document.getElementById('rangeMin'),
-            document.getElementById('rangeMax')
-        ];
-
-        priceInputs.forEach(input => {
-            if (input) {
-                input.addEventListener('input', function() {
-                    let value = parseFloat(this.value);
-                    if (isNaN(value) || value < 0) {
-                        this.value = 0;
-                    }
-                });
-            }
-        });
-
-        // Add event listener for apply filters button
-        document.getElementById('applyFilters')?.addEventListener('click', applyFilters);
-
-    } catch (error) {
-        console.error('Error setting up filters:', error);
-        showErrorMessage('Errore nel caricamento delle categorie');
-    }
-}
-
-// Funzione per applicare i filtri sui prodotti
-function applyFilters() {
-    if (!allProducts.length) return;
-
-    let filteredProducts = [...allProducts];
-
-    // Get filter values
-    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
-    const selectedCategory = document.getElementById('filterCategory')?.value;
-    const minPrice = parseFloat(document.getElementById('rangeMin')?.value) || 0;
-    const maxPrice = parseFloat(document.getElementById('rangeMax')?.value) || Infinity;
-    const onlyAvailable = document.getElementById('onlyAvailabily')?.checked;
-
-    // Apply search filter
-    if (searchTerm) {
-        filteredProducts = filteredProducts.filter(product => 
-            product.nome_prodotto.toLowerCase().includes(searchTerm)
-        );
-    }
-
-    // Apply category filter
-    if (selectedCategory && selectedCategory !== 'placeholdercategory') {
-        filteredProducts = filteredProducts.filter(product => 
-            product.tipologia_id.toString() === selectedCategory
-        );
-    }
-
-    // Apply price range filter
-    filteredProducts = filteredProducts.filter(product => {
-        const price = parseFloat(product.prezzo);
-        return price >= minPrice && (maxPrice === Infinity || price <= maxPrice);
-    });
-
-    // Apply availability filter
-    if (onlyAvailable) {
-        filteredProducts = filteredProducts.filter(product => product.quantita > 0);
-    }
-
-    // Check if any products match the filters
-    if (filteredProducts.length === 0) {
-        const productsContainer = document.querySelector('.container.my-5 .row');
-        if (productsContainer) {
-            productsContainer.innerHTML = `
-                <div class="col-12 text-center">
-                    <div class="alert alert-info" role="alert">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Nessun prodotto corrisponde ai filtri selezionati.
-                    </div>
+    if (products.length === 0) {
+        productsContainer.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info text-center" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nessun prodotto disponibile al momento.
                 </div>
-            `;
-        }
+            </div>`;
         return;
     }
 
-    // Update display with filtered products
-    updateProductsDisplay(filteredProducts);
-}
-
-// Funzione per aggiornare la visualizzazione dei prodotti
-async function updateProductsDisplay(products) {
-    const productsContainer = document.querySelector('.container.my-5 .row');
-    const user = JSON.parse(sessionStorage.getItem('user'));
-    
-    if (!productsContainer) return;
-
-    // Fetch current cart items for the user if logged in
-    let cartItems = [];
-    if (user) {
-        try {
-            const response = await fetch('/cart', {
-                headers: {
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                cartItems = data.items || [];
-            }
-        } catch (error) {
-            console.error('Error fetching cart:', error);
-        }
-    }
-
-    productsContainer.innerHTML = products.map(product => {
-        const cartItem = cartItems.find(item => item.prodotto_id === product.prodotto_id);
-        const quantity = cartItem ? cartItem.quantita : 0;
-
-        return `
-            <div class="col-md-4 mb-4">
-                <div class="card h-60">
-                    <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/default/product.jpg'}" 
-                        class="card-img-top" 
-                        alt="${product.nome_prodotto}"
-                        style="height: 200px; object-fit: cover;">
-                    <div class="card-body d-flex flex-column">
-                        <h5 class="card-title">${product.nome_prodotto}</h5>
-                        <div class="mt-auto">
-                            <p class="card-category text-muted mb-2">
-                                <small>${product.nome_tipologia || 'Categoria non specificata'}</small>
-                            </p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">€${parseFloat(product.prezzo).toFixed(2)}</h5>
-                                ${product.quantita > 0 ? 
-                                    `<div class="btn-group">
-                                        ${!user ? 
-                                            `<a href="/login.html" class="btn btn-outline-primary">
-                                                <i class="fas fa-sign-in-alt"></i> Accedi
-                                            </a>` :
-                                            quantity === 0 ?
-                                            `<button class="btn btn-primary add-to-cart" 
-                                                onclick="addToCart(${product.prodotto_id})">
-                                                <i class="fas fa-cart-plus"></i> Aggiungi
-                                            </button>` :
-                                            `<div class="input-group cart-quantity-group">
-                                                <button class="btn btn-outline-primary" 
-                                                    onclick="updateCartQuantity(${product.prodotto_id}, ${quantity - 1})">
-                                                    <i class="fas fa-minus"></i>
-                                                </button>
-                                                <span class="input-group-text">${quantity}</span>
-                                                <button class="btn btn-outline-primary" 
-                                                    onclick="updateCartQuantity(${product.prodotto_id}, ${quantity + 1}, ${product.quantita})">
-                                                    <i class="fas fa-plus"></i>
-                                                </button>
-                                            </div>`
-                                        }
-                                    </div>` : 
-                                    `<span class="badge bg-danger">Non disponibile</span>`
-                                }
-                            </div>
-                        </div>
+    productsContainer.innerHTML = products.map(product => `
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <img src="${product.immagine ? `data:image/jpeg;base64,${product.immagine}` : '/assets/images/default/product.jpg'}" 
+                    class="card-img-top" 
+                    alt="${product.nome_prodotto}"
+                    style="height: 200px; object-fit: cover;">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">${product.nome_prodotto}</h5>
+                        <h5 class="mb-0">€${parseFloat(product.prezzo).toFixed(2)}</h5>
                     </div>
+                    <span class="card-category align-self-start">
+                        ${product.nome_tipologia || 'Categoria non specificata'}
+                    </span>
+                    ${!isArtisanOrAdmin && !isLoggedIn ? 
+                        `<div class="mt-auto d-flex justify-content-end">
+                            <a href="/login.html" class="btn btn-outline-primary">
+                                <i class="fas fa-sign-in-alt"></i> Accedi
+                            </a>
+                        </div>` :
+                        !isArtisanOrAdmin && product.quantita > 0 ?
+                        `<div class="mt-auto d-flex justify-content-end">
+                            <button class="btn btn-primary" 
+                                onclick="addToCart(${product.prodotto_id})">
+                                <i class="fas fa-cart-plus"></i> Aggiungi
+                            </button>
+                        </div>` :
+                        !isArtisanOrAdmin ?
+                        `<div class="mt-auto d-flex justify-content-end">
+                            <span class="badge bg-danger">Non disponibile</span>
+                        </div>` :
+                        ''
+                    }
                 </div>
-            </div>`;
-    }).join('');
+            </div>
+        </div>`
+    ).join('');
 }
 
-// Funzione per mostrare un messaggio di errore
+// Update cart functions
 async function addToCart(productId) {
     try {
         const token = sessionStorage.getItem('token');
         if (!token) {
-            throw new Error('Utente non autenticato');
+            window.location.href = '/login.html';
+            return;
         }
 
         const response = await fetch('/cart/add', {
@@ -343,57 +178,110 @@ async function addToCart(productId) {
             })
         });
 
+        const data = await response.json();
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Errore nell\'aggiunta al carrello');
-        }
-
-        const cartResponse = await fetch('/cart', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!cartResponse.ok) {
-            throw new Error('Errore nel recupero del carrello');
-        }
-
-        const cartData = await cartResponse.json();
-        
-        if (!cartData.success) {
-            throw new Error(cartData.message || 'Errore nel recupero del carrello');
-        }
-
-        const cartItem = cartData.items.find(item => item.prodotto_id === productId);
-        
-        // Update UI
-        const addButton = document.querySelector(`button[onclick="addToCart(${productId})"]`);
-        if (addButton && cartItem) {
-            const btnGroup = addButton.closest('.btn-group');
-            if (btnGroup) {
-                btnGroup.innerHTML = `
-                    <div class="input-group cart-quantity-group">
-                        <button class="btn btn-outline-primary" 
-                            onclick="updateCartQuantity(${productId}, ${cartItem.quantita - 1})">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <span class="input-group-text">${cartItem.quantita}</span>
-                        <button class="btn btn-outline-primary" 
-                            onclick="updateCartQuantity(${productId}, ${cartItem.quantita + 1})">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>`;
-            }
+            throw new Error(data.message || 'Errore nell\'aggiunta al carrello');
         }
 
         showSuccessMessage('Prodotto aggiunto al carrello');
+        
+        // Reload products to update quantities
+        const artisanId = new URLSearchParams(window.location.search).get('id');
+        await loadProducts(artisanId);
 
     } catch (error) {
-        console.error('Error adding to cart:', error);
+        console.error('Error:', error);
         showErrorMessage(error.message);
     }
 }
 
+// Update filter setup function
+async function setupFilters() {
+    try {
+        const response = await fetch('/categories', {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore nel recupero delle categorie');
+        }
+
+        const data = await response.json();
+        
+        const filterCategory = document.getElementById('filterCategory');
+        if (filterCategory && data.categories) {
+            filterCategory.innerHTML = `
+                <option value="">Tutte le categorie</option>
+                ${data.categories.map(category => `
+                    <option value="${category.tipologia_id}">
+                        ${category.nome_tipologia}
+                    </option>
+                `).join('')}
+            `;
+        }
+
+        // Setup price filters
+        const priceInputs = ['rangeMin', 'rangeMax'].map(id => 
+            document.getElementById(id)
+        ).filter(Boolean);
+
+        priceInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                if (isNaN(value) || value < 0) {
+                    this.value = 0;
+                }
+            });
+        });
+
+        // Setup filter button
+        document.getElementById('applyFilters')?.addEventListener('click', applyFilters);
+
+    } catch (error) {
+        console.error('Error setting up filters:', error);
+        showErrorMessage('Errore nel caricamento delle categorie');
+    }
+}
+
+// Update filter application function
+function applyFilters() {
+    if (!allProducts.length) return;
+
+    let filteredProducts = [...allProducts];
+
+    const searchTerm = document.getElementById('searchInput')?.value.toLowerCase();
+    const selectedCategory = document.getElementById('filterCategory')?.value;
+    const minPrice = parseFloat(document.getElementById('rangeMin')?.value) || 0;
+    const maxPrice = parseFloat(document.getElementById('rangeMax')?.value) || Infinity;
+    const onlyAvailable = document.getElementById('onlyAvailabily')?.checked;
+
+    // Apply filters
+    if (searchTerm) {
+        filteredProducts = filteredProducts.filter(product => 
+            product.nome_prodotto.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    if (selectedCategory) {
+        filteredProducts = filteredProducts.filter(product => 
+            product.tipologia_id.toString() === selectedCategory
+        );
+    }
+
+    filteredProducts = filteredProducts.filter(product => {
+        const price = parseFloat(product.prezzo);
+        return price >= minPrice && (maxPrice === Infinity || price <= maxPrice);
+    });
+
+    if (onlyAvailable) {
+        filteredProducts = filteredProducts.filter(product => product.quantita > 0);
+    }
+
+    updateProductsDisplay(filteredProducts);
+}
 // Funzione per aggiornare la quantità del prodotto nel carrello
 async function updateCartQuantity(productId, newQuantity, maxQuantity) {
     if (newQuantity < 0) return;
@@ -499,7 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Aggiorna la sezione della valutazione media
         updateAverageRating(averageRating, artisanReviews.length);
 
-        // Popola le recensioni con controllo proprietario
+        // Popola le recensioni
         reviewsContainer.innerHTML = artisanReviews.map(review => `
             <div class="col-9 mb-4">
                 <div class="card bg-light w-100">
@@ -524,16 +412,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <p class="card-text">${review.descrizione}</p>
                         ${user && user.id === review.cliente_id ? 
                             `<div class="d-flex justify-content-end mt-3">
-                                <button class="btn-review bg-light btn-link text-primary" 
+                                <button class="btn btn-link text-primary" 
                                         onclick="editReview(${review.recensione_id})"
                                         title="Modifica recensione">
-                                    modifica
+                                    <i class="fas fa-edit"></i> Modifica
                                 </button>
-                                <hr style="border: 1px solid; margin: 0.5rem 0;">
-                                <button class="btn-review bg-light btn-link text-danger" 
+                                <button class="btn btn-link text-danger" 
                                         onclick="deleteReview(${review.recensione_id})"
                                         title="Elimina recensione">
-                                    elimina
+                                    <i class="fas fa-trash"></i> Elimina
                                 </button>
                             </div>` : 
                             ''
@@ -550,6 +437,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             reviewsContainer.innerHTML = `
                 <div class="col-9 mb-4">
                     <div class="alert alert-danger" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
                         Si è verificato un errore nel caricamento delle recensioni. 
                         <br>Dettaglio: ${error.message}
                     </div>

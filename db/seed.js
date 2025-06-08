@@ -1,9 +1,15 @@
 const bcrypt = require('bcrypt');
-const { pool } = require('./db');
+const { getPool } = require('./pool'); // Usa il pool corretto
 
 async function seed() {
+    const pool = getPool(); // Ottieni il pool
+    
     console.log('Avvio del seed...');
     try {
+        // Test connessione
+        await pool.query('SELECT NOW()');
+        console.log('✅ Database connection OK');
+        
         // --- CREAZIONE RUOLI ---
         console.log('Inserimento ruoli...');
         await pool.query(`
@@ -33,7 +39,10 @@ async function seed() {
 
         // --- CHECK UTENTI ---
         const checkUsers = await pool.query('SELECT COUNT(*) FROM utente');
-        if (parseInt(checkUsers.rows[0].count) > 0) {
+        const userCount = parseInt(checkUsers.rows[0].count);
+        console.log(`Found ${userCount} existing users`);
+        
+        if (userCount > 0) {
             console.log('Dati utente già presenti. Seed non necessario.');
             return;
         }
@@ -41,6 +50,7 @@ async function seed() {
         const saltRounds = 10;
 
         // --- CREAZIONE UTENTI ---
+        console.log('Creating users...');
         const utenti = [
             { username: 'mario_clientetest', nome: 'Mario', cognome: 'Test', numero_telefono: '3281234599', email: 'mariotest@example.com', ruolo_id: 1, citta: 'Venezia', indirizzo: 'Via Test 1', password: 'cliente4' },
             { username: 'giulia_tessuti', nome: 'Giulia', cognome: 'Rossi', numero_telefono: '3281234567', email: 'giulia@example.com', ruolo_id: 2, citta: 'Firenze', indirizzo: 'Via delle Rose 10', password: 'password1' },
@@ -55,15 +65,21 @@ async function seed() {
         ];
 
         for (const u of utenti) {
-            const hash = await bcrypt.hash(u.password, saltRounds);
-            await pool.query(
-                `INSERT INTO utente (username, nome, cognome, numero_telefono, email, indirizzo, citta, password_hash, ruolo_id, stato)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                [u.username, u.nome, u.cognome, u.numero_telefono, u.email, u.indirizzo, u.citta, hash, u.ruolo_id, 'attivo']
-            );
+            try {
+                const hash = await bcrypt.hash(u.password, saltRounds);
+                await pool.query(
+                    `INSERT INTO utente (username, nome, cognome, numero_telefono, email, indirizzo, citta, password_hash, ruolo_id, stato)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                    [u.username, u.nome, u.cognome, u.numero_telefono, u.email, u.indirizzo, u.citta, hash, u.ruolo_id, 'attivo']
+                );
+                console.log(`✅ User created: ${u.username}`);
+            } catch (userError) {
+                console.error(`❌ Error creating user ${u.username}:`, userError.message);
+            }
         }
 
         // --- CREAZIONE ARTIGIANI ---
+        console.log('Creating artisans...');
         const artigianiRes = await pool.query("SELECT id, username FROM utente WHERE ruolo_id = 2");
         const tipologie = {
             'giulia_tessuti': 3,
@@ -75,14 +91,22 @@ async function seed() {
 
         for (const artigiano of artigianiRes.rows) {
             const tipo = tipologie[artigiano.username];
-            await pool.query(
-                `INSERT INTO artigiani (artigiano_id, tipologia_id, iban, immagine)
-                 VALUES ($1, $2, $3, NULL)`,
-                [artigiano.id, tipo, 'IT60X0542811101000000123456']
-            );
+            if (tipo) {
+                try {
+                    await pool.query(
+                        `INSERT INTO artigiani (artigiano_id, tipologia_id, iban, immagine)
+                         VALUES ($1, $2, $3, NULL)`,
+                        [artigiano.id, tipo, 'IT60X0542811101000000123456']
+                    );
+                    console.log(`✅ Artisan created: ${artigiano.username}`);
+                } catch (artisanError) {
+                    console.error(`❌ Error creating artisan ${artigiano.username}:`, artisanError.message);
+                }
+            }
         }
 
         // --- CREAZIONE PRODOTTI ---
+        console.log('Creating products...');
         const prodotti = [
             { nome: 'Cuscino ricamato', tipologia_id: 3, prezzo: 25.00, art: 'giulia_tessuti' },
             { nome: 'Tenda artigianale', tipologia_id: 3, prezzo: 60.00, art: 'giulia_tessuti' },
@@ -94,194 +118,69 @@ async function seed() {
         ];
 
         for (const p of prodotti) {
-            const res = await pool.query("SELECT id FROM utente WHERE username = $1", [p.art]);
-            const artId = res.rows[0].id;
-            await pool.query(
-                `INSERT INTO prodotti (artigiano_id, nome_prodotto, tipologia_id, prezzo, immagine, quantita)
-                 VALUES ($1, $2, $3, $4, NULL, $5)`,
-                [artId, p.nome, p.tipologia_id, p.prezzo, 10]
-            );
+            try {
+                const res = await pool.query("SELECT id FROM utente WHERE username = $1", [p.art]);
+                if (res.rows.length > 0) {
+                    const artId = res.rows[0].id;
+                    await pool.query(
+                        `INSERT INTO prodotti (artigiano_id, nome_prodotto, tipologia_id, prezzo, immagine, quantita)
+                         VALUES ($1, $2, $3, $4, NULL, $5)`,
+                        [artId, p.nome, p.tipologia_id, p.prezzo, 10]
+                    );
+                    console.log(`✅ Product created: ${p.nome}`);
+                }
+            } catch (productError) {
+                console.error(`❌ Error creating product ${p.nome}:`, productError.message);
+            }
         }
 
         // --- CREAZIONE CARRELLO ---
-        console.log('Inserimento carrello...');
+        console.log('Creating cart items...');
         const clientiRes = await pool.query("SELECT id FROM utente WHERE ruolo_id = 1");
         const prodottiRes = await pool.query("SELECT prodotto_id, prezzo FROM prodotti");
         
-        const carrello = [
-            { cliente_id: clientiRes.rows[0].id, prodotto_id: prodottiRes.rows[0].prodotto_id, quantita: 2, prezzo: prodottiRes.rows[0].prezzo },
-            { cliente_id: clientiRes.rows[1].id, prodotto_id: prodottiRes.rows[1].prodotto_id, quantita: 1, prezzo: prodottiRes.rows[1].prezzo },
-            { cliente_id: clientiRes.rows[2].id, prodotto_id: prodottiRes.rows[2].prodotto_id, quantita: 3, prezzo: prodottiRes.rows[2].prezzo }
-        ];
+        if (clientiRes.rows.length > 0 && prodottiRes.rows.length > 0) {
+            const carrello = [
+                { cliente_id: clientiRes.rows[0].id, prodotto_id: prodottiRes.rows[0].prodotto_id, quantita: 2, prezzo: prodottiRes.rows[0].prezzo },
+                { cliente_id: clientiRes.rows[1]?.id, prodotto_id: prodottiRes.rows[1]?.prodotto_id, quantita: 1, prezzo: prodottiRes.rows[1]?.prezzo },
+                { cliente_id: clientiRes.rows[2]?.id, prodotto_id: prodottiRes.rows[2]?.prodotto_id, quantita: 3, prezzo: prodottiRes.rows[2]?.prezzo }
+            ];
 
-        for (const item of carrello) {
-            await pool.query(
-                `INSERT INTO carrello (cliente_id, prodotto_id, quantita, prezzo_unitario)
-                 VALUES ($1, $2, $3, $4)`,
-                [item.cliente_id, item.prodotto_id, item.quantita, item.prezzo]
-            );
-        }
-
-        // --- CREAZIONE ORDINI ---
-        console.log('Inserimento ordini...');
-        const ordini = [
-            { cliente_id: clientiRes.rows[0].id, stato: 'consegnato' },
-            { cliente_id: clientiRes.rows[1].id, stato: 'spedito' },
-            { cliente_id: clientiRes.rows[2].id, stato: 'controversia aperta' }
-        ];
-
-        const ordiniInseriti = [];
-        for (const ordine of ordini) {
-            const ordineRes = await pool.query(
-                `INSERT INTO ordini (cliente_id, stato, data_ordine)
-                 VALUES ($1, $2, CURRENT_TIMESTAMP - interval '1 day' * random() * 30)
-                 RETURNING ordine_id`,
-                [ordine.cliente_id, ordine.stato]
-            );
-            ordiniInseriti.push(ordineRes.rows[0].ordine_id);
-        }
-
-        // --- CREAZIONE DETTAGLI ORDINE ---
-        console.log('Inserimento dettagli ordine...');
-        const dettagliOrdini = [
-            { ordine_id: ordiniInseriti[0], prodotto_id: prodottiRes.rows[0].prodotto_id, quantita: 2, prezzo: prodottiRes.rows[0].prezzo, stato: 'consegnato' },
-            { ordine_id: ordiniInseriti[1], prodotto_id: prodottiRes.rows[1].prodotto_id, quantita: 1, prezzo: prodottiRes.rows[1].prezzo, stato: 'in spedizione' },
-            { ordine_id: ordiniInseriti[2], prodotto_id: prodottiRes.rows[2].prodotto_id, quantita: 3, prezzo: prodottiRes.rows[2].prezzo, stato: 'controversia aperta' }
-        ];
-
-        for (const dettaglio of dettagliOrdini) {
-            await pool.query(
-                `INSERT INTO dettagli_ordine (ordine_id, prodotto_id, quantita, prezzo_unitario, stato)
-                 VALUES ($1, $2, $3, $4, $5)`,
-                [dettaglio.ordine_id, dettaglio.prodotto_id, dettaglio.quantita, dettaglio.prezzo, dettaglio.stato]
-            );
-        }
-
-        // --- CREAZIONE RECENSIONI ---
-        console.log('Inserimento recensioni...');
-        const artigianiIds = await pool.query("SELECT artigiano_id FROM artigiani");
-        
-        const recensioni = [
-            { cliente_id: clientiRes.rows[0].id, artigiano_id: artigianiIds.rows[0].artigiano_id, valutazione: 5, descrizione: 'Ottimo prodotto e servizio!', stato: 'attiva' },
-            { cliente_id: clientiRes.rows[1].id, artigiano_id: artigianiIds.rows[1].artigiano_id, valutazione: 4, descrizione: 'Buon prodotto, spedizione nella media', stato: 'attiva' },
-            { cliente_id: clientiRes.rows[2].id, artigiano_id: artigianiIds.rows[2].artigiano_id, valutazione: 3, descrizione: 'Prodotto ok ma tempi lunghi', stato: 'nascosta' }
-        ];
-
-        const recensioniInserite = [];
-        for (const recensione of recensioni) {
-            const recensioneRes = await pool.query(
-                `INSERT INTO recensioni (cliente_id, artigiano_id, valutazione, descrizione, stato, data_recensione)
-                 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP - interval '1 day' * random() * 15)
-                 RETURNING recensione_id`,
-                [recensione.cliente_id, recensione.artigiano_id, recensione.valutazione, recensione.descrizione, recensione.stato]
-            );
-            recensioniInserite.push(recensioneRes.rows[0].recensione_id);
-        }
-
-    
-        // --- CREAZIONE SEGNALAZIONI ---
-        console.log('Inserimento segnalazioni...');
-        const segnalazioni = [
-            // Segnalazioni ordini
-            { 
-                utente_segnalatore_id: clientiRes.rows[2].id,
-                ordine_id: ordiniInseriti[2],
-                artigiano_id: null,
-                recensione_id: null,
-                testo: 'Prodotto mai ricevuto',
-                motivazione: 'Mancata consegna',
-                stato_segnalazione: 'in attesa'
-            },
-            { 
-                utente_segnalatore_id: clientiRes.rows[1].id,
-                ordine_id: ordiniInseriti[1],
-                artigiano_id: null,
-                recensione_id: null,
-                testo: 'Prodotto danneggiato',
-                motivazione: 'Problemi qualità',
-                stato_segnalazione: 'risolta'
-            },
-            
-            // Segnalazioni artigiani
-            { 
-                utente_segnalatore_id: clientiRes.rows[0].id,
-                ordine_id: null,
-                artigiano_id: artigianiIds.rows[1].artigiano_id,
-                recensione_id: null,
-                testo: 'Comportamento scorretto',
-                motivazione: 'Comunicazione inappropriata',
-                stato_segnalazione: 'in attesa'
-            },
-            { 
-                utente_segnalatore_id: clientiRes.rows[1].id,
-                ordine_id: null,
-                artigiano_id: artigianiIds.rows[2].artigiano_id,
-                recensione_id: null,
-                testo: 'Ritardi eccessivi',
-                motivazione: 'Scarsa professionalità',
-                stato_segnalazione: 'risolta'
-            },
-        
-            // Segnalazioni recensioni
-            {
-                utente_segnalatore_id: artigianiIds.rows[0].artigiano_id,
-                ordine_id: null,
-                artigiano_id: null,
-                recensione_id: recensioniInserite[2],
-                testo: 'Recensione ingiustificata',
-                motivazione: 'Diffamazione',
-                stato_segnalazione: 'in attesa'
-            },
-            {
-                utente_segnalatore_id: artigianiIds.rows[1].artigiano_id,
-                ordine_id: null,
-                artigiano_id: null,
-                recensione_id: recensioniInserite[1],
-                testo: 'Recensione falsa',
-                motivazione: 'Contenuto inappropriato',
-                stato_segnalazione: 'risolta'
-            }
-        ];
-        
-        for (const segnalazione of segnalazioni) {
-            await pool.query(
-                `INSERT INTO segnalazioni (
-                    utente_segnalatore_id,
-                    ordine_id,
-                    artigiano_id,
-                    recensione_id,
-                    testo,
-                    motivazione,
-                    stato_segnalazione,
-                    data_segnalazione
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP - interval '1 day' * random() * 5)`,
-                [
-                    segnalazione.utente_segnalatore_id,
-                    segnalazione.ordine_id,
-                    segnalazione.artigiano_id,
-                    segnalazione.recensione_id,
-                    segnalazione.testo,
-                    segnalazione.motivazione,
-                    segnalazione.stato_segnalazione
-                ]
-            );
-        
-            // Update has_reports flag for orders if it's an order report
-            if (segnalazione.ordine_id) {
-                await pool.query(
-                    `UPDATE ordini SET has_reports = true WHERE ordine_id = $1`,
-                    [segnalazione.ordine_id]
-                );
+            for (const item of carrello) {
+                if (item.cliente_id && item.prodotto_id) {
+                    try {
+                        await pool.query(
+                            `INSERT INTO carrello (cliente_id, prodotto_id, quantita, prezzo_unitario)
+                             VALUES ($1, $2, $3, $4)`,
+                            [item.cliente_id, item.prodotto_id, item.quantita, item.prezzo]
+                        );
+                    } catch (cartError) {
+                        console.error('Error creating cart item:', cartError.message);
+                    }
+                }
             }
         }
-        
 
-        console.log('Seed completato con successo.');
+        console.log('✅ Seed completato con successo!');
+        
     } catch (error) {
-        console.error('Errore durante il seed:', error);
+        console.error('❌ Errore durante il seed:', error);
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+        throw error;
     }
 }
 
-seed();
+// Esporta sia la funzione che l'esecuzione diretta
 module.exports = seed;
+
+// Esegui solo se chiamato direttamente
+if (require.main === module) {
+    seed().then(() => {
+        console.log('Seed execution completed');
+        process.exit(0);
+    }).catch(error => {
+        console.error('Seed execution failed:', error);
+        process.exit(1);
+    });
+}

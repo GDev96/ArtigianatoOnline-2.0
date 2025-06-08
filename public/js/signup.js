@@ -2,12 +2,14 @@
 function toggleArtisanSection(isArtisan) {
     console.log('funzione chiamata', isArtisan);
     const artisanSection = document.getElementById('artisanSection');
-    if (isArtisan) {
-        artisanSection.classList.remove('d-none');
-        artisanSection.classList.add('d-block');
-    } else {
-        artisanSection.classList.remove('d-block');
-        artisanSection.classList.add('d-none');
+    if (artisanSection) {
+        if (isArtisan) {
+            artisanSection.classList.remove('d-none');
+            artisanSection.classList.add('d-block');
+        } else {
+            artisanSection.classList.remove('d-block');
+            artisanSection.classList.add('d-none');
+        }
     }
 }
 
@@ -35,27 +37,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const categorySelect = document.getElementById('categoryInput');
         
-        // Reset select to empty state
-        categorySelect.innerHTML = '<option value="" selected disabled>Seleziona una categoria</option>';
+        if (categorySelect) {
+            // Reset select to empty state
+            categorySelect.innerHTML = '<option value="" selected disabled>Seleziona una categoria</option>';
 
-        // Add all categories without filtering
-        data.categories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category.tipologia_id;
-            option.textContent = category.nome_tipologia;
-            categorySelect.appendChild(option);
-        });
+            // Add all categories without filtering
+            data.categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.tipologia_id;
+                option.textContent = category.nome_tipologia;
+                categorySelect.appendChild(option);
+            });
+        }
 
     } catch (error) {
         console.error('Error loading categories:', error);
         const categorySelect = document.getElementById('categoryInput');
-        categorySelect.innerHTML = '<option value="" selected disabled>Errore nel caricamento delle categorie</option>';
-        
-        // Show error to user
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'alert alert-danger mt-2';
-        errorDiv.textContent = 'Errore nel caricamento delle categorie. Riprova più tardi.';
-        categorySelect.parentNode.appendChild(errorDiv);
+        if (categorySelect) {
+            categorySelect.innerHTML = '<option value="" selected disabled>Errore nel caricamento delle categorie</option>';
+            
+            // Show error to user
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger mt-2';
+            errorDiv.textContent = 'Errore nel caricamento delle categorie. Riprova più tardi.';
+            categorySelect.parentNode.appendChild(errorDiv);
+        }
     }
 });
 
@@ -72,16 +78,21 @@ function validatePassword(password) {
     Object.keys(validations).forEach(key => {
         const element = document.getElementById(key);
         if (element) {
+            const icon = element.querySelector('i');
             if (validations[key]) {
                 element.classList.remove('text-danger');
                 element.classList.add('text-success');
-                element.querySelector('i').classList.remove('fa-times-circle');
-                element.querySelector('i').classList.add('fa-check-circle');
+                if (icon) {
+                    icon.classList.remove('fa-times-circle');
+                    icon.classList.add('fa-check-circle');
+                }
             } else {
                 element.classList.remove('text-success');
                 element.classList.add('text-danger');
-                element.querySelector('i').classList.remove('fa-check-circle');
-                element.querySelector('i').classList.add('fa-times-circle');
+                if (icon) {
+                    icon.classList.remove('fa-check-circle');
+                    icon.classList.add('fa-times-circle');
+                }
             }
         }
     });
@@ -194,73 +205,163 @@ async function processImage(file) {
     });
 }
 
-// Registration function
-document.querySelector('form').addEventListener('submit', async (e) => {
-    e.preventDefault();
+function showErrorMessage(message) {
     const formError = document.getElementById('formError');
-    formError.classList.add('d-none');
+    if (formError) {
+        formError.textContent = message;
+        formError.classList.remove('d-none');
+        // Scroll to error message
+        formError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        // Fallback to alert if error element doesn't exist
+        alert('Errore: ' + message);
+    }
+}
 
-    try {
-        const password = document.getElementById('passwordInput').value;
-        
-        // Validate password requirements
-        if (!validatePassword(password)) {
-            throw new Error('La password non soddisfa i requisiti minimi di sicurezza');
+function showSuccessMessage(message) {
+    const formSuccess = document.getElementById('formSuccess');
+    if (formSuccess) {
+        formSuccess.textContent = message;
+        formSuccess.classList.remove('d-none');
+        // Hide error if showing
+        const formError = document.getElementById('formError');
+        if (formError) {
+            formError.classList.add('d-none');
         }
+    } else {
+        // Fallback to alert if success element doesn't exist
+        alert('Successo: ' + message);
+    }
+}
 
-        const formData = {
-            username: document.getElementById('usernameInput').value.trim(),
-            email: document.getElementById('emailInput').value.trim(),
-            password: password,
-            nome: document.getElementById('nameInput').value.trim(),
-            cognome: document.getElementById('surnameInput').value.trim(),
-            numero_telefono: document.getElementById('phoneInput').value.trim(),
-            indirizzo: document.getElementById('addressInput').value.trim(),
-            citta: document.getElementById('cityInput').value.trim(),
-            ruolo_id: document.getElementById('artisanCheck').checked ? 2 : 1
-        };
-
-        // Add artisan specific fields if artisan registration
-        if (formData.ruolo_id === 2) {
-            const iban = document.getElementById('vatNumberInput').value.trim();
-            const tipologia_id = document.getElementById('categoryInput').value;
-
-            if (!iban || !validateIBAN(iban)) {
-                throw new Error('IBAN non valido');
+// Registration function - Wait for DOM to be loaded
+document.addEventListener('DOMContentLoaded', () => {
+    const signupForm = document.querySelector('form#signupForm') || document.querySelector('form');
+    
+    if (signupForm) {
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('Form submission started');
+            
+            const formError = document.getElementById('formError');
+            if (formError) {
+                formError.classList.add('d-none');
             }
 
-            if (!tipologia_id) {
-                throw new Error('Seleziona una categoria');
+            try {
+                // Get all form elements with null checks
+                const usernameInput = document.getElementById('usernameInput');
+                const emailInput = document.getElementById('emailInput');
+                const passwordInput = document.getElementById('passwordInput');
+                const nameInput = document.getElementById('nameInput');
+                const surnameInput = document.getElementById('surnameInput');
+                const phoneInput = document.getElementById('phoneInput');
+                const addressInput = document.getElementById('addressInput');
+                const cityInput = document.getElementById('cityInput');
+                const artisanCheck = document.getElementById('artisanCheck');
+
+                // Validate all required elements exist
+                if (!usernameInput || !emailInput || !passwordInput || !nameInput || !surnameInput) {
+                    throw new Error('Alcuni campi obbligatori non sono stati trovati nella pagina');
+                }
+
+                const password = passwordInput.value;
+                
+                // Validate password requirements
+                if (!validatePassword(password)) {
+                    throw new Error('La password non soddisfa i requisiti minimi di sicurezza');
+                }
+
+                const formData = {
+                    nome_utente: usernameInput.value.trim(),
+                    email: emailInput.value.trim(),
+                    password: password,
+                    nome: nameInput.value.trim(),
+                    cognome: surnameInput.value.trim(),
+                    numero_telefono: phoneInput ? phoneInput.value.trim() : '',
+                    indirizzo: addressInput ? addressInput.value.trim() : '',
+                    citta: cityInput ? cityInput.value.trim() : '',
+                    isArtigiano: artisanCheck ? artisanCheck.checked : false
+                };
+
+                console.log('Form data prepared:', {
+                    ...formData,
+                    password: '[HIDDEN]'
+                });
+
+                // Add artisan specific fields if artisan registration
+                if (formData.isArtigiano) {
+                    const ibanInput = document.getElementById('vatNumberInput');
+                    const categoryInput = document.getElementById('categoryInput');
+
+                    if (!ibanInput || !categoryInput) {
+                        throw new Error('Campi artigiano non trovati nella pagina');
+                    }
+
+                    const iban = ibanInput.value.trim();
+                    const tipologia_id = categoryInput.value;
+
+                    if (!iban || !validateIBAN(iban)) {
+                        throw new Error('IBAN non valido');
+                    }
+
+                    if (!tipologia_id) {
+                        throw new Error('Seleziona una categoria');
+                    }
+
+                    formData.iban = iban;
+                    formData.tipologia_id = parseInt(tipologia_id);
+                }
+
+                // Basic validation
+                if (!formData.nome_utente || !formData.email || !formData.password || !formData.nome || !formData.cognome) {
+                    throw new Error('Tutti i campi obbligatori devono essere compilati');
+                }
+
+                console.log('Sending registration request...');
+
+                const response = await fetch('/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                console.log('Response received:', response.status);
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Errore durante la registrazione');
+                }
+
+                // Show success message
+                showSuccessMessage('Registrazione completata con successo! Verrai reindirizzato al login...');
+
+                // Try to show success modal if it exists
+                const successModalElement = document.getElementById('successModal');
+                if (successModalElement && typeof bootstrap !== 'undefined') {
+                    try {
+                        const successModal = new bootstrap.Modal(successModalElement);
+                        successModal.show();
+                    } catch (modalError) {
+                        console.warn('Could not show success modal:', modalError);
+                    }
+                }
+
+                // Redirect to login after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/login.html';
+                }, 3000);
+
+            } catch (error) {
+                console.error('Registration error:', error);
+                showErrorMessage(error.message);
             }
-
-            formData.iban = iban;
-            formData.tipologia_id = parseInt(tipologia_id);
-        }
-
-        const response = await fetch('/auth/signup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
         });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.success) {
-            throw new Error(data.error || 'Errore durante la registrazione');
-        }
-
-        // Show success modal and redirect
-        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-        successModal.show();
-
-        setTimeout(() => {
-            window.location.href = '/login.html';
-        }, 3000);
-
-    } catch (error) {
-        console.error('Registration error:', error);
-        showErrorMessage(error.message);
+    } else {
+        console.warn('Signup form not found');
     }
 });

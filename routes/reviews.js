@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../db/db'); // Fix pool import
+const { getPool } = require('../db/db'); // Update to use getPool
 const createAuthMiddleware = require('../middleware/auth');
 
-// Create auth middleware
 const requireAuth = createAuthMiddleware();
 
 // GET tutte le recensioni - pubblico
 router.get('/', async (req, res) => {
     try {
+        const pool = getPool();
         const query = `
             SELECT 
                 r.recensione_id,
@@ -39,8 +39,7 @@ router.get('/', async (req, res) => {
         console.error('Error fetching reviews:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore nel recupero delle recensioni',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: 'Errore nel recupero delle recensioni'
         });
     }
 });
