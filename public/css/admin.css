@@ -80,6 +80,7 @@ body {
     background-color: var(--bg-color);
     border-right: 1px solid var(--palette-light);
     padding-top: 3.75rem;
+    z-index: 999;
 }
 
 .sidebar .nav-link {
@@ -230,4 +231,82 @@ body {
     border-radius: 15px;
     font-family: var(--font-primary);
     font-weight: var(--font-weight-medium);
+}
+/* Sostituisci tutta la sezione modali nel file admin.css con questo: */
+
+/* =================================== */
+/* OVERRIDE COMPLETO MODALI BOOTSTRAP */
+/* =================================== */
+
+/* Rimuovi completamente lo stile di default di Bootstrap per i modali */
+.modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 9999 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    display: none !important;
+}
+
+.modal.show {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.modal-backdrop {
+    display: none !important; /* Nascondi il backdrop di Bootstrap */
+}
+
+.modal-dialog {
+    position: relative !important;
+    z-index: 10000 !important;
+    margin: 0 !important;
+    max-width: 500px !important;
+    width: 90% !important;
+}
+
+.modal-content {
+    position: relative !important;
+    z-index: 10001 !important;
+    background: white !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+.modal-header,
+.modal-body,
+.modal-footer {
+    position: relative !important;
+    z-index: 10002 !important;
+}
+
+.modal .btn {
+    position: relative !important;
+    z-index: 10003 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+.modal .btn-close {
+    position: relative !important;
+    z-index: 10004 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Assicura che il modale sia sempre sopra tutto */
+.modal * {
+    pointer-events: auto !important;
+}
+
+/* Fix per elementi che potrebbero interferire */
+.sidebar {
+    z-index: 999 !important;
+}
+
+.admin-header {
+    z-index: 1000 !important;
 }

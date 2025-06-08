@@ -123,6 +123,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     }
 });
 
+// GET reviews for specific artisan
 router.get('/artisan/:id', async (req, res) => {
     try {
         const artisanId = req.params.id;
@@ -141,6 +142,7 @@ router.get('/artisan/:id', async (req, res) => {
                 c.cognome as cognome_cliente
             FROM recensioni r
             INNER JOIN utente c ON r.cliente_id = c.id
+            INNER JOIN artigiani a ON r.artigiano_id = a.artigiano_id
             WHERE r.artigiano_id = $1 
             AND r.stato = 'attiva'
             ORDER BY r.data_recensione DESC`;
@@ -161,29 +163,21 @@ router.get('/artisan/:id', async (req, res) => {
     }
 });
 
-// POST nuova recensione - solo utenti autenticati
+// POST new review
 router.post('/', requireAuth, async (req, res) => {
     const client = await getPool().connect();
     try {
         const { artigiano_id, valutazione, descrizione } = req.body;
         const cliente_id = req.user.id;
 
-        // Validation
-        if (!artigiano_id || !valutazione || !descrizione) {
-            return res.status(400).json({
-                success: false,
-                message: 'Dati recensione incompleti'
-            });
-        }
-
         await client.query('BEGIN');
 
-        // Check if artisan exists and is active
+        // Check if artisan exists
         const artisanCheck = await client.query(`
-            SELECT u.id 
-            FROM utente u
-            INNER JOIN artigiani a ON u.id = a.artigiano_id
-            WHERE u.id = $1 AND u.ruolo_id = 2 AND u.stato = 'attivo'`,
+            SELECT a.artigiano_id 
+            FROM artigiani a
+            INNER JOIN utente u ON a.artigiano_id = u.id
+            WHERE a.artigiano_id = $1 AND u.stato = 'attivo'`,
             [artigiano_id]
         );
 
@@ -191,7 +185,7 @@ router.post('/', requireAuth, async (req, res) => {
             throw new Error('Artigiano non trovato o non attivo');
         }
 
-        // Check if user has already reviewed this artisan
+        // Check for existing review
         const existingReview = await client.query(`
             SELECT recensione_id 
             FROM recensioni 
@@ -203,13 +197,12 @@ router.post('/', requireAuth, async (req, res) => {
             throw new Error('Hai già recensito questo artigiano');
         }
 
-        // Insert review
         const insertQuery = `
             INSERT INTO recensioni 
                 (cliente_id, artigiano_id, valutazione, descrizione, data_recensione, stato)
             VALUES 
                 ($1, $2, $3, $4, CURRENT_TIMESTAMP, 'attiva')
-            RETURNING recensione_id`;
+            RETURNING *`;
 
         const result = await client.query(insertQuery, [
             cliente_id,
@@ -222,21 +215,14 @@ router.post('/', requireAuth, async (req, res) => {
 
         res.status(201).json({
             success: true,
-            review: {
-                recensione_id: result.rows[0].recensione_id,
-                cliente_id,
-                artigiano_id,
-                valutazione,
-                descrizione
-            }
+            review: result.rows[0]
         });
 
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error creating review:', error);
         res.status(500).json({
             success: false,
-            message: error.message || 'Errore nella creazione della recensione'
+            message: error.message
         });
     } finally {
         client.release();

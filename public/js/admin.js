@@ -402,15 +402,120 @@ async function checkUserReportsAndReactivate(userId) {
 }
 
 
+// Nel file admin.js, sostituisci la funzione toggleArtisanStatus con questa versione che usa Bootstrap correttamente:
 
-// Add new function to handle user reactivation confirmation
+async function toggleArtisanStatus(artisanId, currentStatus) {
+    const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
+    
+    if (newStatus === 'attivo') {
+        // Per la riattivazione, controlla le segnalazioni
+        try {
+            const reportsResponse = await fetch(`/admin/artisans/${artisanId}/reports-count`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            const result = await reportsResponse.json();
+            
+            if (result.success && result.data.reportCount > 3) {
+                showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
+                return;
+            }
+
+            // Usa Bootstrap Modal correttamente per riattivazione
+            document.getElementById('artisanIdToReactivate').value = artisanId;
+            const modal = new bootstrap.Modal(document.getElementById('reactivateArtisanModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showErrorMessage('Errore nel controllo delle segnalazioni');
+        }
+    } else {
+        // Usa Bootstrap Modal correttamente per sospensione
+        document.getElementById('artisanIdToSuspend').value = artisanId;
+        const modal = new bootstrap.Modal(document.getElementById('suspendArtisanConfirmModal'));
+        modal.show();
+    }
+}
+
+// Aggiorna le funzioni di conferma per chiudere correttamente i modali
+async function confirmSuspendArtisan() {
+    const artisanId = document.getElementById('artisanIdToSuspend').value;
+    
+    // Chiudi il modale usando Bootstrap
+    const modalElement = document.getElementById('suspendArtisanConfirmModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Esegui l'azione
+    await updateArtisanStatus(artisanId, 'sospeso');
+}
+
+async function confirmReactivateArtisan() {
+    const artisanId = document.getElementById('artisanIdToReactivate').value;
+    
+    // Chiudi il modale usando Bootstrap
+    const modalElement = document.getElementById('reactivateArtisanModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Esegui l'azione
+    await updateArtisanStatus(artisanId, 'attivo');
+}
+
+// Aggiorna anche toggleUserStatus
+async function toggleUserStatus(userId, currentStatus) {
+    const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
+    
+    if (newStatus === 'attivo') {
+        try {
+            const reportsResponse = await fetch(`/admin/users/${userId}/reports-count`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            const result = await reportsResponse.json();
+            
+            if (result.success && result.data.reportCount > 3) {
+                showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
+                return;
+            }
+
+            // Usa Bootstrap Modal correttamente per utenti
+            document.getElementById('userIdToReactivate').value = userId;
+            const modal = new bootstrap.Modal(document.getElementById('reactivateUserModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showErrorMessage('Errore nel controllo delle segnalazioni');
+        }
+    } else {
+        showErrorMessage('Gli utenti non possono essere sospesi manualmente');
+    }
+}
+
+// Aggiorna confirmReactivateUser
 async function confirmReactivateUser() {
     const userId = document.getElementById('userIdToReactivate').value;
-    const modal = bootstrap.Modal.getInstance(document.getElementById('reactivateUserModal'));
-    modal.hide();
+    
+    // Chiudi il modale usando Bootstrap
+    const modalElement = document.getElementById('reactivateUserModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+        modal.hide();
+    }
     
     await updateUserStatus(userId, 'attivo');
 }
+
 
 async function updateUserStatus(userId, newStatus) {
     try {
@@ -498,6 +603,164 @@ async function loadArtisans() {
 }
 
 
+
+
+async function resolveReport(reportId, withAction = false) {
+    try {
+        const response = await fetch(`/admin/reports/${reportId}`, {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Errore nel recupero della segnalazione');
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero della segnalazione');
+        }
+
+        const reportData = result.data;
+        
+        if (reportData.artigiano_id) {
+            await showArtisanReportResolution(reportId, reportData);
+            return;
+        } else if (reportData.ordine_id) {
+            await showOrderReportResolution(reportId, reportData);
+            return;
+        } else if (reportData.recensione_id) {
+            await showReviewReportResolution(reportId, reportData);
+            return;
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        showErrorMessage(error.message || 'Errore nella risoluzione della segnalazione');
+    }
+}
+
+// SOSTITUISCI questa funzione nel tuo admin.js
+async function showArtisanReportResolution(reportId, reportData) {
+    try {
+        // Get report details if not already present
+        if (!reportData.artigiano_nome) {
+            const response = await fetch(`/admin/reports/${reportId}`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Errore nel recupero dettagli segnalazione');
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Errore nel recupero dettagli segnalazione');
+            }
+            
+            reportData = result.data;
+        }
+
+        // Populate modal with report details
+        document.getElementById('reportedArtisanName').textContent = reportData.artigiano_nome || '';
+        document.getElementById('reporterName').textContent = reportData.utente_nome || reportData.segnalatore_nome || '';
+        document.getElementById('reportType').textContent = reportData.motivazione || reportData.tipo || '';
+        document.getElementById('reportDescription').textContent = reportData.testo || reportData.descrizione || '';
+        document.getElementById('reportDate').textContent = reportData.data_segnalazione ? 
+            new Date(reportData.data_segnalazione).toLocaleDateString() : 
+            new Date(reportData.data).toLocaleDateString();
+
+        // Get modal element
+        const modalElement = document.getElementById('artisanReportResolutionModal');
+        
+        // Clean up any existing modal instances
+        const existingModal = bootstrap.Modal.getInstance(modalElement);
+        if (existingModal) {
+            existingModal.dispose();
+        }
+
+        // Create new modal instance
+        const modal = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+        
+        // Clean up previous event listeners by cloning buttons
+        const suspendBtn = document.getElementById('suspendArtisanBtn');
+        const resolveBtn = document.getElementById('resolveWithoutActionBtn');
+        
+        const newSuspendBtn = suspendBtn.cloneNode(true);
+        const newResolveBtn = resolveBtn.cloneNode(true);
+        
+        suspendBtn.parentNode.replaceChild(newSuspendBtn, suspendBtn);
+        resolveBtn.parentNode.replaceChild(newResolveBtn, resolveBtn);
+        
+        // Add new event listeners
+        newSuspendBtn.addEventListener('click', async () => {
+            modal.hide();
+            
+            const confirmed = await showCustomConfirm(
+                'Conferma Sospensione', 
+                `Sei sicuro di voler sospendere <strong>${reportData.artigiano_nome}</strong>? La sospensione durerà 3 giorni.`
+            );
+            
+            if (confirmed) {
+                try {
+                    // Suspend artisan
+                    const suspendResponse = await fetch(`/admin/artisans/${reportData.artigiano_id}/status`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ status: 'sospeso' })
+                    });
+                    
+                    if (!suspendResponse.ok) throw new Error('Errore nella sospensione dell\'artigiano');
+                    
+                    // Resolve report
+                    await resolveReportRequest(reportId, true);
+                    
+                    showSuccessMessage('Artigiano sospeso e segnalazione risolta');
+                    await Promise.all([loadArtisans(), loadReports()]);
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showErrorMessage('Errore durante la sospensione dell\'artigiano');
+                }
+            }
+        });
+
+        newResolveBtn.addEventListener('click', async () => {
+            modal.hide();
+            
+            const confirmed = await showCustomConfirm(
+                'Conferma Risoluzione', 
+                `Sei sicuro di voler risolvere la segnalazione per <strong>${reportData.artigiano_nome}</strong> senza conseguenze?`
+            );
+            
+            if (confirmed) {
+                try {
+                    await resolveReportRequest(reportId, false);
+                
+                    await loadReports();
+                } catch (error) {
+                    console.error('Error:', error);
+                    showErrorMessage('Errore nella risoluzione della segnalazione');
+                }
+            }
+        });
+
+        // Show modal
+        modal.show();
+        
+    } catch (error) {
+        console.error('Error showing report resolution modal:', error);
+        showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
+    }
+}
+
+// SOSTITUISCI questa funzione nel tuo admin.js
 async function toggleArtisanStatus(artisanId, currentStatus) {
     const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
     
@@ -517,21 +780,396 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
                 return;
             }
 
-            // Conferma diretta per la riattivazione
-            if (confirm('Sei sicuro di voler riattivare questo artigiano?')) {
-                await updateArtisanStatus(artisanId, 'attivo');
-            }
+            // Usa Bootstrap Modal per riattivazione
+            document.getElementById('artisanIdToReactivate').value = artisanId;
+            const modal = new bootstrap.Modal(document.getElementById('reactivateArtisanModal'));
+            modal.show();
+            
         } catch (error) {
             console.error('Error:', error);
             showErrorMessage('Errore nel controllo delle segnalazioni');
         }
     } else {
-        // Per la sospensione, conferma diretta
-        if (confirm('Sei sicuro di voler sospendere questo artigiano? La sospensione durerà 3 giorni.')) {
-            await updateArtisanStatus(artisanId, 'sospeso');
-        }
+        // Usa Bootstrap Modal per sospensione
+        document.getElementById('artisanIdToSuspend').value = artisanId;
+        const modal = new bootstrap.Modal(document.getElementById('suspendArtisanConfirmModal'));
+        modal.show();
     }
 }
+
+// SOSTITUISCI questa funzione nel tuo admin.js
+async function confirmSuspendArtisan() {
+    const artisanId = document.getElementById('artisanIdToSuspend').value;
+    
+    // Chiudi il modal Bootstrap
+    const modalElement = document.getElementById('suspendArtisanConfirmModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) modal.hide();
+    
+    // Esegui l'azione
+    await updateArtisanStatus(artisanId, 'sospeso');
+}
+
+// SOSTITUISCI questa funzione nel tuo admin.js
+async function confirmReactivateArtisan() {
+    const artisanId = document.getElementById('artisanIdToReactivate').value;
+    
+    // Chiudi il modal Bootstrap
+    const modalElement = document.getElementById('reactivateArtisanModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) modal.hide();
+    
+    // Esegui l'azione
+    await updateArtisanStatus(artisanId, 'attivo');
+}
+
+// SOSTITUISCI questa funzione nel tuo admin.js
+async function toggleUserStatus(userId, currentStatus) {
+    const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
+    
+    if (newStatus === 'attivo') {
+        try {
+            const reportsResponse = await fetch(`/admin/users/${userId}/reports-count`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            const result = await reportsResponse.json();
+            
+            if (result.success && result.data.reportCount > 3) {
+                showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
+                return;
+            }
+
+            // Usa Bootstrap Modal per utenti
+            document.getElementById('userIdToReactivate').value = userId;
+            const modal = new bootstrap.Modal(document.getElementById('reactivateUserModal'));
+            modal.show();
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showErrorMessage('Errore nel controllo delle segnalazioni');
+        }
+    } else {
+        showErrorMessage('Gli utenti non possono essere sospesi manualmente');
+    }
+}
+
+// SOSTITUISCI questa funzione nel tuo admin.js
+async function confirmReactivateUser() {
+    const userId = document.getElementById('userIdToReactivate').value;
+    
+    // Chiudi il modal Bootstrap
+    const modalElement = document.getElementById('reactivateUserModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) modal.hide();
+    
+    await updateUserStatus(userId, 'attivo');
+}
+
+// SOSTITUISCI questa funzione nel tuo admin.js
+async function showOrderReportResolution(reportId, reportData) {
+    try {
+        // Populate modal with report details
+        document.getElementById('reportedOrderId').textContent = `#${reportData.ordine_id}`;
+        document.getElementById('orderReporterName').textContent = reportData.utente_nome;
+        document.getElementById('orderReportType').textContent = reportData.tipo;
+        document.getElementById('orderReportDescription').textContent = reportData.descrizione;
+        document.getElementById('orderReportDate').textContent = new Date(reportData.data).toLocaleDateString();
+
+        // Get modal instance
+        const modalElement = document.getElementById('orderReportResolutionModal');
+        
+        // Clean up any existing modal instances
+        const existingModal = bootstrap.Modal.getInstance(modalElement);
+        if (existingModal) {
+            existingModal.dispose();
+        }
+
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // Setup resolve button listener
+        const resolveBtn = document.getElementById('resolveOrderReportBtn');
+        const newResolveBtn = resolveBtn.cloneNode(true);
+        resolveBtn.parentNode.replaceChild(newResolveBtn, resolveBtn);
+        
+        newResolveBtn.addEventListener('click', async () => {
+            modal.hide();
+            
+            const confirmed = await showCustomConfirm(
+                'Conferma Risoluzione', 
+                `Sei sicuro di voler risolvere la segnalazione per l'ordine <strong>#${reportData.ordine_id}</strong>?`
+            );
+            
+            if (confirmed) {
+                try {
+                    await resolveReportRequest(reportId, false);
+                    showSuccessMessage('Segnalazione risolta con successo');
+                    await loadReports();
+                } catch (error) {
+                    console.error('Error:', error);
+                    showErrorMessage('Errore nella risoluzione della segnalazione');
+                }
+            }
+        });
+
+        // Show modal
+        modal.show();
+    } catch (error) {
+        console.error('Error showing order report resolution modal:', error);
+        showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
+    }
+}
+
+// SOSTITUISCI questa funzione nel tuo admin.js
+async function showReviewReportResolution(reportId, reportData) {
+    try {
+        // Se necessario, recupera i dettagli completi della segnalazione
+        if (!reportData.motivazione || !reportData.utente_nome) {
+            const response = await fetch(`/admin/reports/${reportId}`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            if (!response.ok) throw new Error('Errore nel recupero dettagli segnalazione');
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Errore nel recupero dettagli segnalazione');
+            }
+            
+            reportData = result.data;
+        }
+
+        // Popola il modal con i dettagli della segnalazione
+        document.getElementById('reportedReviewId').textContent = `#${reportData.recensione_id}`;
+        document.getElementById('reviewReporterName').textContent = reportData.utente_nome || reportData.segnalatore_nome;
+        document.getElementById('reviewReportMotivation').textContent = reportData.motivazione || reportData.tipo;
+        document.getElementById('reviewReportDescription').textContent = reportData.descrizione || reportData.testo;
+        document.getElementById('reviewReportDate').textContent = new Date(reportData.data).toLocaleDateString();
+
+        // Get modal instance
+        const modalElement = document.getElementById('reviewReportResolutionModal');
+        
+        // Clean up any existing modal instances
+        const existingModal = bootstrap.Modal.getInstance(modalElement);
+        if (existingModal) {
+            existingModal.dispose();
+        }
+
+        const modal = new bootstrap.Modal(modalElement);
+        
+        // Setup hide button listener
+        const hideBtn = document.getElementById('hideReviewBtn');
+        const newHideBtn = hideBtn.cloneNode(true);
+        hideBtn.parentNode.replaceChild(newHideBtn, hideBtn);
+        
+        newHideBtn.addEventListener('click', async () => {
+            modal.hide();
+            
+            const confirmed = await showCustomConfirm(
+                'Conferma Nascondimento', 
+                `Sei sicuro di voler nascondere la recensione <strong>#${reportData.recensione_id}</strong> e risolvere la segnalazione?`
+            );
+            
+            if (confirmed) {
+                try {
+                    // Prima nascondi la recensione
+                    const hideResponse = await fetch(`/admin/reviews/${reportData.recensione_id}/toggle-visibility`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (!hideResponse.ok) {
+                        throw new Error('Errore nel nascondere la recensione');
+                    }
+
+                    // Poi risolvi la segnalazione
+                    await resolveReportRequest(reportId, true);
+                    
+                    showSuccessMessage('Segnalazione risolta e recensione nascosta');
+                    await loadReviews();
+                    await loadReports();
+                } catch (error) {
+                    console.error('Error:', error);
+                    showErrorMessage('Errore nella risoluzione della segnalazione');
+                }
+            }
+        });
+
+        // Show modal
+        modal.show();
+    } catch (error) {
+        console.error('Error showing review report resolution modal:', error);
+        showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
+    }
+}
+
+// SOSTITUISCI queste funzioni nel tuo admin.js
+function showSuccessMessage(message) {
+    console.log('SUCCESS:', message);
+    
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-check-circle me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '10100';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    
+    try {
+        const toast = new bootstrap.Toast(toastElement, { delay: 4000 });
+        toast.show();
+        
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    } catch (e) {
+        console.error('Toast error:', e);
+        alert('✅ ' + message);
+        toastElement.remove();
+    }
+}
+
+function showErrorMessage(message) {
+    console.error('ERROR:', message);
+    
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-exclamation-triangle me-2"></i>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '10100';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    
+    try {
+        const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+        toast.show();
+        
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    } catch (e) {
+        console.error('Toast error:', e);
+        alert('❌ ' + message);
+        toastElement.remove();
+    }
+}
+
+// AGGIUNGI questa nuova funzione al tuo admin.js
+function showCustomConfirm(title, message) {
+    return new Promise((resolve) => {
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10050;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        // Create confirmation dialog
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            min-width: 400px;
+            max-width: 500px;
+            z-index: 10051;
+            overflow: hidden;
+        `;
+
+        dialog.innerHTML = `
+            <div style="background: var(--palette-primary, #7095b9); color: white; padding: 1.5rem; font-weight: 500; font-size: 1.1rem;">
+                <i class="bi bi-exclamation-triangle me-2"></i>${title}
+            </div>
+            <div style="padding: 2rem 1.5rem; text-align: center;">
+                <p style="margin-bottom: 2rem; font-size: 1rem; line-height: 1.5;">${message}</p>
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">
+                        <i class="bi bi-x-lg me-1"></i>Annulla
+                    </button>
+                    <button type="button" class="btn btn-warning" id="confirmBtn">
+                        <i class="bi bi-check-lg me-1"></i>Conferma
+                    </button>
+                </div>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // Add event listeners
+        const cancelBtn = dialog.querySelector('#cancelBtn');
+        const confirmBtn = dialog.querySelector('#confirmBtn');
+
+        function cleanup() {
+            document.body.removeChild(overlay);
+        }
+
+        cancelBtn.addEventListener('click', () => {
+            cleanup();
+            resolve(false);
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            cleanup();
+            resolve(true);
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                cleanup();
+                resolve(false);
+            }
+        });
+    });
+}
+
+
+
 
 // Aggiungi questa nuova funzione per gestire la conferma di sospensione
 async function confirmSuspendArtisan() {
@@ -651,100 +1289,6 @@ async function loadSuspendedArtisans() {
     }
 }
 
-async function showArtisanReportResolution(reportId, reportData) {
-    try {
-        // Get report details if not already present
-        if (!reportData.artigiano_nome) {
-            const response = await fetch(`/admin/reports/${reportId}`, {
-                headers: {
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                }
-            });
-            
-            if (!response.ok) throw new Error('Errore nel recupero dettagli segnalazione');
-            
-            const result = await response.json();
-            if (!result.success) {
-                throw new Error(result.message || 'Errore nel recupero dettagli segnalazione');
-            }
-            
-            reportData = result.data;
-        }
-
-        // Populate modal with report details
-        document.getElementById('reportedArtisanName').textContent = reportData.artigiano_nome || '';
-        document.getElementById('reporterName').textContent = reportData.utente_nome || reportData.segnalatore_nome || '';
-        document.getElementById('reportType').textContent = reportData.motivazione || reportData.tipo || '';
-        document.getElementById('reportDescription').textContent = reportData.testo || reportData.descrizione || '';
-        document.getElementById('reportDate').textContent = reportData.data_segnalazione ? 
-            new Date(reportData.data_segnalazione).toLocaleDateString() : 
-            new Date(reportData.data).toLocaleDateString();
-
-        // Get modal instance
-        const modalElement = document.getElementById('artisanReportResolutionModal');
-        const modal = new bootstrap.Modal(modalElement);
-        
-        // Setup event listeners for buttons
-        const suspendBtn = document.getElementById('suspendArtisanBtn');
-        const resolveBtn = document.getElementById('resolveWithoutActionBtn');
-        
-        // Remove any existing listeners
-        suspendBtn.replaceWith(suspendBtn.cloneNode(true));
-        resolveBtn.replaceWith(resolveBtn.cloneNode(true));
-        
-        // Add new listeners
-        document.getElementById('suspendArtisanBtn').addEventListener('click', async () => {
-            try {
-                // Suspend artisan
-                const suspendResponse = await fetch(`/admin/artisans/${reportData.artigiano_id}/status`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ status: 'sospeso' })
-                });
-                
-                if (!suspendResponse.ok) throw new Error('Errore nella sospensione dell\'artigiano');
-                
-                // Resolve report
-                await resolveReportRequest(reportId, true);
-                
-                modal.hide();
-                modalElement.addEventListener('hidden.bs.modal', async () => {
-                    showSuccessMessage('Artigiano sospeso e segnalazione risolta');
-                    await Promise.all([loadArtisans(), loadReports()]);
-                }, { once: true });
-                
-            } catch (error) {
-                console.error('Error:', error);
-                showErrorMessage('Errore durante la sospensione dell\'artigiano');
-            }
-        });
-
-        document.getElementById('resolveWithoutActionBtn').addEventListener('click', async () => {
-            try {
-                await resolveReportRequest(reportId, false);
-                
-                modal.hide();
-                modalElement.addEventListener('hidden.bs.modal', async () => {
-                    showSuccessMessage('Segnalazione risolta senza conseguenze');
-                    await loadReports();
-                }, { once: true });
-                
-            } catch (error) {
-                console.error('Error:', error);
-                showErrorMessage('Errore nella risoluzione della segnalazione');
-            }
-        });
-
-        // Show modal
-        modal.show();
-    } catch (error) {
-        console.error('Error showing report resolution modal:', error);
-        showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
-    }
-}
 
 
 async function loadProducts() {
@@ -1095,38 +1639,50 @@ async function viewOrderDetails(orderId) {
     }
 }
 
-async function toggleUserStatus(userId, currentStatus) {
-    const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
-    
-    if (newStatus === 'attivo') {
-        try {
-            const reportsResponse = await fetch(`/admin/users/${userId}/reports-count`, {
-                headers: {
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                }
-            });
-            
-            const result = await reportsResponse.json();
-            
-            if (result.success && result.data.reportCount > 3) {
-                showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
-                return;
-            }
 
-            // Conferma diretta per la riattivazione
-            if (confirm('Sei sicuro di voler riattivare questo utente?')) {
-                await updateUserStatus(userId, 'attivo');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showErrorMessage('Errore nel controllo delle segnalazioni');
+
+// Funzione helper per mostrare modali generici
+function showModal(modalId) {
+    cleanupModals();
+    
+    const modalElement = document.getElementById(modalId);
+    if (!modalElement) return;
+    
+    // Crea backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.style.zIndex = '1050';
+    backdrop.style.opacity = '0.5';
+    document.body.appendChild(backdrop);
+    
+    // Mostra modale
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    
+    setTimeout(() => {
+        modalElement.classList.add('show');
+        modalElement.style.display = 'block';
+        modalElement.style.zIndex = '1060';
+        
+        const modalContent = modalElement.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.zIndex = '1062';
         }
-    } else {
-        // Per la sospensione, conferma diretta
-        if (confirm('Sei sicuro di voler sospendere questo utente?')) {
-            await updateUserStatus(userId, 'sospeso');
-        }
-    }
+    }, 10);
+    
+    // Gestione chiusura
+    const closeModal = () => {
+        modalElement.classList.remove('show');
+        modalElement.style.display = 'none';
+        backdrop.remove();
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+    };
+    
+    // Event listeners per chiusura
+    backdrop.addEventListener('click', closeModal);
+    modalElement.querySelector('.btn-close')?.addEventListener('click', closeModal);
+    modalElement.querySelector('[data-bs-dismiss="modal"]')?.addEventListener('click', closeModal);
 }
 async function showOrderReportResolution(reportId, reportData) {
     try {
@@ -1641,41 +2197,7 @@ async function loadReports() {
 
 
 
-async function resolveReport(reportId, withAction = false) {
-    try {
-        const reportResponse = await fetch(`/admin/reports/${reportId}`, {
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-            }
-        });
-        
-        if (!reportResponse.ok) throw new Error('Errore nel recupero della segnalazione');
-        
-        const reportData = await reportResponse.json();
-        
-        if (reportData.artigiano_id) {
-            await showArtisanReportResolution(reportId, reportData);
-            return;
-        } else if (reportData.ordine_id) {
-            await showOrderReportResolution(reportId, reportData);
-            return;
-        } else if (reportData.recensione_id) {
-            await showReviewReportResolution(reportId, reportData);
-            return;
-        }
 
-        // Per altri tipi di segnalazioni, procedi con la logica esistente
-        if (!confirm('Sei sicuro di voler risolvere questa segnalazione?')) {
-            return;
-        }
-
-        await resolveReportRequest(reportId, withAction);
-        
-    } catch (error) {
-        console.error('Error:', error);
-        showErrorMessage(error.message || 'Errore nella risoluzione della segnalazione');
-    }
-}
 
 function populateReportsTable(tableId, reports) {
     // Determine which table to populate based on ID
