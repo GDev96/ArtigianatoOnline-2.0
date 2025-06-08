@@ -4,6 +4,8 @@
   "main": "app.js",
   "type": "commonjs",
   "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
     "test:setup": "node tests/db-init.js",
     "test": "cross-env NODE_ENV=test jest --detectOpenHandles --forceExit",
     "test:watch": "cross-env NODE_ENV=test jest --watch",

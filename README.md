@@ -103,7 +103,7 @@ Una piattaforma web per connettere artigiani e clienti, permettendo l'acquisto d
 
 1. Clona il repository
 ```bash
-git clone https://github.com/yourusername/artigianato-online-2.git
+git clone https://github.com/GDev96/ArtigianatoOnline-2.0.git
 ```
 
 2. Installa le dipendenze
