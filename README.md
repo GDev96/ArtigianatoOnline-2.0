@@ -1,204 +1,200 @@
-# TO-DO LIST
-## FRONTEND
+# 🛠️ Artigianato Online 2.0
 
-Legenda:
-✅ Completato
-⏳ In corso 
-❌ Da fare
+Piattaforma e-commerce che connette artigiani e acquirenti, facilitando la vendita di prodotti artigianali e la gestione di recensioni e segnalazioni.
 
-| Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
-|-----------------------------------------------------------------------------|-----------|-------------|-------------|
-| Aggiungere file vecchio progetto         | Gaia         | main (primo commit)           | ✅ Completato |
-| Cambiare stili              | Gaia        | fixstyles| ✅ Completato |
-| Pagina catalogo             | Gaia         | catalogpage          | ✅ Completato  |
-| Pagina profilo utente             | Gaia         | profilepage          | ✅ Completato   |
-| Pagina carrello             | Gaia         | cartpage          | ✅ Completato    |
-| Pagina dashboard             | Gaia         | dashboard          | ✅ Completato   |
-| Pagina admin             | Gaia         | adminconsole          | ✅ Completato  |
-| Pagina di recupero password             | Gaia         | resetpass          | ✅ Completato     |
-| Correzioni errori vari            | Gaia         | fixes          | ⏳ In corso    |
+## 📑 Indice
+- [Funzionalità](#-funzionalità)
+- [Tecnologie](#-tecnologie)
+- [Requisiti](#-requisiti)
+- [Installazione](#-installazione)
+- [Database](#-database)
+- [API](#-api)
+- [Ruoli e Permessi](#-ruoli-e-permessi)
 
-## BACKEND PAGINE HTML
-| Descrizione                                                                 | Assegnato a | Nome Branch | Stato       |
-|-----------------------------------------------------------------------------|-----------|-------------|-------------|
-| Correggere API vecchio progetto             | Gaia         | fixAPI          | ✅ Completato   |
-| -             | -         | Gaia          | ⏳ In corso   |
-| API Utenti             | Gaia         | profilepage          | ✅ Completato   |
-| API Artigiani             | Gaia         | catalogpage          | ✅ Completato   |
-| API prodotti             | Gaia         | dashboard          | ✅ Completato   |
-| API recensioni             | Gaia         | catalogpage          | ✅ Completato   |
-| API segnalazioni             | Gaia         | adminconsole          | ✅ Completato   |
-| API Ordini             | Gaia         | cartpage          | ✅ Completato   |
-| API admin             | Gaia         | adminconsole          | ✅ Completato   |
-| Correzione logout token             | Gaia         | fixtokenlogout          |✅ Completato  |
-| Recupero password             | Gaia         | resetPass          | ✅ Completato   |
-| Docker             | -         | -          | ❌ Da fare   |
+## 🎯 Funzionalità
 
-## DATABASE
+### 👤 Area Clienti
+- Registrazione e login
+- Gestione profilo personale
+- Visualizzazione catalogo prodotti
+- Gestione carrello e ordini
+- Invio recensioni e segnalazioni
+- Recupero password
 
-Tabelle e attributi:
-    - utente: id (autoincrement), nome_utente, nome, cognome, e-mail, password (hash), ruolo_id (riferimento a ruoli)
-    - artigiani: artigian_id (riferimento a utente), numero telefono, Indirizzo, città, categoria di prodotti, p_iva, immagine (tipo: BYTEA)
-    - ruoli: ruolo_id, permessi **lo ha solo accennato, sto ancora cercando di capire come funzionano per bene**
-    - prodotti: prodotto_id (autoincrement), artigiano_id (riferimento a artigiani.id), nome_prodotto, tipologia_id (riferimento a tipologia), prezzo, immagine (tipo: BYTEA)
-    - tipologia: tipologia_id (autoincrement), nome_tipologia
-
-    - ordini: ordine_id (autoincrement), cliente_id (riferinento a utenti_id), data, stato (non pagato / in spedizione / concluso)
-    - dettagli ordine: oridne_id (riferimento a ordini) (primary key), prodotto_id (riferimento a prodotti), quantita, prezzo_ordine
-
-| Descrizione                     | Assegnato a | Nome Branch | Stato       |
-|---------------------------------|-----------|-------------|-------------|
-| Creare nuovo db    | Gaia    | main   |✅ Completato |
-| Test   | Gaia    | test   |✅ Completato |
-| ReadMe.md   | Gaia    | main   |✅ Completato |
-| Documentazione   | Gaia    | main   |✅ Completato |
-
-***
-
-
-# Artigianato Online 2.0
-
-Una piattaforma web per connettere artigiani e clienti, permettendo l'acquisto di prodotti artigianali e la gestione di recensioni.
-
-## 🚀 Funzionalità
-
-### Utenti
-- Registrazione e login con ruoli differenziati (Cliente, Artigiano, Admin)
-- Gestione del profilo personale
-- Visualizzazione dello storico ordini
-- Gestione delle recensioni effettuate
-- Gestione delle segnalazioni inviate
-
-### Artigiani
+### 🎨 Area Artigiani
 - Dashboard personalizzata
-- Gestione del catalogo prodotti (aggiunta, modifica, eliminazione)
-- Visualizzazione statistiche vendite
-- Gestione delle recensioni ricevute
-- Monitoraggio delle segnalazioni
+- Gestione catalogo prodotti
+- Gestione ordini ricevuti
+- Visualizzazione recensioni
+- Statistiche vendite
 
-### Amministratori
+### 👨‍💼 Area Amministrativa
 - Gestione utenti
-- Moderazione recensioni
+- Moderazione contenuti
 - Gestione segnalazioni
-- Monitoraggio della piattaforma
+- Monitoraggio piattaforma
 
-## 🛠️ Tecnologie Utilizzate
+## � Tecnologie
 
-- **Frontend**: HTML5, CSS3, JavaScript, Bootstrap 5
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL
-- **Autenticazione**: JWT (JSON Web Tokens)
-- **Containerization**: Docker & Docker Compose
+### Frontend
+- HTML5 + CSS3
+- JavaScript ES6+
+- Bootstrap 5.3.3
+- Font Awesome 6
 
-## 💻 Requisiti di Sistema
+### Backend
+- Node.js 18.x
+- Express.js 4.x
+- PostgreSQL 15+
+- JWT per autenticazione
 
-- Node.js (v14+)
-- PostgreSQL (v12+)
-- npm o yarn
-- Docker & Docker Compose
+## ⚙️ Requisiti
 
-## 🚦 Getting Started
+### Software
+- Node.js (v18.x o superiore)
+- PostgreSQL (v15+)
+- npm (v9.x o superiore)
 
-### Metodo Tradizionale
+### Hardware Consigliato
+- CPU: 2+ core
+- RAM: 4GB minimo
+- Spazio disco: 1GB libero
 
-1. Clona il repository
+## 🚀 Installazione
+
+1. **Clone Repository**
 ```bash
-git clone https://github.com/GDev96/ArtigianatoOnline-2.0.git
+git clone https://github.com/yourusername/artigianato-online-2.git
+cd artigianato-online-2
 ```
 
-2. Installa le dipendenze
+2. **Setup Ambiente**
 ```bash
+# Installa dipendenze
 npm install
-```
 
-3. Configura il database
-```bash
-# Crea un file .env nella root del progetto con:
-DB_USER=your_username
+# Copia file configurazione
+cp .env.example .env
+
+# Modifica variabili ambiente in .env
+DB_USER=postgres
 DB_PASSWORD=your_password
-DB_HOST=localhost
-DB_PORT=5432
 DB_NAME=artigianato_online
 JWT_SECRET=your_secret_key
 ```
 
-4. Inizializza il database
+3. **Database Setup**
 ```bash
-node db/seed.js
+# Crea database
+psql -U postgres -c "CREATE DATABASE artigianato_online"
+
+# Inizializza tabelle
+npm run db:init
+
+# Popola dati iniziali
+npm run db:seed
 ```
 
-5. Avvia l'applicazione
+4. **Avvio Applicazione**
 ```bash
-node app.js
+# Ambiente sviluppo
+npm run dev
+
+# Ambiente produzione
+npm start
 ```
 
-### Utilizzo con Docker
+## 📊 Database
 
-1. Assicurati di avere Docker e Docker Compose installati
+### Schema Principale
+```sql
+-- Utenti e Ruoli
+CREATE TABLE ruoli (
+    ruolo_id SERIAL PRIMARY KEY,
+    nome_ruolo VARCHAR(50) NOT NULL
+);
 
-2. Build e avvio dei container:
-```bash
-docker-compose up --build
+CREATE TABLE utenti (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE,
+    email VARCHAR(100) UNIQUE,
+    password VARCHAR(100),
+    ruolo_id INTEGER REFERENCES ruoli(ruolo_id)
+);
+
+-- Prodotti e Categorie
+CREATE TABLE prodotti (
+    prodotto_id SERIAL PRIMARY KEY,
+    nome VARCHAR(100),
+    prezzo DECIMAL(10,2),
+    artigiano_id INTEGER REFERENCES utenti(id)
+);
 ```
 
-3. Per arrestare i container:
+### Backup/Restore
 ```bash
-docker-compose down
+# Backup
+pg_dump -U postgres artigianato_online > backup.sql
+
+# Restore
+psql -U postgres artigianato_online < backup.sql
 ```
 
-L'applicazione sarà disponibile all'indirizzo: `http://localhost:3000`
-
-## 📝 API Endpoints
+## 🌐 API
 
 ### Autenticazione
-- `POST /auth/signup` - Registrazione nuovo utente
-- `POST /auth/login` - Login utente
-- `POST /auth/logout` - Logout utente
-
-### Utenti
-- `GET /users/profile` - Recupera profilo utente
-- `PUT /users/profile` - Aggiorna profilo utente
-- `POST /users/profile/image` - Carica immagine profilo
+```
+POST /auth/login     - Login utente
+POST /auth/signup    - Registrazione
+POST /auth/reset     - Reset password
+```
 
 ### Prodotti
-- `GET /products` - Lista prodotti
-- `POST /products` - Crea nuovo prodotto
-- `PUT /products/:id` - Modifica prodotto
-- `DELETE /products/:id` - Elimina prodotto
+```
+GET    /products     - Lista prodotti
+POST   /products     - Nuovo prodotto
+PUT    /products/:id - Modifica prodotto
+DELETE /products/:id - Elimina prodotto
+```
 
-### Recensioni
-- `GET /reviews` - Lista recensioni
-- `POST /reviews` - Crea recensione
-- `PUT /reviews/:id` - Modifica recensione
-- `DELETE /reviews/:id` - Elimina recensione
+### Ordini
+```
+GET    /orders      - Lista ordini
+POST   /orders      - Nuovo ordine
+GET    /orders/:id  - Dettagli ordine
+```
 
-### Segnalazioni
-- `GET /reports/user` - Lista segnalazioni utente
-- `POST /reports/review` - Segnala recensione
-- `POST /reports/artisan` - Segnala artigiano
-- `DELETE /reports/:id` - Elimina segnalazione
+## 👥 Ruoli e Permessi
 
-## 👥 Ruoli Utente
+### Cliente (ruolo_id: 1)
+- Acquisto prodotti
+- Gestione ordini personali
+- Invio recensioni/segnalazioni
 
-1. **Cliente** (ruolo_id: 1)
-   - Acquisto prodotti
-   - Gestione carrello
-   - Recensioni
-   - Segnalazioni
+### Artigiano (ruolo_id: 2) 
+- Gestione catalogo prodotti
+- Gestione ordini ricevuti
+- Visualizzazione recensioni
 
-2. **Artigiano** (ruolo_id: 2)
-   - Gestione prodotti
-   - Visualizzazione recensioni
-   - Gestione segnalazioni
-
-3. **Amministratore** (ruolo_id: 3)
-   - Gestione piattaforma
-   - Moderazione contenuti
+### Amministratore (ruolo_id: 3)
+- Gestione utenti
+- Moderazione contenuti
+- Gestione segnalazioni
 
 ## 🔒 Sicurezza
-
-- Autenticazione basata su JWT
-- Password hashate
+- Autenticazione JWT
+- Password hashate (bcrypt)
 - Validazione input
-- Protezione CSRF
-- Middleware di autorizzazione per ruoli
+- Protezione XSS/CSRF
+- Rate limiting
+
+## 📫 Contatti
+
+Per supporto:
+- Apri una issue su GitHub
+- Email: support@artigianatoonline.com
+- Documentazione: /docs
+
+## 📄 Licenza
+
+Questo progetto è rilasciato sotto licenza MIT - vedi [LICENSE.md](LICENSE.md)

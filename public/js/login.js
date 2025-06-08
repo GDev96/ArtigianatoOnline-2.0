@@ -179,7 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 cognome: data.user.cognome,
                 ruolo_id: data.user.ruolo_id
             });
-            console.log('Token received:', data.token.substring(0, 50) + '...');
             
             // Salva la sessione
             try {
@@ -189,7 +188,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     sessionStorage.setItem('authToken', data.token);
                     sessionStorage.setItem('user', JSON.stringify(data.user));
                 }
-                console.log('Session saved successfully');
             } catch (storageError) {
                 console.error('Error saving session:', storageError);
                 // Continue anyway, the login was successful
@@ -228,7 +226,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showError(message) {
-        console.log('🚨 Showing error:', message);
         const loginError = document.getElementById('loginError');
         if (loginError) {
             loginError.textContent = message;
@@ -237,9 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Scroll verso l'errore se necessario
             loginError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             
-            console.log('✅ Error message displayed');
         } else {
-            console.log('⚠️ loginError element not found, using alert');
             alert('Errore: ' + message);
         }
     }
@@ -252,8 +247,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
         function handleAccountSuspension(data) {
-        console.log('⚠️ Handling account suspension');
-        console.log('Suspension data:', data);
     
         try {
             // Controlla se Bootstrap è disponibile
@@ -327,7 +320,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Funzione per il recupero password
 async function requestPasswordRecovery() {
-    console.log('\n=== PASSWORD RECOVERY REQUEST ===');
     
     const emailInput = document.getElementById('emailInput');
     const recoverError = document.getElementById('recoverError');
@@ -335,7 +327,7 @@ async function requestPasswordRecovery() {
     const recoverButton = document.querySelector('#recoverPasswordModal .btn-primary');
     
     if (!emailInput) {
-        console.error('❌ Email input field not found');
+        console.error('Email input field not found');
         return;
     }
     
@@ -363,8 +355,6 @@ async function requestPasswordRecovery() {
             recoverButton.disabled = true;
             recoverButton.textContent = 'Invio in corso...';
         }
-
-        console.log('Sending password recovery request...');
 
         const response = await fetch('/auth/recover-password', {
             method: 'POST',
