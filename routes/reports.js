@@ -238,7 +238,7 @@ router.post('/order', requireAuth, async (req, res) => {
             throw new Error('Ordine non trovato o non idoneo per segnalazione');
         }
 
-        // Insert report
+        // Insert report without changing order status
         await client.query(`
             INSERT INTO segnalazioni (
                 utente_segnalatore_id, 
@@ -250,11 +250,7 @@ router.post('/order', requireAuth, async (req, res) => {
             VALUES ($1, $2, $3, $4, 'in attesa')
         `, [user_id, order_id, description, reason]);
 
-        // Update order status
-        await client.query(
-            `UPDATE ordini SET stato = 'controversia' WHERE ordine_id = $1`,
-            [order_id]
-        );
+        // Removed the order status update
 
         await client.query('COMMIT');
 
