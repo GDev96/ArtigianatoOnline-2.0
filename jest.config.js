@@ -9,9 +9,10 @@ module.exports = {
     'middleware/**/*.js',
     '!**/node_modules/**'
   ],
-  testTimeout: 10000,
   transform: {
-    '^.+\\.js$': 'babel-jest'
+    '^.+\\.js$': ['babel-jest', { configFile: './babel.config.js' }]
   },
-  forceExit: true
+  testTimeout: 10000,
+  forceExit: true,
+  detectOpenHandles: true
 };
