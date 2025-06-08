@@ -1,227 +1,396 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Intercetta e blocca tutti i submit di form
-    document.addEventListener('submit', function(e) {
-        console.log('Submit intercettato:', e.target);
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        return false;
-    }, true);
-
-    // Intercetta tutti i click sui link
-    document.addEventListener('click', function(e) {
-        if (e.target.tagName === 'A' && e.target.href) {
-            console.log('Click su link intercettato:', e.target.href);
-            if (window.isLoggingIn) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-        }
-    }, true);
-
+    console.log('🚀 Login page loaded');
+    
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('passwordInput');
+    const usernameInput = document.getElementById('usernameInput');
     const loginForm = document.getElementById('loginForm');
+    const loginButton = document.getElementById('loginButton');
     const loginError = document.getElementById('loginError');
 
-    // Previeni il submit del form in tutti i modi possibili
-    if (loginForm) {
-        loginForm.addEventListener('submit', function(e) {
-            console.log('Form submit intercettato');
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            return false;
-        });
-    }
+    // Verifica che tutti gli elementi esistano
+    console.log('Form elements check:', {
+        togglePassword: !!togglePassword,
+        passwordInput: !!passwordInput,
+        usernameInput: !!usernameInput,
+        loginForm: !!loginForm,
+        loginButton: !!loginButton,
+        loginError: !!loginError
+    });
 
-    // Password toggle functionality
+    // Gestione del toggle password
     togglePassword?.addEventListener('click', function(e) {
         e.preventDefault();
-        e.stopPropagation();
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
         passwordInput.setAttribute('type', type);
         this.classList.toggle('bi-eye');
         this.classList.toggle('bi-eye-slash');
     });
 
-    // Button click event invece di form submit
-    const loginButton = document.getElementById('loginButton');
-    loginButton?.addEventListener('click', handleLogin);
-    
-    // Aggiungi anche gestione per Enter key nei campi input
-    passwordInput?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleLogin(e);
-        }
+    // Gestione form submit
+    loginForm?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        handleLogin();
+    });
+
+    // Gestione click del bottone
+    loginButton?.addEventListener('click', function(e) {
+        e.preventDefault();
+        handleLogin();
     });
     
-    document.getElementById('usernameInput')?.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            handleLogin(e);
-        }
+    // Gestione Enter key negli input
+    [usernameInput, passwordInput].forEach(input => {
+        input?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleLogin();
+            }
+        });
     });
     
-    async function handleLogin(e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    
-        console.log('=== INIZIO LOGIN ===');
+    async function handleLogin() {
+        console.log('\n=== FRONTEND LOGIN START ===');
         
         const submitButton = document.getElementById('loginButton');
-        const originalButtonText = submitButton.textContent;
+        const originalButtonText = submitButton?.textContent || 'Accedi';
         const loginError = document.getElementById('loginError');
         
+        // Flag per indicare che stiamo effettuando il login
+        window.isLoggingIn = true;
+        
+        // Verifica che tutti gli elementi esistano
+        if (!usernameInput || !passwordInput || !submitButton) {
+            console.error('❌ Required form elements not found');
+            showError('Errore: elementi del form non trovati');
+            window.isLoggingIn = false;
+            return;
+        }
+        
         try {
-            // Set initial states
-            window.isLoggingIn = true;
+            // Imposta stati iniziali
             submitButton.disabled = true;
             submitButton.textContent = 'Accesso in corso...';
-            loginError.classList.add('d-none');
-    
+            hideError();
+
+            // Prepara le credenziali
+            const rawUsername = usernameInput.value;
+            const rawPassword = passwordInput.value;
+            
+            console.log('Raw input values:', {
+                username: rawUsername,
+                password: rawPassword ? `[${rawPassword.length} chars]` : '[empty]'
+            });
+
             const credentials = {
-                nome_utente: document.getElementById('usernameInput').value.trim(),
-                password: document.getElementById('passwordInput').value
+                nome_utente: rawUsername.trim(),
+                password: rawPassword
             };
-    
-            // Basic validation
+
+            console.log('Prepared credentials:', {
+                nome_utente: credentials.nome_utente,
+                password: credentials.password ? `[${credentials.password.length} chars]` : '[empty]'
+            });
+
+            // Validazione base
             if (!credentials.nome_utente || !credentials.password) {
                 throw new Error('Username e password sono richiesti');
             }
-    
+
+            if (credentials.nome_utente.length < 3) {
+                throw new Error('Username deve contenere almeno 3 caratteri');
+            }
+
+            if (credentials.password.length < 4) {
+                throw new Error('Password deve contenere almeno 4 caratteri');
+            }
+
+            console.log('✅ Validation passed, sending request...');
+            console.log('Request URL: /auth/login');
+            console.log('Request method: POST');
+
+            // Invia la richiesta
             const response = await fetch('/auth/login', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(credentials)
             });
-    
+
+            console.log('📡 Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                headers: {
+                    'content-type': response.headers.get('content-type')
+                }
+            });
+
             let data;
             try {
-                data = await response.json();
+                const responseText = await response.text();
+                console.log('Raw response text (first 200 chars):', responseText.substring(0, 200));
+                
+                if (responseText) {
+                    data = JSON.parse(responseText);
+                    console.log('Parsed response data:', {
+                        success: data.success,
+                        hasToken: !!data.token,
+                        hasUser: !!data.user,
+                        error: data.error,
+                        code: data.code
+                    });
+                } else {
+                    throw new Error('Empty response from server');
+                }
             } catch (jsonError) {
-                console.error('Errore parsing JSON:', jsonError);
-                throw new Error('Errore di comunicazione con il server');
+                console.error('❌ JSON parsing error:', jsonError);
+                throw new Error('Errore di comunicazione con il server - risposta non valida');
             }
-    
-            console.log('=== RISPOSTA SERVER ===');
-    
-            // Handle specific error codes
+
+            // Gestione errori specifici
+            if (response.status === 400) {
+                console.log('❌ Bad Request (400)');
+                throw new Error(data.error || 'Dati di login non validi');
+            }
+
             if (response.status === 401) {
-                throw new Error('Credenziali non valide');
+                console.log('❌ Unauthorized (401)');
+                throw new Error('Username o password non corretti');
             }
             
-            if (response.status === 403 && data.code === 'ACCOUNT_SUSPENDED') {
-                let giorniRimanenti = 3; // Default to 3 days if no date provided
-                try {
-                    if (typeof bootstrap === 'undefined') {
-                        throw new Error('Account sospeso per 3 giorni');
-                    }
-            
-                    const modalEl = document.getElementById('suspensionModal');
-                    if (!modalEl) {
-                        throw new Error('Account sospeso per 3 giorni');
-                    }
-            
-                    if (data.suspension && data.suspension.dataFine) {
-                        // Calculate remaining days
-                        const dataFine = new Date(data.suspension.dataFine);
-                        const oggi = new Date();
-                        giorniRimanenti = Math.ceil((dataFine - oggi) / (1000 * 60 * 60 * 24));
-                        giorniRimanenti = Math.max(1, Math.min(3, giorniRimanenti));
-                    }
-            
-                    const modalBody = modalEl.querySelector('.modal-body');
-                    if (!modalBody) {
-                        throw new Error('Account sospeso per 3 giorni');
-                    }
-            
-                    // Format suspension message
-                    modalBody.innerHTML = `
-                        <div class="text-center">
-                            <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
-                            <h4 class="text-danger mb-3">Account Sospeso</h4>
-                            <p class="mb-2">Il tuo account è stato sospeso per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}.</p>
-                            ${data.suspension?.dataFine ? `
-                                <p class="text-muted">Data prevista di riattivazione:<br>
-                                <strong>${new Date(data.suspension.dataFine).toLocaleString('it-IT', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: false
-                                })}</strong></p>
-                            ` : ''}
-                        </div>
-                    `;
-            
-                    const modal = new bootstrap.Modal(modalEl);
-                    modal.show();
+            if (response.status === 403) {
+                console.log('❌ Forbidden (403)');
+                if (data.code === 'ACCOUNT_SUSPENDED') {
+                    handleAccountSuspension(data);
                     return;
-            
-                } catch (modalError) {
-                    console.error('Error handling suspension:', modalError);
-                    throw new Error(`Account sospeso per ${giorniRimanenti} giorni`);
+                } else if (data.code === 'ACCOUNT_INACTIVE') {
+                    throw new Error('Account non attivo. Contatta l\'amministratore.');
+                } else {
+                    throw new Error(data.error || 'Accesso negato');
                 }
             }
 
+            if (response.status === 404) {
+                console.log('❌ Not Found (404)');
+                throw new Error('Servizio di login non trovato. Verifica la configurazione del server.');
+            }
+
+            if (response.status === 500) {
+                console.log('❌ Server Error (500)');
+                throw new Error('Errore interno del server. Riprova più tardi.');
+            }
+
             if (!response.ok) {
+                console.log(`❌ HTTP error (${response.status})`);
                 throw new Error(data.error || `Errore del server (${response.status})`);
             }
-    
-            if (!data.success || !data.token || !data.user) {
-                throw new Error('Dati di login incompleti');
+
+            if (!data.success) {
+                console.log('❌ Login failed (success=false)');
+                throw new Error(data.error || 'Login fallito');
             }
-    
-            // Login successful
-            console.log('=== LOGIN COMPLETATO ===');
-            AuthService.setSession(data.token, data.user);
-            window.location.href = '/index.html';
-    
-        } catch (error) {
-            console.error('=== ERRORE LOGIN ===');
-            console.error('Tipo errore:', error.name);
-            console.error('Messaggio:', error.message);
+
+            if (!data.token || !data.user) {
+                console.log('❌ Incomplete login data');
+                console.log('Missing:', {
+                    token: !data.token,
+                    user: !data.user
+                });
+                throw new Error('Dati di login incompleti ricevuti dal server');
+            }
+
+            // Login riuscito
+            console.log('🎉 LOGIN SUCCESSFUL!');
+            console.log('User data:', {
+                id: data.user.id,
+                username: data.user.username,
+                nome: data.user.nome,
+                cognome: data.user.cognome,
+                ruolo_id: data.user.ruolo_id
+            });
+            console.log('Token received:', data.token.substring(0, 50) + '...');
             
-            loginError.textContent = error.message;
-            loginError.classList.remove('d-none');
-            document.getElementById('passwordInput').value = '';
-            document.getElementById('passwordInput').focus();
+            // Salva la sessione
+            try {
+                if (typeof AuthService !== 'undefined') {
+                    console.log('✅ Using AuthService to save session');
+                    AuthService.setSession(data.token, data.user);
+                } else {
+                    console.log('⚠️ AuthService not available, using sessionStorage fallback');
+                    sessionStorage.setItem('authToken', data.token);
+                    sessionStorage.setItem('user', JSON.stringify(data.user));
+                }
+                console.log('✅ Session saved successfully');
+            } catch (storageError) {
+                console.error('❌ Error saving session:', storageError);
+                // Continue anyway, the login was successful
+            }
+            
+            console.log('🔄 Redirecting to index.html...');
+            
+            // Redirect
+            window.location.href = '/index.html';
+
+        } catch (error) {
+            console.error('\n❌ FRONTEND LOGIN ERROR ===');
+            console.error('Error type:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            console.error('===========================\n');
+            
+            // Mostra errore all'utente
+            const errorMessage = error.message || 'Errore durante il login';
+            showError(errorMessage);
+            
+            // Pulisci la password e rimetti il focus
+            if (passwordInput) {
+                passwordInput.value = '';
+                setTimeout(() => {
+                    passwordInput.focus();
+                }, 100);
+            }
             
         } finally {
-            // Reset states
+            // Ripristina lo stato del bottone
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText;
+            }
+            
+            // Rimuovi il flag di login
             window.isLoggingIn = false;
-            submitButton.disabled = false;
-            submitButton.textContent = originalButtonText;
-            console.log('=== FINE PROCESSO LOGIN ===');
+            
+            console.log('=== FRONTEND LOGIN END ===\n');
+        }
+    }
+
+    function showError(message) {
+        console.log('🚨 Showing error:', message);
+        const loginError = document.getElementById('loginError');
+        if (loginError) {
+            loginError.textContent = message;
+            loginError.classList.remove('d-none');
+            
+            // Scroll verso l'errore se necessario
+            loginError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            console.log('✅ Error message displayed');
+        } else {
+            console.log('⚠️ loginError element not found, using alert');
+            alert('Errore: ' + message);
+        }
+    }
+
+    function hideError() {
+        const loginError = document.getElementById('loginError');
+        if (loginError) {
+            loginError.classList.add('d-none');
+        }
+    }
+
+    function handleAccountSuspension(data) {
+        console.log('⚠️ Handling account suspension');
+        let giorniRimanenti = 3; // Default
+
+        try {
+            // Controlla se Bootstrap è disponibile
+            if (typeof bootstrap === 'undefined') {
+                throw new Error('Bootstrap non disponibile');
+            }
+
+            const modalEl = document.getElementById('suspensionModal');
+            if (!modalEl) {
+                throw new Error('Modal di sospensione non trovato');
+            }
+
+            // Calcola giorni rimanenti se disponibile la data
+            if (data.suspension?.dataFine) {
+                const dataFine = new Date(data.suspension.dataFine);
+                const oggi = new Date();
+                giorniRimanenti = Math.ceil((dataFine - oggi) / (1000 * 60 * 60 * 24));
+                giorniRimanenti = Math.max(1, Math.min(30, giorniRimanenti)); // Tra 1 e 30 giorni
+            }
+
+            const modalBody = modalEl.querySelector('.modal-body');
+            if (!modalBody) {
+                throw new Error('Corpo del modal non trovato');
+            }
+
+            // Genera contenuto del modal
+            modalBody.innerHTML = `
+                <div class="text-center">
+                    <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
+                    <h4 class="text-danger mb-3">Account Sospeso</h4>
+                    <p class="mb-2">Il tuo account è stato sospeso per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}.</p>
+                    ${data.suspension?.dataFine ? `
+                        <p class="text-muted">Data prevista di riattivazione:<br>
+                        <strong>${new Date(data.suspension.dataFine).toLocaleString('it-IT', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        })}</strong></p>
+                    ` : ''}
+                    <p class="text-muted mt-3">Per maggiori informazioni, contatta l'amministratore.</p>
+                </div>
+            `;
+
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+        } catch (modalError) {
+            console.error('❌ Error handling suspension modal:', modalError);
+            // Fallback con alert
+            alert(`Account sospeso per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}. Contatta l'amministratore per maggiori informazioni.`);
         }
     }
 });
 
-
-
+// Funzione per il recupero password
 async function requestPasswordRecovery() {
+    console.log('\n=== PASSWORD RECOVERY REQUEST ===');
+    
     const emailInput = document.getElementById('emailInput');
     const recoverError = document.getElementById('recoverError');
     const recoverSuccess = document.getElementById('recoverSuccess');
+    const recoverButton = document.querySelector('#recoverPasswordModal .btn-primary');
     
-    // Reset messages
-    recoverError.classList.add('d-none');
-    recoverSuccess.classList.add('d-none');
+    if (!emailInput) {
+        console.error('❌ Email input field not found');
+        return;
+    }
+    
+    // Reset messaggi
+    recoverError?.classList.add('d-none');
+    recoverSuccess?.classList.add('d-none');
+
+    const originalButtonText = recoverButton?.textContent || 'Invia';
 
     try {
         const email = emailInput.value.trim();
+        console.log('Recovery request for email:', email);
         
         if (!email) {
             throw new Error('Inserisci un indirizzo email valido');
         }
+
+        // Validazione email base
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            throw new Error('Formato email non valido');
+        }
+
+        // Disabilita il bottone
+        if (recoverButton) {
+            recoverButton.disabled = true;
+            recoverButton.textContent = 'Invio in corso...';
+        }
+
+        console.log('Sending password recovery request...');
 
         const response = await fetch('/auth/recover-password', {
             method: 'POST',
@@ -237,24 +406,42 @@ async function requestPasswordRecovery() {
             throw new Error(data.error || 'Errore durante la richiesta di recupero password');
         }
 
-        // Show success message
-        recoverSuccess.textContent = 'Email di recupero inviata! Controlla la tua casella di posta.';
-        recoverSuccess.classList.remove('d-none');
+        // Mostra messaggio di successo
+        const successMsg = 'Email di recupero inviata! Controlla la tua casella di posta (incluso spam).';
+        if (recoverSuccess) {
+            recoverSuccess.textContent = successMsg;
+            recoverSuccess.classList.remove('d-none');
+        } else {
+            alert(successMsg);
+        }
         
-        // Clear input
+        // Pulisci il campo email
         emailInput.value = '';
         
-        // Automatically close modal after 3 seconds
+        // Chiudi automaticamente il modal dopo 3 secondi
         setTimeout(() => {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('recoverPasswordModal'));
-            if (modal) {
-                modal.hide();
+            if (typeof bootstrap !== 'undefined') {
+                const modalEl = document.getElementById('recoverPasswordModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal?.hide();
             }
         }, 3000);
 
     } catch (error) {
-        console.error('Password recovery error:', error);
-        recoverError.textContent = error.message;
-        recoverError.classList.remove('d-none');
+        console.error('❌ Password recovery error:', error);
+        
+        const errorMsg = error.message;
+        if (recoverError) {
+            recoverError.textContent = errorMsg;
+            recoverError.classList.remove('d-none');
+        } else {
+            alert('Errore: ' + errorMsg);
+        }
+    } finally {
+        // Ripristina il bottone
+        if (recoverButton) {
+            recoverButton.disabled = false;
+            recoverButton.textContent = originalButtonText;
+        }
     }
 }

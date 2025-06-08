@@ -207,56 +207,34 @@ document.querySelector('form').addEventListener('submit', async (e) => {
         if (!validatePassword(password)) {
             throw new Error('La password non soddisfa i requisiti minimi di sicurezza');
         }
+
         const formData = {
-            nome_utente: document.getElementById('usernameInput').value.trim(),
+            username: document.getElementById('usernameInput').value.trim(),
             email: document.getElementById('emailInput').value.trim(),
+            password: password,
             nome: document.getElementById('nameInput').value.trim(),
             cognome: document.getElementById('surnameInput').value.trim(),
-            password: document.getElementById('passwordInput').value,
+            numero_telefono: document.getElementById('phoneInput').value.trim(),
             indirizzo: document.getElementById('addressInput').value.trim(),
             citta: document.getElementById('cityInput').value.trim(),
-            isArtigiano: document.getElementById('artisanCheck').checked
+            ruolo_id: document.getElementById('artisanCheck').checked ? 2 : 1
         };
 
-        // Validate password confirmation
-        if (formData.password !== document.getElementById('confirmPasswordInput').value) {
-            throw new Error('Le password non coincidono');
-        }
-
-        // Check IBAN if artisan section is visible
-        const artisanSection = document.getElementById('artisanSection');
-        if (artisanSection && !artisanSection.classList.contains('d-none')) {
-            const iban = document.getElementById('vatNumberInput').value.replace(/\s/g, '');
-            if (!iban) {
-                throw new Error('L\'IBAN è obbligatorio per gli artigiani');
-            }
-            if (!validateIBAN(iban)) {
-                throw new Error('L\'IBAN inserito non è valido');
-            }
-        }
-
         // Add artisan specific fields if artisan registration
-        if (formData.isArtigiano) {
-            const artisanData = {
-                iban: document.getElementById('vatNumberInput').value.trim(),
-                numero_telefono: document.getElementById('phoneNumberInput').value.trim(),
-                tipologia_id: parseInt(document.getElementById('categoryInput').value)
-            };
+        if (formData.ruolo_id === 2) {
+            const iban = document.getElementById('vatNumberInput').value.trim();
+            const tipologia_id = document.getElementById('categoryInput').value;
 
-            // Process profile image
-            const imageFile = document.getElementById('profileImageInput').files[0];
-            if (imageFile) {
-                try {
-                    const imageData = await processImage(imageFile);
-                    if (imageData) {
-                        formData.immagine = imageData;
-                    }
-                } catch (error) {
-                    throw new Error(`Errore immagine: ${error.message}`);
-                }
+            if (!iban || !validateIBAN(iban)) {
+                throw new Error('IBAN non valido');
             }
 
-            Object.assign(formData, artisanData);
+            if (!tipologia_id) {
+                throw new Error('Seleziona una categoria');
+            }
+
+            formData.iban = iban;
+            formData.tipologia_id = parseInt(tipologia_id);
         }
 
         const response = await fetch('/auth/signup', {
@@ -284,9 +262,5 @@ document.querySelector('form').addEventListener('submit', async (e) => {
     } catch (error) {
         console.error('Registration error:', error);
         showErrorMessage(error.message);
-        window.scrollTo({
-            top: document.getElementById('formError').offsetTop - 20,
-            behavior: 'smooth'
-        });
     }
 });

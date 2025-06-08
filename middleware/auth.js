@@ -16,7 +16,14 @@ function createAuthMiddleware() {
             const token = authHeader.split(' ')[1];
             
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                // Usa lo stesso fallback del sistema di login
+                const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development';
+                const decoded = jwt.verify(token, jwtSecret);
+                
+                // Log per debug (rimuovi in produzione)
+                console.log('Token verified for user:', decoded.username, 'Role:', decoded.ruolo_id);
+                console.log('Token expires:', new Date(decoded.exp * 1000).toLocaleString('it-IT'));
+                
                 req.user = {
                     id: decoded.id,
                     username: decoded.username,
@@ -24,6 +31,8 @@ function createAuthMiddleware() {
                 };
                 next();
             } catch (jwtError) {
+                console.log('JWT Error:', jwtError.name, jwtError.message);
+                
                 if (jwtError.name === 'TokenExpiredError') {
                     return res.status(401).json({
                         success: false,
@@ -31,7 +40,21 @@ function createAuthMiddleware() {
                         code: 'SESSION_EXPIRED'
                     });
                 }
-                throw jwtError;
+                
+                if (jwtError.name === 'JsonWebTokenError') {
+                    return res.status(401).json({
+                        success: false,
+                        message: 'Token non valido',
+                        code: 'INVALID_TOKEN'
+                    });
+                }
+                
+                // Altri errori JWT
+                return res.status(401).json({
+                    success: false,
+                    message: 'Errore di autenticazione',
+                    code: 'AUTH_ERROR'
+                });
             }
         } catch (error) {
             console.error('Auth middleware error:', error);

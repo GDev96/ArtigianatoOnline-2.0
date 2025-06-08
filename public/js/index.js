@@ -14,48 +14,51 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        // Recupera gli artigiani attivi
-        const response = await fetch('/users/artisans', { headers });
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        // Recupera gli artigiani attivi e le categorie in parallelo
+        const [artisansResponse, categoriesResponse] = await Promise.all([
+            fetch('/users/artisans', { headers }),
+            fetch('/categories', { headers })
+        ]);
+
+        if (!artisansResponse.ok || !categoriesResponse.ok) {
+            throw new Error(`HTTP error! status: ${artisansResponse.status || categoriesResponse.status}`);
         }
-        const data = await response.json();
 
-        if (!data.success || !data.artisans) {
-            throw new Error('Formato risposta artigiani non valido');
+        const [artisansData, categoriesData] = await Promise.all([
+            artisansResponse.json(),
+            categoriesResponse.json()
+        ]);
+
+        if (!artisansData.success || !categoriesData.success) {
+            throw new Error('Formato risposta API non valido');
         }
 
-        // Filtra le categorie solo degli artigiani attivi
-        const uniqueCategories = [...new Set(data.artisans.map(artisan => ({
-            tipologia_id: artisan.tipologia_id,
-            nome_tipologia: artisan.nome_tipologia
-        })))].filter(cat => cat.tipologia_id && cat.nome_tipologia)
-        .sort((a, b) => a.nome_tipologia.localeCompare(b.nome_tipologia));
-
-        // Popola il filtro delle categorie
+        // Popola il select delle categorie
         const categorySelect = document.getElementById('filterCategory');
         if (!categorySelect) {
             throw new Error('Elemento select delle categorie non trovato');
         }
 
         categorySelect.innerHTML = '<option value="">Tutte le categorie</option>';
-        uniqueCategories.forEach(category => {
+        categoriesData.categories.forEach(category => {
             const option = document.createElement('option');
             option.value = category.tipologia_id;
             option.textContent = category.nome_tipologia;
             categorySelect.appendChild(option);
         });
 
+        // Crea mappa delle categorie per riferimento veloce
         const categoryMap = {};
-        uniqueCategories.forEach(cat => {
+        categoriesData.categories.forEach(cat => {
             categoryMap[cat.tipologia_id] = cat.nome_tipologia;
         });
 
-        // Popula il filtro delle città
-        const uniqueCities = [...new Set(data.artisans.map(artisan => artisan.citta))]
-            .filter(Boolean)
+        // Popola il select delle città
+        const uniqueCities = [...new Set(artisansData.artisans
+            .map(artisan => artisan.citta)
+            .filter(Boolean))]
             .sort();
-            
+
         const citySelect = document.getElementById('filterCity');
         if (!citySelect) {
             throw new Error('Elemento select delle città non trovato');
@@ -69,12 +72,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             citySelect.appendChild(option);
         });
 
-        // Applica i filtri
-        document.getElementById('applyFilters').addEventListener('click', () => {
+        // Gestione filtri
+        document.getElementById('applyFilters')?.addEventListener('click', () => {
             const selectedCategory = categorySelect.value;
             const selectedCity = citySelect.value;
 
-            const filteredArtisans = data.artisans.filter(artisan => {
+            const filteredArtisans = artisansData.artisans.filter(artisan => {
                 const matchCategory = !selectedCategory || artisan.tipologia_id.toString() === selectedCategory;
                 const matchCity = !selectedCity || artisan.citta === selectedCity;
                 return matchCategory && matchCity;
@@ -83,12 +86,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateArtisansDisplay(filteredArtisans, categoryMap);
         });
 
-        // Inizializza la visualizzazione degli artigiani
-        updateArtisansDisplay(data.artisans, categoryMap);
+        // Visualizzazione iniziale
+        updateArtisansDisplay(artisansData.artisans, categoryMap);
 
     } catch (error) {
         console.error('Error loading home page:', error);
-        showErrorMessage(error);
+        showErrorMessage(error.message);
     }
 });
 
@@ -114,41 +117,32 @@ function updateArtisansDisplay(artisans, categoryMap) {
     }
 
     container.innerHTML = artisans.map(artisan => {
-        // Convert binary data to base64 if needed
         let imageSource = '/assets/images/default/artisan-default.jpg';
         if (artisan.immagine) {
-            // Check if immagine is already base64
-            if (typeof artisan.immagine === 'string') {
-                imageSource = `data:image/jpeg;base64,${artisan.immagine}`;
-            } else {
-                // Convert binary data to base64
-                const uint8Array = new Uint8Array(artisan.immagine.data);
-                const binaryString = uint8Array.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
-                const base64String = btoa(binaryString);
-                imageSource = `data:image/jpeg;base64,${base64String}`;
-            }
+            imageSource = `data:image/jpeg;base64,${artisan.immagine}`;
         }
 
         return `
         <div class="col-md-4 mb-4">
-            <div class="card">
+            <div class="card h-100">
                 <img src="${imageSource}" 
                     class="card-img-top" 
-                    alt="${artisan.username}"
+                    alt="${artisan.nome} ${artisan.cognome}"
                     onerror="this.src='/assets/images/default/artisan-default.jpg'"
                     style="object-fit: cover; height: 200px;">
-                <div class="card-body">
+                <div class="card-body d-flex flex-column">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h5 class="card-title">${artisan.nome} ${artisan.cognome}</h5>
-                        <p class="card-text mb-2">${artisan.citta || ''} </p>
+                        <h5 class="card-title mb-0">${artisan.nome} ${artisan.cognome}</h5>
+                        <p class="card-text mb-0">${artisan.citta || ''}</p>
                     </div>
-                    <p class="card-category">${categoryMap[artisan.tipologia_id] || 'Categoria non specificata'}</p>
-                    <div class="d-flex justify-content-end">
-                        <a href="/catalog.html?id=${artisan.id}" class="btn">Vedi catalogo</a>
+                    <span class="card-category align-self-start">
+                        ${categoryMap[artisan.tipologia_id] || 'Categoria non specificata'}
+                    </span>
+                    <div class="mt-auto d-flex justify-content-end">
+                        <a href="/catalog.html?id=${artisan.id}" class="btn btn-outline-primary">Vedi catalogo</a>
                     </div>
                 </div>
             </div>
-        </div>
-        `;
+        </div>`;
     }).join('');
 }

@@ -47,7 +47,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('La password deve contenere almeno 8 caratteri');
             }
     
-            // Disable submit button and show loading state
             submitButton.disabled = true;
             submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Elaborazione...';
     
@@ -68,14 +67,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(data.error || 'Errore durante il reset della password');
             }
     
-            // Hide form
             resetForm.style.display = 'none';
             
-            // Show success modal
             const successModal = new bootstrap.Modal(document.getElementById('successModal'));
             successModal.show();
     
-            // Redirect after delay
             setTimeout(() => {
                 window.location.href = '/login.html';
             }, 3000);
@@ -85,7 +81,6 @@ document.addEventListener('DOMContentLoaded', function() {
             resetError.textContent = error.message;
             resetError.classList.remove('d-none');
         } finally {
-            // Reset submit button state
             submitButton.disabled = false;
             submitButton.innerHTML = 'Reimposta Password';
         }

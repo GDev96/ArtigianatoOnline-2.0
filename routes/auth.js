@@ -3,12 +3,10 @@ const bcrypt = require('bcrypt');
 const { pool } = require('../db/db');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const { getPool } = require('../db/pool');
 const { sendPasswordRecoveryEmail } = require('../services/emailService');
 require('dotenv').config();
 
-
-// Validazione del formato dell'immagine per la registrazione - corretto
+// Validazione del formato dell'immagine per la registrazione
 function isValidImageData(base64String) {
     try {
         const matches = base64String.match(/^data:image\/(jpeg|jpg|png);base64,/i);
@@ -18,88 +16,123 @@ function isValidImageData(base64String) {
     }
 }
 
-// Registrazione utente - corretto
+// === REGISTRAZIONE UTENTE ===
 router.post('/signup', async (req, res) => {
     try {
-        const {
-            username,
-            email,
-            password,
-            nome,
-            cognome,
-            numero_telefono,
-            indirizzo,
-            citta,
-            ruolo_id
+        let {
+            nome_utente, email, nome, cognome, 
+            password, indirizzo, citta, isArtigiano,
+            numero_telefono, tipologia_id, iban, immagine
         } = req.body;
 
-        // Validation
-        if (!username || !email || !password || !nome || !cognome || !ruolo_id) {
+        // Validate required fields
+        if (!nome_utente || !email || !nome || !cognome || !password) {
             return res.status(400).json({
                 success: false,
                 error: 'Tutti i campi obbligatori devono essere compilati'
             });
         }
 
-        const pool = getPool();
-
-        // Check if username exists
-        const userExists = await pool.query(
-            'SELECT username FROM utente WHERE username = $1',
-            [username]
-        );
-
-        if (userExists.rows.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'Username già esistente'
-            });
+        // Process image if present
+        let processedImage = null;
+        if (immagine) {
+            if (!isValidImageData(immagine)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Formato immagine non valido'
+                });
+            }
+            const base64Data = immagine.replace(/^data:image\/\w+;base64,/, '');
+            processedImage = Buffer.from(base64Data, 'base64');
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Generate password hash
+        const saltRounds = 10;
+        const hash = await bcrypt.hash(password, saltRounds);
 
-        // Insert new user
-        const result = await pool.query(
-            `INSERT INTO utente 
-            (username, email, password_hash, nome, cognome, numero_telefono, indirizzo, citta, ruolo_id, stato) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'attivo') 
-            RETURNING id, username, email, ruolo_id`,
-            [username, email, hashedPassword, nome, cognome, numero_telefono, indirizzo, citta, ruolo_id]
-        );
+        // Start transaction
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
 
-        const user = result.rows[0];
+            // Insert user
+            const userResult = await client.query(`
+                INSERT INTO utente (
+                    username, email, nome, cognome, 
+                    password_hash, indirizzo, citta, 
+                    numero_telefono, ruolo_id, stato
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                RETURNING id
+            `, [
+                nome_utente, email, nome, cognome,
+                hash, indirizzo, citta,
+                numero_telefono, isArtigiano ? 2 : 1, 'attivo'
+            ]);
 
-        // Generate JWT
-        const token = jwt.sign(
-            { id: user.id, username: user.username },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        res.status(201).json({
-            success: true,
-            token,
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email
+            // If artisan, insert additional data
+            if (isArtigiano) {
+                await client.query(`
+                    INSERT INTO artigiani (
+                        artigiano_id, tipologia_id, 
+                        iban, immagine
+                    )
+                    VALUES ($1, $2, $3, $4)
+                `, [
+                    userResult.rows[0].id,
+                    tipologia_id,
+                    iban,
+                    processedImage
+                ]);
             }
-        });
+
+            await client.query('COMMIT');
+            res.status(201).json({
+                success: true,
+                message: 'Utente registrato con successo'
+            });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
 
     } catch (error) {
-        console.error('Signup error:', error);
+        console.error('Errore registrazione:', error);
+        
+        // Check for specific PostgreSQL errors
+        if (error.code === '23505') { // Unique violation
+            if (error.constraint && error.constraint.includes('username')) {
+                return res.status(409).json({
+                    success: false,
+                    error: 'Username già esistente'
+                });
+            } else if (error.constraint && error.constraint.includes('email')) {
+                return res.status(409).json({
+                    success: false,
+                    error: 'Email già registrata'
+                });
+            }
+        }
+        
         res.status(500).json({
             success: false,
-            error: 'Errore durante la registrazione'
+            error: 'Errore durante la registrazione',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
 
-//Login utente - corretto
+// === LOGIN UTENTE ===
 router.post('/login', async (req, res) => {
+    console.log('=== LOGIN ATTEMPT ===');
+    
     try {
         const { nome_utente, password } = req.body;
+
+        console.log('Login attempt for user:', nome_utente);
 
         // Check for required fields
         if (!nome_utente || !password) {
@@ -109,32 +142,10 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Modify the user status check:
-        const userStatusCheck = await pool.query(`
-            SELECT u.stato, su.data_fine_prevista 
-            FROM utente u
-            LEFT JOIN sospensioni_utenti su ON u.id = su.utente_id 
-            WHERE u.username = $1 
-            AND su.data_fine IS NULL
-            ORDER BY su.data_inizio DESC 
-            LIMIT 1
-        `, [nome_utente]);
-        
-        if (userStatusCheck.rows.length > 0 && userStatusCheck.rows[0].stato === 'sospeso') {
-            return res.status(403).json({
-                success: false,
-                error: 'Account sospeso',
-                code: 'ACCOUNT_SUSPENDED',
-                suspension: {
-                    dataFine: userStatusCheck.rows[0].data_fine_prevista
-                }
-            });
-        }
-
-        // Get active user from database
+        // Get user from database
         const result = await pool.query(
             'SELECT * FROM utente WHERE username = $1',
-            [nome_utente]
+            [nome_utente.trim()]
         );
 
         if (result.rows.length === 0) {
@@ -146,6 +157,9 @@ router.post('/login', async (req, res) => {
         }
 
         const user = result.rows[0];
+        console.log('User found:', user.username);
+
+        // Verify password BEFORE checking account status
         const isMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!isMatch) {
@@ -165,15 +179,38 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        // Check for suspensions
+        const userStatusCheck = await pool.query(`
+            SELECT su.data_fine_prevista 
+            FROM sospensioni_utenti su 
+            WHERE su.utente_id = $1 
+            AND su.data_fine IS NULL
+            ORDER BY su.data_inizio DESC 
+            LIMIT 1
+        `, [user.id]);
+        
+        if (userStatusCheck.rows.length > 0) {
+            return res.status(403).json({
+                success: false,
+                error: 'Account sospeso',
+                code: 'ACCOUNT_SUSPENDED',
+                suspension: {
+                    dataFine: userStatusCheck.rows[0].data_fine_prevista
+                }
+            });
+        }
+
+        // Generate JWT token - usa un fallback se JWT_SECRET non è disponibile
+        const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development';
         const token = jwt.sign({
             id: user.id,
             username: user.username,
             ruolo_id: user.ruolo_id
-        }, process.env.JWT_SECRET, { 
+        }, jwtSecret, { 
             expiresIn: '30m' 
         });
 
-        res.json({
+        const responseData = {
             success: true,
             token,
             user: {
@@ -183,7 +220,10 @@ router.post('/login', async (req, res) => {
                 cognome: user.cognome,
                 ruolo_id: user.ruolo_id
             }
-        });
+        };
+
+        console.log('Login successful for user:', user.username);
+        res.json(responseData);
 
     } catch (error) {
         console.error('Login error:', error);
@@ -195,12 +235,10 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Logout utente - corretto
+// === LOGOUT UTENTE ===
 router.post('/logout', (req, res) => {
     try {
-        // Clear JWT cookie if it exists
         res.clearCookie('token');
-        
         res.json({
             success: true,
             message: 'Logout effettuato con successo'
@@ -215,12 +253,10 @@ router.post('/logout', (req, res) => {
     }
 });
 
-// Password recovery request
+// === PASSWORD RECOVERY ===
 router.post('/recover-password', async (req, res) => {
     try {
         const { email } = req.body;
-
-        console.log('Ricevuta richiesta recupero password per:', email);
 
         // Validate email
         if (!email) {
@@ -243,22 +279,21 @@ router.post('/recover-password', async (req, res) => {
             });
         }
 
-        // Generate recovery token including email
+        // Generate recovery token
+        const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development';
         const recoveryToken = jwt.sign({
             id: user.rows[0].id,
-            email: user.rows[0].email, // Include email in token
+            email: user.rows[0].email,
             action: 'password-recovery'
-        }, process.env.JWT_SECRET, { 
+        }, jwtSecret, { 
             expiresIn: '1h' 
         });
-
 
         // Create recovery link
         const recoveryLink = `${process.env.APP_URL}/resetPass.html?token=${recoveryToken}`;
 
         try {
             await sendPasswordRecoveryEmail(email, recoveryLink);
-            
             res.json({
                 success: true,
                 message: 'Email di recupero inviata con successo'
@@ -280,7 +315,7 @@ router.post('/recover-password', async (req, res) => {
     }
 });
 
-// Reset password endpoint
+// === RESET PASSWORD ===
 router.post('/reset-password', async (req, res) => {
     const client = await pool.connect();
     
@@ -295,7 +330,8 @@ router.post('/reset-password', async (req, res) => {
         }
 
         // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development';
+        const decoded = jwt.verify(token, jwtSecret);
         
         // Check if token is for password reset and has email
         if (decoded.action !== 'password-recovery' || !decoded.email) {

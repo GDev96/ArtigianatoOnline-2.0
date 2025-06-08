@@ -1,7 +1,6 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
-const { pool } = require('../db/db');
-const jwt = require('jsonwebtoken');
+const path = require('path');
+const { getPool } = require('../db/db'); // Modifica qui per usare getPool
 const router = express.Router();
 require('dotenv').config();
 
@@ -18,6 +17,7 @@ router.get('/', async (req, res) => {
 // API per recuperare tutte le categorie - pubblica
 router.get('/categories', async (req, res) => {
     try {
+        const pool = getPool();
         const query = `
             SELECT 
                 tipologia_id,
@@ -42,6 +42,5 @@ router.get('/categories', async (req, res) => {
         });
     }
 });
-
 
 module.exports = router;

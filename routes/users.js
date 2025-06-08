@@ -1,7 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const { pool } = require('../db/db');
-const jwt = require('jsonwebtoken');
+const { getPool } = require('../db/db');
 const router = express.Router();
 const multer = require('multer');
 const upload = multer();
@@ -10,16 +9,17 @@ const createAuthMiddleware = require('../middleware/auth');
 
 const requireAuth = createAuthMiddleware();
 
-
 // Get user by ID
 router.get('/api/:id', async (req, res) => {
     try {
+        const pool = getPool();
         const userId = req.params.id;
         
         const query = `
-            SELECT id, username, nome, cognome, email, numero_telefono, indirizzo, citta, ruolo_id, stato
-            FROM utente 
-            WHERE id = $1 AND stato = 'attivo'`;
+            SELECT u.id, u.username, u.nome, u.cognome, u.email, 
+                   u.numero_telefono, u.indirizzo, u.citta, u.ruolo_id
+            FROM utente u
+            WHERE u.id = $1`;
             
         const result = await pool.query(query, [userId]);
 
@@ -47,6 +47,7 @@ router.get('/api/:id', async (req, res) => {
 // Get tutti gli artigiani - pubblica
 router.get('/artisans', async (req, res) => {
     try {
+        const pool = getPool();
         const query = `
             SELECT 
                 u.id,
@@ -56,31 +57,13 @@ router.get('/artisans', async (req, res) => {
                 u.numero_telefono,
                 u.indirizzo,
                 u.citta,
-                u.stato,
                 a.tipologia_id,
                 t.nome_tipologia,
-                COALESCE(AVG(r.valutazione)::numeric(10,1), 0) as valutazione_media,
-                COUNT(DISTINCT r.recensione_id) as numero_recensioni,
                 a.immagine
             FROM utente u
             INNER JOIN artigiani a ON u.id = a.artigiano_id
             LEFT JOIN tipologia t ON a.tipologia_id = t.tipologia_id
-            LEFT JOIN recensioni r ON u.id = r.artigiano_id 
-                AND r.stato = 'attiva'
-            WHERE u.ruolo_id = 2 
-            AND u.stato = 'attivo'
-            GROUP BY 
-                u.id,
-                u.nome,
-                u.cognome,
-                u.email,
-                u.numero_telefono,
-                u.indirizzo,
-                u.citta,
-                u.stato,
-                a.tipologia_id,
-                t.nome_tipologia,
-                a.immagine
+            WHERE u.ruolo_id = 2
             ORDER BY u.cognome, u.nome`;
 
         const result = await pool.query(query);
@@ -106,6 +89,7 @@ router.get('/artisans', async (req, res) => {
 // Get artisan by ID
 router.get('/api/artisan/:id', async (req, res) => {
     try {
+        const pool = getPool();
         const artisanId = req.params.id;
         
         const query = `
@@ -117,32 +101,13 @@ router.get('/api/artisan/:id', async (req, res) => {
                 u.numero_telefono,
                 u.indirizzo,
                 u.citta,
-                u.stato,
                 a.tipologia_id,
                 t.nome_tipologia,
-                COALESCE(AVG(r.valutazione)::numeric(10,1), 0) as valutazione_media,
-                COUNT(DISTINCT r.recensione_id) as numero_recensioni,
                 a.immagine
             FROM utente u
             INNER JOIN artigiani a ON u.id = a.artigiano_id
             LEFT JOIN tipologia t ON a.tipologia_id = t.tipologia_id
-            LEFT JOIN recensioni r ON u.id = r.artigiano_id 
-                AND r.stato = 'attiva'
-            WHERE u.id = $1 
-            AND u.ruolo_id = 2 
-            AND u.stato = 'attivo'
-            GROUP BY 
-                u.id,
-                u.nome,
-                u.cognome,
-                u.email,
-                u.numero_telefono,
-                u.indirizzo,
-                u.citta,
-                u.stato,
-                a.tipologia_id,
-                t.nome_tipologia,
-                a.immagine`;
+            WHERE u.id = $1 AND u.ruolo_id = 2`;
 
         const result = await pool.query(query, [artisanId]);
 
@@ -153,7 +118,6 @@ router.get('/api/artisan/:id', async (req, res) => {
             });
         }
 
-        // Convert image buffer to base64 if exists
         const artisan = {
             ...result.rows[0],
             immagine: result.rows[0].immagine ? result.rows[0].immagine.toString('base64') : null
@@ -180,11 +144,9 @@ router.put('/update/:id', async (req, res) => {
         const userId = req.params.id;
         const updates = req.body;
         
-        // Separate updates for utente and artigiani tables
         const userFields = {};
         const artisanFields = {};
         
-        // Split fields between tables
         Object.entries(updates).forEach(([key, value]) => {
             if (key === 'tipologia_id') {
                 artisanFields[key] = value;
@@ -193,14 +155,12 @@ router.put('/update/:id', async (req, res) => {
             }
         });
 
-        // Start a transaction
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
 
             let userData = null;
 
-            // Update user table if we have user fields
             if (Object.keys(userFields).length > 0) {
                 const userSetClause = Object.keys(userFields)
                     .map((key, index) => `${key} = $${index + 1}`)
@@ -219,7 +179,6 @@ router.put('/update/:id', async (req, res) => {
                 userData = userResult.rows[0];
             }
 
-            // Update artisan table if we have tipologia_id
             if (artisanFields.tipologia_id) {
                 await client.query(
                     `UPDATE artigiani 
@@ -229,7 +188,6 @@ router.put('/update/:id', async (req, res) => {
                 );
             }
 
-            // If we didn't update user data, get it
             if (!userData) {
                 const getUserQuery = `
                     SELECT id, username, nome, cognome, email, numero_telefono, indirizzo, citta
@@ -241,12 +199,9 @@ router.put('/update/:id', async (req, res) => {
 
             await client.query('COMMIT');
 
-            // Add tipologia_id to response
             if (artisanFields.tipologia_id) {
                 userData.tipologia_id = artisanFields.tipologia_id;
             }
-
-            console.log('Updated user data:', userData);
 
             res.json({
                 success: true,
@@ -270,16 +225,15 @@ router.put('/update/:id', async (req, res) => {
     }
 });
 
+// API per aggiornare l'immagine del profilo
 router.post('/profile/image', requireAuth, upload.single('profileImage'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ message: 'Nessuna immagine caricata' });
         }
 
-        // Convert image to base64
         const imageBase64 = req.file.buffer;
 
-        // Update artisan profile image in database
         const result = await pool.query(
             'UPDATE artigiani SET immagine = $1 WHERE artigiano_id = $2 RETURNING immagine',
             [imageBase64, req.user.id]
@@ -289,7 +243,6 @@ router.post('/profile/image', requireAuth, upload.single('profileImage'), async 
             throw new Error('Errore nell\'aggiornamento dell\'immagine');
         }
 
-        // Convert image buffer to base64 for response
         const base64Image = result.rows[0].immagine.toString('base64');
 
         res.json({ 
@@ -306,8 +259,5 @@ router.post('/profile/image', requireAuth, upload.single('profileImage'), async 
         });
     }
 });
-
-//TODO: API per eliminare un utente/artigiano - admin
-
 
 module.exports = router;
