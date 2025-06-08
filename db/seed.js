@@ -8,10 +8,9 @@ async function seed() {
     try {
         // Test connessione
         await pool.query('SELECT NOW()');
-        console.log('✅ Database connection OK');
+        console.log('Database connection OK');
         
         // --- CREAZIONE RUOLI ---
-        console.log('Inserimento ruoli...');
         await pool.query(`
             INSERT INTO ruoli (ruolo_id, nome_ruolo) VALUES
             (1, 'cliente'),
@@ -21,7 +20,6 @@ async function seed() {
         `);
 
         // --- CREAZIONE TIPOLOGIE ---
-        console.log('Inserimento tipologie...');
         await pool.query(`
             INSERT INTO tipologia (tipologia_id, nome_tipologia) VALUES
             (1, 'Ceramica'),
@@ -50,7 +48,6 @@ async function seed() {
         const saltRounds = 10;
 
         // --- CREAZIONE UTENTI ---
-        console.log('Creating users...');
         const utenti = [
             { username: 'mario_clientetest', nome: 'Mario', cognome: 'Test', numero_telefono: '3281234599', email: 'mariotest@example.com', ruolo_id: 1, citta: 'Venezia', indirizzo: 'Via Test 1', password: 'cliente4' },
             { username: 'giulia_tessuti', nome: 'Giulia', cognome: 'Rossi', numero_telefono: '3281234567', email: 'giulia@example.com', ruolo_id: 2, citta: 'Firenze', indirizzo: 'Via delle Rose 10', password: 'password1' },
@@ -72,14 +69,12 @@ async function seed() {
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                     [u.username, u.nome, u.cognome, u.numero_telefono, u.email, u.indirizzo, u.citta, hash, u.ruolo_id, 'attivo']
                 );
-                console.log(`✅ User created: ${u.username}`);
             } catch (userError) {
-                console.error(`❌ Error creating user ${u.username}:`, userError.message);
+                console.error(`Error creating user ${u.username}:`, userError.message);
             }
         }
 
         // --- CREAZIONE ARTIGIANI ---
-        console.log('Creating artisans...');
         const artigianiRes = await pool.query("SELECT id, username FROM utente WHERE ruolo_id = 2");
         const tipologie = {
             'giulia_tessuti': 3,
@@ -98,15 +93,13 @@ async function seed() {
                          VALUES ($1, $2, $3, NULL)`,
                         [artigiano.id, tipo, 'IT60X0542811101000000123456']
                     );
-                    console.log(`✅ Artisan created: ${artigiano.username}`);
                 } catch (artisanError) {
-                    console.error(`❌ Error creating artisan ${artigiano.username}:`, artisanError.message);
+                    console.error(`Error creating artisan ${artigiano.username}:`, artisanError.message);
                 }
             }
         }
 
         // --- CREAZIONE PRODOTTI ---
-        console.log('Creating products...');
         const prodotti = [
             { nome: 'Cuscino ricamato', tipologia_id: 3, prezzo: 25.00, art: 'giulia_tessuti' },
             { nome: 'Tenda artigianale', tipologia_id: 3, prezzo: 60.00, art: 'giulia_tessuti' },
@@ -127,15 +120,13 @@ async function seed() {
                          VALUES ($1, $2, $3, $4, NULL, $5)`,
                         [artId, p.nome, p.tipologia_id, p.prezzo, 10]
                     );
-                    console.log(`✅ Product created: ${p.nome}`);
                 }
             } catch (productError) {
-                console.error(`❌ Error creating product ${p.nome}:`, productError.message);
+                console.error(`Error creating product ${p.nome}:`, productError.message);
             }
         }
 
         // --- CREAZIONE CARRELLO ---
-        console.log('Creating cart items...');
         const clientiRes = await pool.query("SELECT id FROM utente WHERE ruolo_id = 1");
         const prodottiRes = await pool.query("SELECT prodotto_id, prezzo FROM prodotti");
         
@@ -161,10 +152,10 @@ async function seed() {
             }
         }
 
-        console.log('✅ Seed completato con successo!');
+        console.log('Seed completato con successo!');
         
     } catch (error) {
-        console.error('❌ Errore durante il seed:', error);
+        console.error('Errore durante il seed:', error);
         console.error('Error details:', error.message);
         console.error('Error stack:', error.stack);
         throw error;

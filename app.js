@@ -83,16 +83,14 @@ function getLocalIP() {
 
 const startServer = async () => {
     try {
-        console.log('🔄 Starting server...');
+        console.log('Starting server...');
         
         // Test database connection
-        console.log('🔄 Testing database connection...');
         const pool = getPool();
         await pool.query('SELECT NOW()');
-        console.log('✅ Database connection successful');
+        console.log('Database connection successful');
         
         // Check if tables exist and create them if needed
-        console.log('🔄 Checking database schema...');
         try {
             const result = await pool.query(`
                 SELECT table_name 
@@ -102,104 +100,95 @@ const startServer = async () => {
             `);
             
             if (result.rows.length === 0) {
-                console.log('⚠️ Tables not found, running schema creation...');
+                console.log('Tables not found, running schema creation...');
                 const fs = require('fs');
                 const path = require('path');
                 
                 // Read and execute tables.sql
                 const tablesSQL = fs.readFileSync(path.join(__dirname, 'db/tables.sql'), 'utf8');
                 await pool.query(tablesSQL);
-                console.log('✅ Database schema created');
+                console.log('Database schema created');
                 
                 // Run seed to populate initial data
-                console.log('🌱 Running database seed...');
                 const seed = require('./db/seed');
                 await seed();
-                console.log('✅ Database seeded successfully');
+                console.log('Database seeded successfully');
             } else {
-                console.log('✅ Database schema exists');
+                console.log('Database schema exists');
                 
                 // Check if we need to run seed (check if users exist)
                 const userCheck = await pool.query('SELECT COUNT(*) FROM utente');
                 const userCount = parseInt(userCheck.rows[0].count);
                 
                 if (userCount === 0) {
-                    console.log('🌱 No users found, running seed...');
+                    console.log('No users found, running seed...');
                     const seed = require('./db/seed');
                     await seed();
-                    console.log('✅ Database seeded successfully');
+                    console.log('Database seeded successfully');
                 } else {
-                    console.log(`✅ Database has ${userCount} users`);
+                    console.log(`Database has ${userCount} users`);
                 }
             }
         } catch (schemaError) {
-            console.error('❌ Database schema error:', schemaError.message);
-            console.log('🔄 Attempting to create schema...');
+            console.error('Database schema error:', schemaError.message);
             
             try {
                 const fs = require('fs');
                 const path = require('path');
                 const tablesSQL = fs.readFileSync(path.join(__dirname, 'db/tables.sql'), 'utf8');
                 await pool.query(tablesSQL);
-                console.log('✅ Database schema created after error');
                 
                 // Run seed
                 const seed = require('./db/seed');
                 await seed();
-                console.log('✅ Database seeded after schema creation');
             } catch (createError) {
-                console.error('❌ Failed to create schema:', createError.message);
+                console.error('Failed to create schema:', createError.message);
                 throw createError;
             }
         }
         
         // Start the HTTP server
         const server = app.listen(PORT, () => {
-            console.log('\n🎉 Server started successfully!');
-            console.log('\x1b[32m%s\x1b[0m', `🚀 Server running on port ${PORT}`);
+            console.log('\nServer started successfully!');
+            console.log('\x1b[32m%s\x1b[0m', `Server running on port ${PORT}`);
             console.log('\x1b[36m%s\x1b[0m', `➜ Local:   http://localhost:${PORT}`);
             console.log('\x1b[36m%s\x1b[0m', `➜ Network: http://${getLocalIP()}:${PORT}`);
-            console.log('\x1b[33m%s\x1b[0m', `📋 Test users available:`);
-            console.log('\x1b[33m%s\x1b[0m', `   Cliente: mario_clientetest / cliente4`);
-            console.log('\x1b[33m%s\x1b[0m', `   Artigiano: giulia_tessuti / password1`);
-            console.log('\x1b[33m%s\x1b[0m', `   Admin: mario_admin / adminpass`);
-            console.log('');
         });
         
         // Graceful shutdown
         process.on('SIGINT', async () => {
-            console.log('\n🔄 Shutting down server...');
+            console.log('\nShutting down server...');
             server.close(async () => {
                 try {
                     const { closePool } = require('./db/pool');
                     await closePool();
-                    console.log('✅ Database connections closed');
+                    console.log('Database connections closed');
                 } catch (error) {
-                    console.error('❌ Error closing database:', error);
+                    console.error('Error closing database:', error);
                 }
-                console.log('👋 Server stopped');
+                console.log('Server stopped');
                 process.exit(0);
             });
         });
         
         return server;
     } catch (error) {
-        console.error('❌ Server startup error:', error);
+        console.error('Server startup error:', error);
         console.error('Error details:', error.message);
         console.error('Error stack:', error.stack);
         
         // Provide helpful error messages
         if (error.message.includes('connect ECONNREFUSED')) {
-            console.error('\n💡 Suggestions:');
+            console.error('\n Suggestions:');
             console.error('   - Make sure PostgreSQL is running');
             console.error('   - Check your database configuration in .env');
             console.error('   - Verify DB_HOST, DB_PORT, DB_USER, DB_PASSWORD');
         } else if (error.message.includes('database') && error.message.includes('does not exist')) {
-            console.error('\n💡 Suggestions:');
+            console.error('\n Suggestions:');
             console.error('   - Create the database manually in PostgreSQL');
             console.error('   - Run: CREATE DATABASE artigianato_online;');
         } else if (error.message.includes('permission denied')) {
-            console.error('\n💡 Suggestions:');
+            console.error('\n Suggestions:');
             console.error('   - Check database user permissions');
             console.error('   - Verify DB_USER has access to DB_NAME');
         }

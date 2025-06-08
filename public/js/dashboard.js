@@ -937,8 +937,6 @@ async function loadArtisanReports() {
         if (!response.ok) throw new Error('Errore nel caricamento delle segnalazioni');
         
         const reports = await response.json();
-        console.log('Reports data:', reports); // Debug: log the reports data
-        
         const reportsContainer = document.querySelector('#reports-container');
         
         // If no reports, hide the entire container and return

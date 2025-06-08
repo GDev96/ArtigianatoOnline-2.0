@@ -8,7 +8,6 @@ async function initializeJobs() {
         cron.schedule('0 * * * *', async () => {
             try {
                 await updateOrderStatuses();
-                console.log('Order statuses updated successfully');
             } catch (error) {
                 console.error('Error in order status update job:', error);
             }
@@ -18,7 +17,6 @@ async function initializeJobs() {
         cron.schedule('0 * * * *', async () => {
             try {
                 await checkAndRemoveSuspensions();
-                console.log('Suspension checks completed successfully');
             } catch (error) {
                 console.error('Error in suspension check job:', error);
             }

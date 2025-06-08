@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Login page loaded');
     
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('passwordInput');
@@ -8,15 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginButton = document.getElementById('loginButton');
     const loginError = document.getElementById('loginError');
 
-    // Verifica che tutti gli elementi esistano
-    console.log('Form elements check:', {
-        togglePassword: !!togglePassword,
-        passwordInput: !!passwordInput,
-        usernameInput: !!usernameInput,
-        loginForm: !!loginForm,
-        loginButton: !!loginButton,
-        loginError: !!loginError
-    });
 
     // Gestione del toggle password
     togglePassword?.addEventListener('click', function(e) {
@@ -50,7 +40,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     async function handleLogin() {
-        console.log('\n=== FRONTEND LOGIN START ===');
         
         const submitButton = document.getElementById('loginButton');
         const originalButtonText = submitButton?.textContent || 'Accedi';
@@ -76,21 +65,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Prepara le credenziali
             const rawUsername = usernameInput.value;
             const rawPassword = passwordInput.value;
-            
-            console.log('Raw input values:', {
-                username: rawUsername,
-                password: rawPassword ? `[${rawPassword.length} chars]` : '[empty]'
-            });
+        
 
             const credentials = {
                 nome_utente: rawUsername.trim(),
                 password: rawPassword
             };
-
-            console.log('Prepared credentials:', {
-                nome_utente: credentials.nome_utente,
-                password: credentials.password ? `[${credentials.password.length} chars]` : '[empty]'
-            });
 
             // Validazione base
             if (!credentials.nome_utente || !credentials.password) {
@@ -105,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Password deve contenere almeno 4 caratteri');
             }
 
-            console.log('✅ Validation passed, sending request...');
+            console.log('Validation passed, sending request...');
             console.log('Request URL: /auth/login');
             console.log('Request method: POST');
 
@@ -117,15 +97,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(credentials)
-            });
-
-            console.log('📡 Response received:', {
-                status: response.status,
-                statusText: response.statusText,
-                ok: response.ok,
-                headers: {
-                    'content-type': response.headers.get('content-type')
-                }
             });
 
             let data;
@@ -152,17 +123,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Gestione errori specifici
             if (response.status === 400) {
-                console.log('❌ Bad Request (400)');
+                console.log('Bad Request (400)');
                 throw new Error(data.error || 'Dati di login non validi');
             }
 
             if (response.status === 401) {
-                console.log('❌ Unauthorized (401)');
+                console.log('Unauthorized (401)');
                 throw new Error('Username o password non corretti');
             }
             
             if (response.status === 403) {
-                console.log('❌ Forbidden (403)');
+                console.log('Forbidden (403)');
                 if (data.code === 'ACCOUNT_SUSPENDED') {
                     handleAccountSuspension(data);
                     return;
@@ -172,27 +143,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (response.status === 404) {
-                console.log('❌ Not Found (404)');
+                console.log('Not Found (404)');
                 throw new Error('Servizio di login non trovato. Verifica la configurazione del server.');
             }
 
             if (response.status === 500) {
-                console.log('❌ Server Error (500)');
+                console.log('Server Error (500)');
                 throw new Error('Errore interno del server. Riprova più tardi.');
             }
 
             if (!response.ok) {
-                console.log(`❌ HTTP error (${response.status})`);
+                console.log(`HTTP error (${response.status})`);
                 throw new Error(data.error || `Errore del server (${response.status})`);
             }
 
             if (!data.success) {
-                console.log('❌ Login failed (success=false)');
+                console.log('Login failed (success=false)');
                 throw new Error(data.error || 'Login fallito');
             }
 
             if (!data.token || !data.user) {
-                console.log('❌ Incomplete login data');
+                console.log('Incomplete login data');
                 console.log('Missing:', {
                     token: !data.token,
                     user: !data.user
@@ -201,7 +172,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Login riuscito
-            console.log('🎉 LOGIN SUCCESSFUL!');
             console.log('User data:', {
                 id: data.user.id,
                 username: data.user.username,
@@ -214,30 +184,24 @@ document.addEventListener('DOMContentLoaded', function() {
             // Salva la sessione
             try {
                 if (typeof AuthService !== 'undefined') {
-                    console.log('✅ Using AuthService to save session');
                     AuthService.setSession(data.token, data.user);
                 } else {
-                    console.log('⚠️ AuthService not available, using sessionStorage fallback');
                     sessionStorage.setItem('authToken', data.token);
                     sessionStorage.setItem('user', JSON.stringify(data.user));
                 }
-                console.log('✅ Session saved successfully');
+                console.log('Session saved successfully');
             } catch (storageError) {
-                console.error('❌ Error saving session:', storageError);
+                console.error('Error saving session:', storageError);
                 // Continue anyway, the login was successful
             }
-            
-            console.log('🔄 Redirecting to index.html...');
-            
+                        
             // Redirect
             window.location.href = '/index.html';
 
         } catch (error) {
-            console.error('\n❌ FRONTEND LOGIN ERROR ===');
             console.error('Error type:', error.name);
             console.error('Error message:', error.message);
             console.error('Error stack:', error.stack);
-            console.error('===========================\n');
             
             // Mostra errore all'utente
             const errorMessage = error.message || 'Errore durante il login';
@@ -260,8 +224,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Rimuovi il flag di login
             window.isLoggingIn = false;
-            
-            console.log('=== FRONTEND LOGIN END ===\n');
         }
     }
 

@@ -20,10 +20,6 @@ function createAuthMiddleware() {
                 const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development';
                 const decoded = jwt.verify(token, jwtSecret);
                 
-                // Log per debug (rimuovi in produzione)
-                console.log('Token verified for user:', decoded.username, 'Role:', decoded.ruolo_id);
-                console.log('Token expires:', new Date(decoded.exp * 1000).toLocaleString('it-IT'));
-                
                 req.user = {
                     id: decoded.id,
                     username: decoded.username,
