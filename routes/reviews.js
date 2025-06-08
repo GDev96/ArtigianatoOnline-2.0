@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getPool } = require('../db/db'); // Update to use getPool
+const { getPool } = require('../db/db');
 const createAuthMiddleware = require('../middleware/auth');
 
 const requireAuth = createAuthMiddleware();
@@ -44,9 +44,10 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get recensioni dell'utente
+// GET recensioni dell'utente
 router.get('/user', requireAuth, async (req, res) => {
     try {
+        const pool = getPool();
         const query = `
             SELECT 
                 r.recensione_id,
@@ -84,6 +85,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
+        const pool = getPool();
 
         const query = `
             SELECT 
@@ -165,14 +167,31 @@ router.get('/artisan/:id', async (req, res) => {
 
 // POST new review
 router.post('/', requireAuth, async (req, res) => {
-    const client = await getPool().connect();
+    const pool = getPool();
+    const client = await pool.connect();
+    
     try {
         const { artigiano_id, valutazione, descrizione } = req.body;
         const cliente_id = req.user.id;
 
+        // Validazione input
+        if (!artigiano_id || !valutazione || !descrizione) {
+            return res.status(400).json({
+                success: false,
+                message: 'Dati recensione incompleti'
+            });
+        }
+
+        if (valutazione < 1 || valutazione > 5) {
+            return res.status(400).json({
+                success: false,
+                message: 'La valutazione deve essere tra 1 e 5'
+            });
+        }
+
         await client.query('BEGIN');
 
-        // Check if artisan exists
+        // Verifica che l'artigiano esista e sia attivo
         const artisanCheck = await client.query(`
             SELECT a.artigiano_id 
             FROM artigiani a
@@ -185,7 +204,7 @@ router.post('/', requireAuth, async (req, res) => {
             throw new Error('Artigiano non trovato o non attivo');
         }
 
-        // Check for existing review
+        // Verifica che l'utente non abbia già recensito questo artigiano
         const existingReview = await client.query(`
             SELECT recensione_id 
             FROM recensioni 
@@ -197,6 +216,12 @@ router.post('/', requireAuth, async (req, res) => {
             throw new Error('Hai già recensito questo artigiano');
         }
 
+        // Verifica che l'utente non stia recensendo se stesso
+        if (cliente_id === parseInt(artigiano_id)) {
+            throw new Error('Non puoi recensire te stesso');
+        }
+
+        // Inserisci la nuova recensione
         const insertQuery = `
             INSERT INTO recensioni 
                 (cliente_id, artigiano_id, valutazione, descrizione, data_recensione, stato)
@@ -215,14 +240,16 @@ router.post('/', requireAuth, async (req, res) => {
 
         res.status(201).json({
             success: true,
+            message: 'Recensione aggiunta con successo',
             review: result.rows[0]
         });
 
     } catch (error) {
         await client.query('ROLLBACK');
+        console.error('Error creating review:', error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: error.message || 'Errore nella creazione della recensione'
         });
     } finally {
         client.release();
@@ -235,6 +262,7 @@ router.put('/:id', requireAuth, async (req, res) => {
         const { id } = req.params;
         const { valutazione, descrizione } = req.body;
         const cliente_id = req.user.id;
+        const pool = getPool();
 
         // Validazione input
         if (!valutazione || !descrizione) {
@@ -244,9 +272,16 @@ router.put('/:id', requireAuth, async (req, res) => {
             });
         }
 
+        if (valutazione < 1 || valutazione > 5) {
+            return res.status(400).json({
+                success: false,
+                message: 'La valutazione deve essere tra 1 e 5'
+            });
+        }
+
         // Verifica proprietà della recensione
         const reviewCheck = await pool.query(
-            'SELECT recensione_id FROM recensioni WHERE recensione_id = $1 AND cliente_id = $2',
+            'SELECT recensione_id FROM recensioni WHERE recensione_id = $1 AND cliente_id = $2 AND stato = \'attiva\'',
             [id, cliente_id]
         );
 
@@ -260,14 +295,22 @@ router.put('/:id', requireAuth, async (req, res) => {
         // Aggiorna la recensione
         const query = `
             UPDATE recensioni 
-            SET valutazione = $1, descrizione = $2
-            WHERE recensione_id = $3
+            SET valutazione = $1, descrizione = $2, data_recensione = CURRENT_TIMESTAMP
+            WHERE recensione_id = $3 AND cliente_id = $4
             RETURNING *`;
 
-        const result = await pool.query(query, [valutazione, descrizione, id]);
+        const result = await pool.query(query, [valutazione, descrizione, id, cliente_id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Recensione non trovata'
+            });
+        }
 
         res.json({
             success: true,
+            message: 'Recensione modificata con successo',
             review: result.rows[0]
         });
 
@@ -285,6 +328,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const cliente_id = req.user.id;
+        const pool = getPool();
 
         // Verifica proprietà della recensione
         const reviewCheck = await pool.query(
@@ -299,7 +343,18 @@ router.delete('/:id', requireAuth, async (req, res) => {
             });
         }
 
-        await pool.query('DELETE FROM recensioni WHERE recensione_id = $1', [id]);
+        // Elimina la recensione
+        const deleteResult = await pool.query(
+            'DELETE FROM recensioni WHERE recensione_id = $1 AND cliente_id = $2 RETURNING *',
+            [id, cliente_id]
+        );
+
+        if (deleteResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Recensione non trovata'
+            });
+        }
 
         res.json({
             success: true,
@@ -311,6 +366,97 @@ router.delete('/:id', requireAuth, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Errore nell\'eliminazione della recensione'
+        });
+    }
+});
+
+// PATCH toggle visibility (per admin)
+router.patch('/:id/toggle-visibility', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = getPool();
+
+        // Verifica che l'utente sia admin
+        if (req.user.ruolo_id !== 3) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accesso negato: solo gli amministratori possono nascondere/mostrare le recensioni'
+            });
+        }
+
+        // Toggle dello stato della recensione
+        const query = `
+            UPDATE recensioni 
+            SET stato = CASE 
+                WHEN stato = 'attiva' THEN 'nascosta'
+                WHEN stato = 'nascosta' THEN 'attiva'
+                ELSE 'nascosta'
+            END
+            WHERE recensione_id = $1
+            RETURNING *`;
+
+        const result = await pool.query(query, [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Recensione non trovata'
+            });
+        }
+
+        const newStatus = result.rows[0].stato;
+        const message = newStatus === 'attiva' ? 'Recensione mostrata' : 'Recensione nascosta';
+
+        res.json({
+            success: true,
+            message: message,
+            review: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error toggling review visibility:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nella modifica della visibilità della recensione'
+        });
+    }
+});
+
+// GET statistics for admin
+router.get('/admin/stats', requireAuth, async (req, res) => {
+    try {
+        const pool = getPool();
+
+        // Verifica che l'utente sia admin
+        if (req.user.ruolo_id !== 3) {
+            return res.status(403).json({
+                success: false,
+                message: 'Accesso negato'
+            });
+        }
+
+        const statsQuery = `
+            SELECT 
+                COUNT(*) as total_reviews,
+                COUNT(CASE WHEN stato = 'attiva' THEN 1 END) as active_reviews,
+                COUNT(CASE WHEN stato = 'nascosta' THEN 1 END) as hidden_reviews,
+                AVG(valutazione) as average_rating,
+                COUNT(DISTINCT cliente_id) as unique_reviewers,
+                COUNT(DISTINCT artigiano_id) as reviewed_artisans
+            FROM recensioni`;
+
+        const result = await pool.query(statsQuery);
+
+        res.json({
+            success: true,
+            stats: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error fetching review statistics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero delle statistiche'
         });
     }
 });

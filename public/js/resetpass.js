@@ -151,26 +151,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(data.error || 'Errore durante il reset della password');
                 }
                 
-                console.log('🎉 Password reset successful!');
-        
-                // Nascondi il form e mostra il messaggio di successo
+                // Hide the form
                 resetForm.style.display = 'none';
-                showSuccess('Password reimpostata con successo! Verrai reindirizzato al login...');
-                
-                // Redirect al login dopo 3 secondi
+
+                // Show the success modal instead of success message
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+
+                // Redirect to login after 3 seconds
                 setTimeout(() => {
-                    console.log('🔄 Redirecting to login...');
                     window.location.href = '/login.html';
                 }, 3000);
-        
+
             } catch (error) {
                 console.error('❌ Password reset error:', error);
                 showError(error.message);
-            } finally {
-                if (submitButton) {
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = 'Reimposta Password';
-                }
             }
         });
     } else {

@@ -105,14 +105,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const passwordInput = document.getElementById('passwordInput');
     const passwordValidation = document.getElementById('passwordValidation');
     const ibanInput = document.getElementById('vatNumberInput');
+    const ibanFeedback = document.getElementById('ibanFeedback');
 
     if (ibanInput) {
         ibanInput.addEventListener('input', (e) => {
-            const iban = e.target.value.replace(/\s/g, '');
-            const isValid = iban === '' || validateIBAN(iban);
+            const iban = e.target.value.replace(/\s/g, '').toUpperCase();
+            const isValid = validateIBAN(iban);
             
-            ibanInput.classList.toggle('is-invalid', !isValid);
-            ibanInput.classList.toggle('is-valid', isValid && iban !== '');
+            ibanInput.value = iban; // Keep uppercase
+            ibanInput.classList.toggle('is-invalid', !isValid && iban !== '');
+            ibanInput.classList.toggle('is-valid', isValid);
+
+            if (ibanFeedback) {
+                ibanFeedback.textContent = isValid ? 
+                    'IBAN valido' : 
+                    'IBAN non valido. Inserisci un IBAN italiano valido';
+            }
         });
     }
 
@@ -133,24 +141,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function validatePasswordMatch(password, confirmPassword) {
+    return password === confirmPassword;
+}
+
 // Add this after the validatePassword function
 function validateIBAN(iban) {
     // Remove spaces and convert to uppercase
     iban = iban.replace(/\s/g, '').toUpperCase();
     
-    // Check basic format for Italian IBAN
+    // Basic format check for Italian IBAN
     if (!/^IT\d{2}[A-Z]\d{10}[0-9A-Z]{12}$/.test(iban)) {
         return false;
     }
 
-    // Convert letters to numbers (A=10, B=11, ...)
-    const ibanNum = iban.slice(4) + iban.slice(0, 4).replace(/[A-Z]/g, letter => 
-        (letter.charCodeAt(0) - 55).toString()
-    );
+    // Move first 4 chars to end and convert letters to numbers
+    let transformed = (iban.slice(4) + iban.slice(0, 4)).split('')
+        .map(char => {
+            if (/[0-9]/.test(char)) {
+                return char;
+            }
+            // Convert A=10, B=11, etc.
+            return (char.charCodeAt(0) - 55).toString();
+        })
+        .join('');
 
     // Calculate mod-97
-    let remainder = ibanNum.split('')
-        .reduce((acc, digit) => (acc * 10 + (isNaN(digit) ? digit.charCodeAt(0) - 55 : parseInt(digit))) % 97, 0);
+    let remainder = 0;
+    for (let i = 0; i < transformed.length; i++) {
+        remainder = (remainder * 10 + parseInt(transformed[i])) % 97;
+    }
 
     return remainder === 1;
 }
@@ -241,7 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (signupForm) {
         signupForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            console.log('Form submission started');
             
             const formError = document.getElementById('formError');
             if (formError) {
@@ -253,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const usernameInput = document.getElementById('usernameInput');
                 const emailInput = document.getElementById('emailInput');
                 const passwordInput = document.getElementById('passwordInput');
+                const confirmPasswordInput = document.getElementById('confirmPasswordInput');
                 const nameInput = document.getElementById('nameInput');
                 const surnameInput = document.getElementById('surnameInput');
                 const phoneInput = document.getElementById('phoneInput');
@@ -261,15 +281,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 const artisanCheck = document.getElementById('artisanCheck');
 
                 // Validate all required elements exist
-                if (!usernameInput || !emailInput || !passwordInput || !nameInput || !surnameInput) {
+                if (!usernameInput || !emailInput || !passwordInput || !confirmPasswordInput || !nameInput || !surnameInput) {
                     throw new Error('Alcuni campi obbligatori non sono stati trovati nella pagina');
                 }
 
                 const password = passwordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
                 
                 // Validate password requirements
                 if (!validatePassword(password)) {
                     throw new Error('La password non soddisfa i requisiti minimi di sicurezza');
+                }
+
+                // Check if passwords match
+                if (!validatePasswordMatch(password, confirmPassword)) {
+                    throw new Error('Le password non coincidono');
                 }
 
                 const formData = {
@@ -328,19 +354,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(formData)
                 });
 
-                console.log('Response received:', response.status);
-
                 const data = await response.json();
-                console.log('Response data:', data);
 
                 if (!response.ok || !data.success) {
                     throw new Error(data.error || 'Errore durante la registrazione');
                 }
 
-                // Show success message
-                showSuccessMessage('Registrazione completata con successo! Verrai reindirizzato al login...');
-
-                // Try to show success modal if it exists
+                // Show only the modal, remove showSuccessMessage call
                 const successModalElement = document.getElementById('successModal');
                 if (successModalElement && typeof bootstrap !== 'undefined') {
                     try {

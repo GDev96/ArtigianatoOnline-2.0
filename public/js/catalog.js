@@ -329,6 +329,212 @@ function applyFilters() {
     updateProductsDisplay(filteredProducts);
 }
 
+
+// SOSTITUISCI queste funzioni nel file catalog.js
+
+// Fix per editReview function - correggi l'endpoint
+async function editReview(reviewId) {
+    try {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            throw new Error('Devi essere loggato per modificare una recensione');
+        }
+
+        // CORRETTO: usa l'endpoint giusto definito in reviews.js
+        const response = await fetch(`/reviews/${reviewId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nel recupero della recensione');
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !data.review) {
+            throw new Error('Dati recensione non validi');
+        }
+
+        // Populate edit modal with existing data
+        document.getElementById('editReviewId').value = reviewId;
+        document.getElementById('editReviewText').value = data.review.descrizione;
+        document.getElementById('editRatingValue').value = data.review.valutazione;
+        
+        // Update rating stars in edit modal
+        const ratingStars = document.querySelectorAll('#editReviewModal .rating-input .fa-star');
+        highlightStars(data.review.valutazione, ratingStars);
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
+        modal.show();
+
+    } catch (error) {
+        console.error('Error fetching review:', error);
+        showErrorMessage(error.message);
+    }
+}
+
+// Fix per confirmDeleteReview function - correggi l'endpoint
+async function confirmDeleteReview() {
+    let modal = null;
+    try {
+        const reviewId = document.getElementById('deleteReviewId').value;
+        const token = sessionStorage.getItem('token');
+        
+        if (!token) {
+            throw new Error('Devi essere loggato per eliminare una recensione');
+        }
+
+        if (!reviewId) {
+            throw new Error('ID recensione non valido');
+        }
+
+        // CORRETTO: usa l'endpoint giusto definito in reviews.js
+        const response = await fetch(`/reviews/${reviewId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.message || 'Errore durante l\'eliminazione della recensione');
+        }
+
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.message || 'Errore durante l\'eliminazione della recensione');
+        }
+
+        // Close modal
+        modal = bootstrap.Modal.getInstance(document.getElementById('deleteReviewModal'));
+        if (modal) {
+            modal.hide();
+        }
+
+        // Show success message and reload
+        showSuccessMessage('Recensione eliminata con successo');
+        setTimeout(() => window.location.reload(), 1500);
+
+    } catch (error) {
+        console.error('Error deleting review:', error);
+        showErrorMessage(error.message);
+        if (modal) modal.hide();
+    }
+}
+
+// AGGIUNGI anche la funzione showErrorMessage se non esiste già
+function showErrorMessage(message) {
+    // Rimuovi messaggi di errore esistenti
+    const existingErrors = document.querySelectorAll('.error-alert');
+    existingErrors.forEach(error => error.remove());
+
+    // Crea un nuovo messaggio di errore
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger alert-dismissible fade show error-alert';
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 1050;
+        min-width: 300px;
+        max-width: 500px;
+    `;
+    
+    errorDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(errorDiv);
+
+    // Auto-remove dopo 5 secondi
+    setTimeout(() => {
+        if (errorDiv.parentNode) {
+            errorDiv.remove();
+        }
+    }, 5000);
+}
+
+// AGGIUNGI anche la funzione showSuccessMessage se non esiste già
+function showSuccessMessage(message) {
+    // Rimuovi messaggi esistenti
+    const existingMessages = document.querySelectorAll('.success-alert');
+    existingMessages.forEach(msg => msg.remove());
+
+    // Crea un nuovo messaggio di successo
+    const successDiv = document.createElement('div');
+    successDiv.className = 'alert alert-success alert-dismissible fade show success-alert';
+    successDiv.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 1050;
+        min-width: 300px;
+        max-width: 500px;
+    `;
+    
+    successDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(successDiv);
+
+    // Auto-remove dopo 3 secondi
+    setTimeout(() => {
+        if (successDiv.parentNode) {
+            successDiv.remove();
+        }
+    }, 3000);
+}
+
+// CORREGGI anche la funzione removeFromCart se esiste
+async function removeFromCart(productId) {
+    try {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html';
+            return;
+        }
+
+        const response = await fetch('/cart/remove', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                prodotto_id: productId
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore nella rimozione dal carrello');
+        }
+
+        // Refresh the products display
+        const artisanId = new URLSearchParams(window.location.search).get('id');
+        await loadProducts(artisanId);
+
+    } catch (error) {
+        console.error('Error removing from cart:', error);
+        showErrorMessage(error.message);
+    }
+}
+
 // Funzione per aggiornare la quantità del prodotto nel carrello
 async function updateCartQuantity(productId, newQuantity, maxQuantity) {
     if (newQuantity < 0) return;
@@ -419,12 +625,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Container recensioni non trovato');
         }
 
-        if (artisanReviews.length === 0) {
+       if (artisanReviews.length === 0) {
             reviewsContainer.innerHTML = `
-                <div class="col-12 text-center">
-                    <div class="alert alert-info" role="alert">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Non ci sono ancora recensioni per questo artigiano.
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-bg-light body text-center p-5">
+                            <i class="bi bi-chat-square-text mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                            <h5 class="card-title">Nessuna recensione trovata</h5>
+                            <p class="card-text text-muted">
+                                Non ci sono ancora recensioni per questo artigiano.
+                                ${user && user.ruolo_id === 1 ? 
+                                    '<br>Sii il primo a lasciare una recensione!' : 
+                                    '<br>Le recensioni appariranno qui quando disponibili.'}
+                            </p>
+                        </div>
                     </div>
                 </div>`;
             updateAverageRating(0, 0);
@@ -591,47 +805,6 @@ async function submitReview() {
     }
 }
 
-// Fix edit review function
-async function editReview(reviewId) {
-    try {
-        const token = sessionStorage.getItem('token');
-        if (!token) {
-            throw new Error('Devi essere loggato per modificare una recensione');
-        }
-
-        // Updated API endpoint to match backend
-        const response = await fetch(`/api/reviews/${reviewId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error('Errore nel recupero della recensione');
-        }
-
-        const data = await response.json();
-
-        // Populate edit modal with existing data
-        document.getElementById('editReviewId').value = reviewId;
-        document.getElementById('editReviewText').value = data.review.descrizione;
-        document.getElementById('editRatingValue').value = data.review.valutazione;
-        
-        // Update rating stars in edit modal
-        const ratingStars = document.querySelectorAll('#editReviewModal .rating-input .fa-star');
-        highlightStars(data.review.valutazione, ratingStars);
-
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
-        modal.show();
-
-    } catch (error) {
-        console.error('Error fetching review:', error);
-        showErrorMessage(error.message);
-    }
-}
 
 
 
@@ -715,51 +888,7 @@ function deleteReview(reviewId) {
     }
 }
 
-async function confirmDeleteReview() {
-    let modal = null;
-    try {
-        const reviewId = document.getElementById('deleteReviewId').value;
-        const token = sessionStorage.getItem('token');
-        
-        if (!token) {
-            throw new Error('Devi essere loggato per eliminare una recensione');
-        }
 
-        if (!reviewId) {
-            throw new Error('ID recensione non valido');
-        }
-
-        // Updated API endpoint to match backend
-        const response = await fetch(`/api/reviews/${reviewId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.message || 'Errore durante l\'eliminazione della recensione');
-        }
-
-        // Close modal
-        modal = bootstrap.Modal.getInstance(document.getElementById('deleteReviewModal'));
-        if (modal) {
-            modal.hide();
-        }
-
-        // Show success message and reload
-        showSuccessMessage('Recensione eliminata con successo');
-        setTimeout(() => window.location.reload(), 1500);
-
-    } catch (error) {
-        console.error('Error deleting review:', error);
-        showErrorMessage(error.message);
-        if (modal) modal.hide();
-    }
-}
 
 function resetReviewForm() {
     // Reset form
