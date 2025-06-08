@@ -377,6 +377,131 @@ async function updateCartQuantity(productId, newQuantity, maxQuantity) {
 
 
 /** SEZIONE RECENSIONI */
+// Update the reviews loading section
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const artisanId = urlParams.get('id');
+        const user = JSON.parse(sessionStorage.getItem('user'));
+
+        if (!artisanId) {
+            console.error('ID artigiano non trovato');
+            return;
+        }
+
+        // Fetch delle recensioni per l'artigiano specifico
+        const response = await fetch(`/reviews/artisan/${artisanId}`, {
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error('Formato risposta API non valido');
+        }
+
+        const reviewsContainer = document.querySelector('.container-review .row');
+        if (!reviewsContainer) {
+            throw new Error('Container recensioni non trovato');
+        }
+
+        if (!data.reviews || data.reviews.length === 0) {
+            reviewsContainer.innerHTML = `
+                <div class="col-12">
+                    <div class="card bg-light">
+                        <div class="card-body text-center p-5">
+                            <i class="bi bi-chat-square-text mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                            <h5 class="card-title">Nessuna recensione trovata</h5>
+                            <p class="card-text text-muted">
+                                Non ci sono ancora recensioni per questo artigiano.
+                                ${user && user.ruolo_id === 1 ? 
+                                    '<br>Sii il primo a lasciare una recensione!' : 
+                                    '<br>Le recensioni appariranno qui quando disponibili.'}
+                            </p>
+                        </div>
+                    </div>
+                </div>`;
+            updateAverageRating(0, 0);
+            return;
+        }
+
+        // Calcola la valutazione media
+        const averageRating = data.reviews.reduce((acc, review) => 
+            acc + parseFloat(review.valutazione), 0) / data.reviews.length;
+        
+        // Aggiorna la sezione della valutazione media
+        updateAverageRating(averageRating, data.reviews.length);
+
+        // Popola le recensioni
+        reviewsContainer.innerHTML = data.reviews.map(review => `
+            <div class="col-9 mb-4">
+                <div class="card bg-light w-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title">${review.nome_cliente} ${review.cognome_cliente}</h5>
+                            ${user && user.id !== review.cliente_id ? 
+                                `<button class="btn btn-outline-danger btn-sm" 
+                                        onclick="openReviewReport(${review.recensione_id})"
+                                        title="Segnala questa recensione">
+                                    <i class="fas fa-flag"></i>
+                                </button>` : 
+                                ''
+                            }
+                        </div>
+                        <div class="stars mb-2 d-flex align-items-center">
+                            ${generateStars(review.valutazione)}
+                            <small class="text-muted ms-2">
+                                ${new Date(review.data_recensione).toLocaleDateString()}
+                            </small>
+                        </div>
+                        <p class="card-text">${review.descrizione}</p>
+                        ${user && user.id === review.cliente_id ? 
+                            `<div class="d-flex justify-content-end mt-3">
+                                <button class="btn btn-link text-primary" 
+                                        onclick="editReview(${review.recensione_id})"
+                                        title="Modifica recensione">
+                                    <i class="fas fa-edit"></i> Modifica
+                                </button>
+                                <button class="btn btn-link text-danger" 
+                                        onclick="deleteReview(${review.recensione_id})"
+                                        title="Elimina recensione">
+                                    <i class="fas fa-trash"></i> Elimina
+                                </button>
+                            </div>` : 
+                            ''
+                        }
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Errore nel caricamento recensioni:', error);
+        const reviewsContainer = document.querySelector('.container-review .row');
+        if (reviewsContainer) {
+            reviewsContainer.innerHTML = `
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body text-center p-5">
+                            <i class="bi bi-exclamation-circle mb-3" style="font-size: 2rem; color: var(--palette-danger);"></i>
+                            <h5 class="card-title">Si è verificato un errore</h5>
+                            <p class="card-text text-muted">
+                                Impossibile caricare le recensioni.
+                                <br>Dettaglio: ${error.message}
+                            </p>
+                        </div>
+                    </div>
+                </div>`;
+        }
+    }
+});
+
 // Add event listener for review form submission
 document.addEventListener('DOMContentLoaded', function() {
     const reviewForm = document.getElementById('reviewForm');
@@ -418,20 +543,20 @@ function setupRatingStars(modalId) {
 // Update the review submission function
 async function submitReview() {
     try {
-        const rating = document.getElementById('ratingValue').value;
-        const reviewText = document.getElementById('reviewText').value;
+        const rating = document.getElementById('ratingValue')?.value;
+        const reviewText = document.getElementById('reviewText')?.value;
         const urlParams = new URLSearchParams(window.location.search);
         const artisanId = urlParams.get('id');
         const token = sessionStorage.getItem('token');
 
-        // Validation
+        // Client-side validation
         if (!token) {
             throw new Error('Devi essere loggato per lasciare una recensione');
         }
-        if (!rating) {
-            throw new Error('Per favore seleziona una valutazione');
+        if (!rating || rating < 1 || rating > 5) {
+            throw new Error('Per favore seleziona una valutazione valida (1-5)');
         }
-        if (!reviewText.trim()) {
+        if (!reviewText?.trim()) {
             throw new Error('Per favore scrivi una recensione');
         }
         if (!artisanId) {
@@ -452,16 +577,24 @@ async function submitReview() {
         });
 
         const data = await response.json();
+        
         if (!response.ok) {
-            throw new Error(data.message || 'Errore nel salvataggio della recensione');
+            throw new Error(data.message || 'Errore nella creazione della recensione');
         }
 
         // Close modal and reset form
         const modal = bootstrap.Modal.getInstance(document.getElementById('addReviewModal'));
-        modal.hide();
+        if (modal) {
+            modal.hide();
+        }
+
+        // Reset form
         resetReviewForm();
 
+        // Show success message
         showSuccessMessage('Recensione pubblicata con successo!');
+
+        // Reload page after a short delay
         setTimeout(() => window.location.reload(), 1500);
 
     } catch (error) {
@@ -470,42 +603,20 @@ async function submitReview() {
     }
 }
 
-// Update the review edit function
-async function editReview(reviewId) {
-    try {
-        const token = sessionStorage.getItem('token');
-        if (!token) {
-            throw new Error('Devi essere loggato per modificare una recensione');
-        }
+// Add this helper function to properly reset the form
+function resetReviewForm() {
+    const form = document.getElementById('reviewForm');
+    const ratingValue = document.getElementById('ratingValue');
+    const ratingStars = document.querySelectorAll('#addReviewModal .rating-input .fa-star');
 
-        const response = await fetch(`/reviews/${reviewId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.message || 'Errore nel recupero della recensione');
-        }
-
-        // Populate edit modal
-        document.getElementById('editReviewId').value = reviewId;
-        document.getElementById('editReviewText').value = data.review.descrizione;
-        document.getElementById('editRatingValue').value = data.review.valutazione;
-
-        // Update stars
-        const ratingStars = document.querySelectorAll('#editReviewModal .rating-input .fa-star');
-        highlightStars(data.review.valutazione, ratingStars);
-
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
-        modal.show();
-
-    } catch (error) {
-        console.error('Error fetching review:', error);
-        showErrorMessage(error.message);
-    }
+    if (form) form.reset();
+    if (ratingValue) ratingValue.value = '';
+    
+    // Reset stars
+    ratingStars.forEach(star => {
+        star.classList.remove('fas');
+        star.classList.add('far');
+    });
 }
 
 // Update the review update function
@@ -570,21 +681,6 @@ function highlightStars(rating, stars) {
         }
     });
 }
-
-function resetReviewForm() {
-    const form = document.getElementById('reviewForm');
-    const ratingValue = document.getElementById('ratingValue');
-    const ratingStars = document.querySelectorAll('#addReviewModal .rating-input .fa-star');
-
-    if (form) form.reset();
-    if (ratingValue) ratingValue.value = '';
-    
-    ratingStars.forEach(star => {
-        star.classList.remove('fas');
-        star.classList.add('far');
-    });
-}
-
 
 
 
