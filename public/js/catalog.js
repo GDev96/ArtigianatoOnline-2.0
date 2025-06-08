@@ -78,17 +78,47 @@ document.addEventListener('DOMContentLoaded', function() {
 let allProducts = [];
 async function loadProducts(artisanId) {
     try {
-        const response = await fetch(`/products/artisan/${artisanId}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const token = sessionStorage.getItem('token');
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const data = await response.json();
-        if (!data.success) {
+        const [productsResponse, cartResponse] = await Promise.all([
+            fetch(`/products/artisan/${artisanId}`),
+            token ? fetch('/cart', { headers: { 'Authorization': `Bearer ${token}` } }) : null
+        ]);
+
+        if (!productsResponse.ok) {
+            throw new Error(`HTTP error! status: ${productsResponse.status}`);
+        }
+
+        const productsData = await productsResponse.json();
+        if (!productsData.success) {
             throw new Error('Formato dati prodotti non valido');
         }
 
-        allProducts = data.products;
+        // If user is logged in, merge cart quantities with products
+        if (cartResponse) {
+            const cartData = await cartResponse.json();
+            if (cartData.success) {
+                allProducts = productsData.products.map(product => ({
+                    ...product,
+                    cart_quantity: cartData.items.find(item => 
+                        item.prodotto_id === product.prodotto_id
+                    )?.quantita || 0
+                }));
+            } else {
+                allProducts = productsData.products;
+            }
+        } else {
+            allProducts = productsData.products;
+        }
+
         updateProductsDisplay(allProducts);
 
     } catch (error) {
@@ -110,7 +140,7 @@ function updateProductsDisplay(products) {
         productsContainer.innerHTML = `
             <div class="col-12">
                 <div class="card">
-                    <div class="card-body text-center p-5">
+                    <div class="card-bg-light body text-center p-5">
                         <i class="bi bi-search mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
                         <h5 class="card-title">Nessun prodotto trovato</h5>
                         <p class="card-text text-muted">
@@ -122,6 +152,7 @@ function updateProductsDisplay(products) {
             </div>`;
         return;
     }
+
 
     productsContainer.innerHTML = products.map(product => `
         <div class="col-md-4 mb-4">
@@ -145,11 +176,21 @@ function updateProductsDisplay(products) {
                             </a>
                         </div>` :
                         !isArtisanOrAdmin && product.quantita > 0 ?
-                        `<div class="mt-auto d-flex justify-content-end">
-                            <button class="btn btn-primary" 
-                                onclick="addToCart(${product.prodotto_id})">
-                                <i class="fas fa-cart-plus"></i> Aggiungi
-                            </button>
+                        `<div class="mt-auto d-flex justify-content-end" id="product-${product.prodotto_id}-controls">
+                            ${product.cart_quantity ? 
+                                `<div class="quantity-controls">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="updateCartQuantity(${product.prodotto_id}, ${product.cart_quantity - 1}, ${product.quantita})">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                    <span class="fw-bold">${product.cart_quantity}</span>
+                                    <button class="btn btn-outline-primary btn-sm" onclick="updateCartQuantity(${product.prodotto_id}, ${product.cart_quantity + 1}, ${product.quantita})">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>` :
+                                `<button class="btn btn-primary" onclick="addToCart(${product.prodotto_id})">
+                                    <i class="fas fa-cart-plus"></i> Aggiungi
+                                </button>`
+                            }
                         </div>` :
                         !isArtisanOrAdmin ?
                         `<div class="mt-auto d-flex justify-content-end">
@@ -189,8 +230,6 @@ async function addToCart(productId) {
             throw new Error(data.message || 'Errore nell\'aggiunta al carrello');
         }
 
-        showSuccessMessage('Prodotto aggiunto al carrello');
-        
         // Reload products to update quantities
         const artisanId = new URLSearchParams(window.location.search).get('id');
         await loadProducts(artisanId);
@@ -377,7 +416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 if (artisanReviews.length === 0) {
             reviewsContainer.innerHTML = `
                 <div class="col-12">
-                    <div class="card">
+                    <div class="card bg-light">
                         <div class="card-body text-center p-5">
                             <i class="bi bi-chat-square-text mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
                             <h5 class="card-title">Nessuna recensione trovata</h5>

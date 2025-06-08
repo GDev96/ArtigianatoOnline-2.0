@@ -1,25 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../db/db');
+const { getPool } = require('../db/db');
 const createAuthMiddleware = require('../middleware/auth');
 
-// Create auth middleware
 const requireAuth = createAuthMiddleware();
 
-// GET /cart - Visualizza i prodotti nel carrello
+// GET carrello utente
 router.get('/', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
-        if (!req.user || !req.user.id) {
-            return res.status(401).json({
-                success: false,
-                message: 'Utente non autenticato'
-            });
-        }
-
-        const userId = req.user.id;
-
-        const query = `
-            SELECT 
+        const result = await client.query(
+            `SELECT 
                 c.carrello_id,
                 c.prodotto_id,
                 c.quantita,
@@ -28,193 +19,160 @@ router.get('/', requireAuth, async (req, res) => {
                 p.immagine,
                 p.quantita as disponibilita
             FROM carrello c
-            JOIN prodotti p ON c.prodotto_id = p.prodotto_id
-            WHERE c.cliente_id = $1`;
-
-        const result = await pool.query(query, [userId]);
+            INNER JOIN prodotti p ON c.prodotto_id = p.prodotto_id
+            WHERE c.cliente_id = $1`,
+            [req.user.id]
+        );
 
         res.json({
             success: true,
-            items: result.rows || []
+            items: result.rows.map(item => ({
+                ...item,
+                immagine: item.immagine ? item.immagine.toString('base64') : null
+            }))
         });
 
     } catch (error) {
         console.error('Error fetching cart:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore nel recupero del carrello',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: 'Errore nel recupero del carrello'
         });
+    } finally {
+        client.release();
     }
 });
 
-// POST /cart/add - Inserisci prodotto nel carrello - corretta
+// POST aggiungi al carrello
 router.post('/add', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         const { prodotto_id, quantita } = req.body;
-        const cliente_id = req.user.id;
 
-        // Validation
-        if (!prodotto_id || quantita < 1) {
-            return res.status(400).json({
-                success: false,
-                message: 'Dati prodotto non validi'
-            });
-        }
+        await client.query('BEGIN');
 
-        // Check product availability and price
-        const productCheck = await pool.query(
+        // Verifica disponibilità prodotto
+        const productCheck = await client.query(
             'SELECT quantita, prezzo FROM prodotti WHERE prodotto_id = $1',
             [prodotto_id]
         );
 
         if (productCheck.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Prodotto non trovato'
-            });
+            throw new Error('Prodotto non trovato');
         }
 
-        const { quantita: disponibilita, prezzo } = productCheck.rows[0];
-
-        if (disponibilita < quantita) {
-            return res.status(400).json({
-                success: false,
-                message: 'Quantità richiesta non disponibile'
-            });
+        const product = productCheck.rows[0];
+        if (product.quantita < quantita) {
+            throw new Error('Quantità richiesta non disponibile');
         }
 
-        // Check if product already in cart
-        const cartCheck = await pool.query(
-            'SELECT carrello_id, quantita FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2',
-            [cliente_id, prodotto_id]
+        // Verifica se il prodotto è già nel carrello
+        const cartCheck = await client.query(
+            'SELECT quantita FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2',
+            [req.user.id, prodotto_id]
         );
 
-        let result;
         if (cartCheck.rows.length > 0) {
-            // Update existing cart item
+            // Aggiorna quantità esistente
             const newQuantity = cartCheck.rows[0].quantita + quantita;
-            result = await pool.query(
-                'UPDATE carrello SET quantita = $1 WHERE carrello_id = $2 RETURNING *',
-                [newQuantity, cartCheck.rows[0].carrello_id]
+            if (newQuantity > product.quantita) {
+                throw new Error('Quantità totale eccede la disponibilità');
+            }
+
+            await client.query(
+                `UPDATE carrello 
+                SET quantita = $1 
+                WHERE cliente_id = $2 AND prodotto_id = $3`,
+                [newQuantity, req.user.id, prodotto_id]
             );
         } else {
-            // Insert new cart item
-            result = await pool.query(
-                'INSERT INTO carrello (cliente_id, prodotto_id, quantita, prezzo_unitario) VALUES ($1, $2, $3, $4) RETURNING *',
-                [cliente_id, prodotto_id, quantita, prezzo]
+            // Inserisci nuovo elemento
+            await client.query(
+                `INSERT INTO carrello (cliente_id, prodotto_id, quantita, prezzo_unitario)
+                VALUES ($1, $2, $3, $4)`,
+                [req.user.id, prodotto_id, quantita, product.prezzo]
             );
         }
 
-        res.status(201).json({
+        await client.query('COMMIT');
+
+        res.json({
             success: true,
-            item: result.rows[0]
+            message: 'Prodotto aggiunto al carrello'
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error adding to cart:', error);
-        res.status(500).json({
+        res.status(400).json({
             success: false,
-            message: 'Errore nell\'aggiunta al carrello'
+            message: error.message
         });
+    } finally {
+        client.release();
     }
 });
 
-// PUT /cart/update - Modifica quantità prodotto nel carrello
+// PUT aggiorna quantità
 router.put('/update', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         const { prodotto_id, quantita } = req.body;
-        const cliente_id = req.user.id;
 
-        // Validation
-        if (!prodotto_id || quantita < 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Dati prodotto non validi'
-            });
-        }
+        await client.query('BEGIN');
 
-        // Check product availability
-        const productCheck = await pool.query(
+        // Verifica disponibilità prodotto
+        const productCheck = await client.query(
             'SELECT quantita FROM prodotti WHERE prodotto_id = $1',
             [prodotto_id]
         );
 
         if (productCheck.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Prodotto non trovato'
-            });
+            throw new Error('Prodotto non trovato');
         }
 
-        if (productCheck.rows[0].quantita < quantita) {
-            return res.status(400).json({
-                success: false,
-                message: 'Quantità richiesta non disponibile'
-            });
+        if (quantita > productCheck.rows[0].quantita) {
+            throw new Error('Quantità richiesta non disponibile');
         }
 
-        // Update cart item
-        const result = await pool.query(
-            'UPDATE carrello SET quantita = $1 WHERE cliente_id = $2 AND prodotto_id = $3 RETURNING *',
-            [quantita, cliente_id, prodotto_id]
+        await client.query(
+            `UPDATE carrello 
+            SET quantita = $1 
+            WHERE cliente_id = $2 AND prodotto_id = $3`,
+            [quantita, req.user.id, prodotto_id]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Prodotto non trovato nel carrello'
-            });
-        }
-
-        // Get updated cart item with product details
-        const updatedItem = await pool.query(`
-            SELECT 
-                c.carrello_id,
-                c.prodotto_id,
-                c.quantita,
-                c.prezzo_unitario,
-                p.nome_prodotto,
-                p.immagine,
-                p.quantita as disponibilita
-            FROM carrello c
-            JOIN prodotti p ON c.prodotto_id = p.prodotto_id
-            WHERE c.carrello_id = $1
-        `, [result.rows[0].carrello_id]);
+        await client.query('COMMIT');
 
         res.json({
             success: true,
-            item: updatedItem.rows[0]
+            message: 'Quantità aggiornata'
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error updating cart:', error);
-        res.status(500).json({
+        res.status(400).json({
             success: false,
-            message: 'Errore nell\'aggiornamento del carrello',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: error.message
         });
+    } finally {
+        client.release();
     }
 });
 
-// DELETE /cart/remove/:id - Rimuovi prodotto dal carrello
+// DELETE rimuovi dal carrello
 router.delete('/remove/:id', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
-        const prodotto_id = req.params.id;
-        const cliente_id = req.user.id;
+        await client.query('BEGIN');
 
-        // Rimuovi il check dello stato dalla query
-        const result = await pool.query(
-            'DELETE FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2 RETURNING *',
-            [cliente_id, prodotto_id]
+        await client.query(
+            'DELETE FROM carrello WHERE cliente_id = $1 AND prodotto_id = $2',
+            [req.user.id, req.params.id]
         );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Prodotto non trovato nel carrello'
-            });
-        }
+        await client.query('COMMIT');
 
         res.json({
             success: true,
@@ -222,16 +180,42 @@ router.delete('/remove/:id', requireAuth, async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error removing from cart:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore nella rimozione dal carrello',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            message: 'Errore nella rimozione del prodotto'
         });
+    } finally {
+        client.release();
     }
 });
 
-//TOOD : Implement a route to clear the cart
+// GET conteggio elementi carrello
+router.get('/count', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
+    try {
+        const result = await client.query(
+            `SELECT COALESCE(SUM(quantita), 0) as count 
+            FROM carrello 
+            WHERE cliente_id = $1`,
+            [req.user.id]
+        );
+
+        res.json({
+            success: true,
+            count: parseInt(result.rows[0].count)
+        });
+
+    } catch (error) {
+        console.error('Error getting cart count:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nel recupero del conteggio carrello'
+        });
+    } finally {
+        client.release();
+    }
+});
 
 module.exports = router;
-

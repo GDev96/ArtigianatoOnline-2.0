@@ -42,7 +42,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// --- DASHBOARD ---
 async function loadDashboardData() {
     try {
         const response = await fetch('/admin/stats/users', {
@@ -55,10 +54,14 @@ async function loadDashboardData() {
             throw new Error('Errore nel recupero dei dati');
         }
 
-        const stats = await response.json();
+        const result = await response.json();
         
-        document.getElementById('totalClients').textContent = stats.clientsCount || 0;
-        document.getElementById('totalArtisans').textContent = stats.artisansCount || 0;
+        if (result.success) {
+            document.getElementById('totalClients').textContent = result.data.clientsCount || 0;
+            document.getElementById('totalArtisans').textContent = result.data.artisansCount || 0;
+        } else {
+            throw new Error(result.message || 'Errore nei dati ricevuti');
+        }
 
     } catch (error) {
         console.error('Error loading dashboard data:', error);
@@ -66,7 +69,6 @@ async function loadDashboardData() {
         document.getElementById('totalArtisans').textContent = '0';
     }
 }
-
 function initializeDashboardCharts() {
     loadSalesChart();
     loadCategoriesChart();
@@ -82,7 +84,8 @@ async function loadSalesChart() {
 
         if (!response.ok) throw new Error('Errore nel recupero dati vendite');
         
-        const monthlyData = await response.json();
+        const result = await response.json();
+        const monthlyData = result.success ? result.data : [];
         
         const ctx = document.getElementById('salesChart').getContext('2d');
         new Chart(ctx, {
@@ -123,7 +126,7 @@ async function loadSalesChart() {
                 },
                 plugins: {
                     legend: {
-                        labels: {
+                       labels: {
                             color: '#5f7c9d'
                         }
                     },
@@ -143,6 +146,7 @@ async function loadSalesChart() {
     }
 }
 
+
 async function loadCategoriesChart() {
     try {
         const response = await fetch('/admin/stats/categories', {
@@ -153,7 +157,8 @@ async function loadCategoriesChart() {
 
         if (!response.ok) throw new Error('Errore nel recupero dati categorie');
         
-        const data = await response.json();
+        const result = await response.json();
+        const data = result.success ? result.data : { labels: [], values: [] };
         
         const ctx = document.getElementById('categoriesChart').getContext('2d');
         new Chart(ctx, {
@@ -178,7 +183,7 @@ async function loadCategoriesChart() {
                 responsive: true,
                 plugins: {
                     legend: {
-                        display: false // Remove legend
+                        display: false
                     },
                     tooltip: {
                         callbacks: {
@@ -209,7 +214,6 @@ async function loadCategoriesChart() {
 
 
 
-// --- USERS ---
 async function loadUsers() {
     try {
         const response = await fetch('/admin/users', {
@@ -220,7 +224,13 @@ async function loadUsers() {
 
         if (!response.ok) throw new Error('Errore nel recupero degli utenti');
 
-        const users = await response.json();
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero degli utenti');
+        }
+
+        const users = result.data.users;
         const tbody = document.getElementById('usersTableBody');
         
         function renderTable(filteredUsers) {
@@ -260,26 +270,6 @@ async function loadUsers() {
                 `;
             }
         }
-
-        // Aggiorna la query nel backend per includere la data_sospensione
-        const usersQuery = `
-            SELECT 
-                u.id as utente_id,
-                u.username,
-                u.email,
-                u.stato,
-                COALESCE(
-                    (SELECT data_inizio 
-                     FROM sospensioni_utenti su 
-                     WHERE su.utente_id = u.id 
-                     AND su.data_fine IS NULL
-                     ORDER BY data_inizio DESC 
-                     LIMIT 1),
-                    NULL
-                ) as data_sospensione
-            FROM utente u
-            WHERE u.ruolo_id = 1 AND u.stato != 'eliminato'
-            ORDER BY u.username`;
 
         // Initial render with all users
         renderTable(users);
@@ -323,7 +313,6 @@ async function loadUsers() {
         `;
     }
 }
-
 async function checkUserReportsAndSuspend(userId) {
     try {
         // First check if user is already suspended
@@ -333,18 +322,25 @@ async function checkUserReportsAndSuspend(userId) {
             }
         });
 
-        const userData = await userResponse.json();
+        const userResult = await userResponse.json();
+        
+        if (!userResult.success) {
+            console.error('Error fetching user data:', userResult.message);
+            return;
+        }
+
+        const userData = userResult.data;
         if (userData.stato === 'sospeso') return; // Skip if already suspended
 
-        const response = await fetch('/admin/users/reports-count/' + userId, {
+        const response = await fetch(`/admin/users/${userId}/reports-count`, {
             headers: {
                 'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
-        const data = await response.json();
+        const reportResult = await response.json();
         
-        if (data.reportCount > 3) {
+        if (reportResult.success && reportResult.data.reportCount > 3) {
             await fetch(`/admin/users/${userId}/status`, {
                 method: 'PATCH',
                 headers: {
@@ -361,7 +357,6 @@ async function checkUserReportsAndSuspend(userId) {
         console.error('Error checking user reports:', error);
     }
 }
-
 async function checkUserReportsAndReactivate(userId) {
     try {
         const response = await fetch(`/admin/users/${userId}`, {
@@ -375,7 +370,13 @@ async function checkUserReportsAndReactivate(userId) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const userData = await response.json();
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero dei dati utente');
+        }
+
+        const userData = result.data;
         
         if (userData.stato === 'sospeso') {
             const updateResponse = await fetch(`/admin/users/${userId}/status`, {
@@ -391,7 +392,7 @@ async function checkUserReportsAndReactivate(userId) {
                 throw new Error(`HTTP error! status: ${updateResponse.status}`);
             }
 
-            showSuccessMessage('Utente/i riattivato automaticamente: segnalazioni sotto soglia');
+            showSuccessMessage('Utente riattivato automaticamente: segnalazioni sotto soglia');
             await Promise.all([loadUsers(), loadReports()]);
         }
     } catch (error) {
@@ -406,15 +407,15 @@ async function toggleUserStatus(userId, currentStatus) {
     // Se stiamo riattivando
     if (newStatus === 'attivo') {
         try {
-            const reportsResponse = await fetch(`/admin/users/reports-count/${userId}`, {
+            const reportsResponse = await fetch(`/admin/users/${userId}/reports-count`, {
                 headers: {
                     'Authorization': `Bearer ${sessionStorage.getItem('token')}`
                 }
             });
             
-            const data = await reportsResponse.json();
+            const result = await reportsResponse.json();
             
-            if (data.reportCount > 3) {
+            if (result.success && result.data.reportCount > 3) {
                 showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
                 return;
             }
@@ -439,6 +440,7 @@ async function toggleUserStatus(userId, currentStatus) {
     await updateUserStatus(userId, newStatus);
 }
 
+
 // Add new function to handle user reactivation confirmation
 async function confirmReactivateUser() {
     const userId = document.getElementById('userIdToReactivate').value;
@@ -448,7 +450,6 @@ async function confirmReactivateUser() {
     await updateUserStatus(userId, 'attivo');
 }
 
-// Add helper function to handle the actual status update
 async function updateUserStatus(userId, newStatus) {
     try {
         const response = await fetch(`/admin/users/${userId}/status`, {
@@ -462,8 +463,14 @@ async function updateUserStatus(userId, newStatus) {
 
         if (!response.ok) throw new Error('Errore nella modifica dello stato');
 
-        showSuccessMessage(`Utente ${newStatus === 'attivo' ? 'riattivato' : 'sospeso'} con successo`);
-        await loadUsers();
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccessMessage(result.message || `Utente ${newStatus === 'attivo' ? 'riattivato' : 'sospeso'} con successo`);
+            await loadUsers();
+        } else {
+            throw new Error(result.message || 'Errore nella risposta del server');
+        }
     } catch (error) {
         console.error('Error:', error);
         showErrorMessage('Errore nella modifica dello stato dell\'utente');
@@ -472,7 +479,6 @@ async function updateUserStatus(userId, newStatus) {
 
 
 
-// --- ARTISANS ---
 async function loadArtisans() {
     try {
         const response = await fetch('/admin/artisans', {
@@ -483,7 +489,13 @@ async function loadArtisans() {
 
         if (!response.ok) throw new Error('Errore nel recupero degli artigiani');
 
-        const artisans = await response.json();
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero degli artigiani');
+        }
+
+        const artisans = result.data.artisans;
         const tbody = document.getElementById('artisansTableBody');
         
         tbody.innerHTML = artisans.map(artisan => `
@@ -523,6 +535,7 @@ async function loadArtisans() {
     }
 }
 
+
 async function toggleArtisanStatus(artisanId, currentStatus) {
     const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
     
@@ -534,9 +547,9 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
                 }
             });
             
-            const data = await reportsResponse.json();
+            const result = await reportsResponse.json();
             
-            if (data.reportCount > 3) {
+            if (result.success && result.data.reportCount > 3) {
                 showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
                 return;
             }
@@ -559,6 +572,7 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
     }
 }
 
+
 // Aggiungi questa nuova funzione per gestire la conferma di sospensione
 async function confirmSuspendArtisan() {
     const artisanId = document.getElementById('artisanIdToSuspend').value;
@@ -577,7 +591,6 @@ async function confirmReactivateArtisan() {
     await updateArtisanStatus(artisanId, 'attivo');
 }
 
-// Funzione helper per l'aggiornamento dello stato
 async function updateArtisanStatus(artisanId, newStatus) {
     try {
         const response = await fetch(`/admin/artisans/${artisanId}/status`, {
@@ -591,19 +604,24 @@ async function updateArtisanStatus(artisanId, newStatus) {
 
         if (!response.ok) throw new Error('Errore nella modifica dello stato');
 
-        showSuccessMessage(`Artigiano ${newStatus === 'attivo' ? 'riattivato' : 'sospeso'} con successo`);
+        const result = await response.json();
         
-        // Aggiorna entrambe le tabelle
-        await Promise.all([
-            loadArtisans(),
-            loadSuspendedArtisans()
-        ]);
+        if (result.success) {
+            showSuccessMessage(result.message || `Artigiano ${newStatus === 'attivo' ? 'riattivato' : 'sospeso'} con successo`);
+            
+            // Aggiorna entrambe le tabelle
+            await Promise.all([
+                loadArtisans(),
+                loadSuspendedArtisans()
+            ]);
+        } else {
+            throw new Error(result.message || 'Errore nella risposta del server');
+        }
     } catch (error) {
         console.error('Error:', error);
         showErrorMessage('Errore nella modifica dello stato dell\'artigiano');
     }
 }
-
 async function loadSuspendedArtisans() {
     try {
         const response = await fetch('/admin/artisans/suspended', {
@@ -614,7 +632,13 @@ async function loadSuspendedArtisans() {
 
         if (!response.ok) throw new Error('Errore nel recupero degli artigiani sospesi');
 
-        const artisans = await response.json();
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero degli artigiani sospesi');
+        }
+
+        const artisans = result.data;
         const tbody = document.getElementById('suspendedArtisansTableBody');
         
         if (!artisans || artisans.length === 0) {
@@ -673,7 +697,13 @@ async function showArtisanReportResolution(reportId, reportData) {
             });
             
             if (!response.ok) throw new Error('Errore nel recupero dettagli segnalazione');
-            reportData = await response.json();
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Errore nel recupero dettagli segnalazione');
+            }
+            
+            reportData = result.data;
         }
 
         // Populate modal with report details
@@ -701,7 +731,7 @@ async function showArtisanReportResolution(reportId, reportData) {
         document.getElementById('suspendArtisanBtn').addEventListener('click', async () => {
             try {
                 // Suspend artisan
-                await fetch(`/admin/artisans/${reportData.artigiano_id}/status`, {
+                const suspendResponse = await fetch(`/admin/artisans/${reportData.artigiano_id}/status`, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
@@ -710,17 +740,10 @@ async function showArtisanReportResolution(reportId, reportData) {
                     body: JSON.stringify({ status: 'sospeso' })
                 });
                 
-                // Resolve report with action
-                const resolveResponse = await fetch(`/reports/admin/${reportId}/resolve`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ withAction: true })
-                });
-
-                if (!resolveResponse.ok) throw new Error('Errore nella risoluzione della segnalazione');
+                if (!suspendResponse.ok) throw new Error('Errore nella sospensione dell\'artigiano');
+                
+                // Resolve report
+                await resolveReportRequest(reportId, true);
                 
                 modal.hide();
                 modalElement.addEventListener('hidden.bs.modal', async () => {
@@ -736,16 +759,7 @@ async function showArtisanReportResolution(reportId, reportData) {
 
         document.getElementById('resolveWithoutActionBtn').addEventListener('click', async () => {
             try {
-                const response = await fetch(`/reports/admin/${reportId}/resolve`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ withAction: false })
-                });
-
-                if (!response.ok) throw new Error('Errore nella risoluzione della segnalazione');
+                await resolveReportRequest(reportId, false);
                 
                 modal.hide();
                 modalElement.addEventListener('hidden.bs.modal', async () => {
@@ -768,8 +782,6 @@ async function showArtisanReportResolution(reportId, reportData) {
 }
 
 
-
-// --- PRODUCTS ---
 async function loadProducts() {
     try {
         const response = await fetch('/admin/products', {
@@ -780,8 +792,13 @@ async function loadProducts() {
 
         if (!response.ok) throw new Error('Errore nel recupero dei prodotti');
 
-        const data = await response.json();
-        const products = data.products;
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero dei prodotti');
+        }
+
+        const products = result.data.products;
         
         // Populate filters
         populateFilters(products);
@@ -797,6 +814,7 @@ async function loadProducts() {
         showErrorMessage('Errore nel caricamento dei prodotti: ' + error.message);
     }
 }
+
 
 function populateFilters(products) {
     // Populate category filter
@@ -864,9 +882,6 @@ function renderProducts(products) {
     `).join('');
 }
 
-
-
-// --- ORDERS ---
 async function loadOrders() {
     try {
         const response = await fetch('/admin/orders', {
@@ -877,7 +892,13 @@ async function loadOrders() {
 
         if (!response.ok) throw new Error('Errore nel recupero degli ordini');
 
-        const { orders } = await response.json();
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero degli ordini');
+        }
+
+        const orders = result.data.orders;
         
         // Populate customer filter
         populateCustomerFilter(orders);
@@ -893,6 +914,7 @@ async function loadOrders() {
         showErrorMessage('Errore nel caricamento degli ordini: ' + error.message);
     }
 }
+
 
 function populateCustomerFilter(orders) {
     const customerFilter = document.getElementById('customerFilter');
@@ -1017,7 +1039,13 @@ async function viewOrderDetails(orderId) {
 
         if (!response.ok) throw new Error('Errore nel recupero dei dettagli dell\'ordine');
 
-        const order = await response.json();
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero dei dettagli dell\'ordine');
+        }
+
+        const order = result.data;
 
         // Create modal HTML
         const modalHtml = `
@@ -1102,6 +1130,7 @@ async function viewOrderDetails(orderId) {
     }
 }
 
+
 async function showOrderReportResolution(reportId, reportData) {
     try {
         // Populate modal with report details
@@ -1140,7 +1169,6 @@ async function showOrderReportResolution(reportId, reportData) {
         showErrorMessage('Errore nel caricamento dei dettagli della segnalazione');
     }
 }
-
 async function resolveReportRequest(reportId, withAction) {
     try {
         const response = await fetch(`/admin/reports/${reportId}/resolve`, {
@@ -1153,13 +1181,19 @@ async function resolveReportRequest(reportId, withAction) {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Errore nella risoluzione della segnalazione');
+            const errorResult = await response.json();
+            throw new Error(errorResult.message || 'Errore nella risoluzione della segnalazione');
+        }
+
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nella risoluzione della segnalazione');
         }
 
         await loadOrders(); // Aggiorna la tabella ordini
         await loadReports(); // Aggiorna la tabella segnalazioni
-        showSuccessMessage('Segnalazione risolta con successo');
+        showSuccessMessage(result.message || 'Segnalazione risolta con successo');
 
     } catch (error) {
         console.error('Error resolving report:', error);
@@ -1167,9 +1201,85 @@ async function resolveReportRequest(reportId, withAction) {
     }
 }
 
+function showSuccessMessage(message) {
+    // Implementa la visualizzazione del messaggio di successo
+    // Puoi usare toast, alert, o un sistema di notifiche
+    console.log('SUCCESS:', message);
+    
+    // Esempio con toast Bootstrap se disponibile
+    if (typeof bootstrap !== 'undefined') {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-success border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        // Aggiungi toast container se non esiste
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = toastContainer.lastElementChild;
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+        
+        // Rimuovi il toast dopo che è nascosto
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    } else {
+        // Fallback con alert
+        alert(message);
+    }
+}
 
+function showErrorMessage(message) {
+    // Implementa la visualizzazione del messaggio di errore
+    console.error('ERROR:', message);
+    
+    // Esempio con toast Bootstrap se disponibile
+    if (typeof bootstrap !== 'undefined') {
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-danger border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        // Aggiungi toast container se non esiste
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = toastContainer.lastElementChild;
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+        
+        // Rimuovi il toast dopo che è nascosto
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    } else {
+        // Fallback con alert
+        alert(message);
+    }
+}
 
-// --- REVIEWS ---
 async function loadReviews() {
     try {
         const response = await fetch('/admin/reviews', {
@@ -1180,8 +1290,13 @@ async function loadReviews() {
 
         if (!response.ok) throw new Error('Errore nel recupero delle recensioni');
 
-        const data = await response.json();
-        const reviews = data.reviews;
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero delle recensioni');
+        }
+
+        const reviews = result.data.reviews;
 
         // Setup filter functionality
         setupReviewFilters(reviews);
@@ -1191,6 +1306,9 @@ async function loadReviews() {
         showReviewsError(error.message);
     }
 }
+
+
+
 
 function setupReviewFilters(reviews) {
     const tbody = document.getElementById('reviewsTableBody');
@@ -1283,7 +1401,6 @@ function generateStars(rating) {
         `<i class="bi bi-star${index < rating ? '-fill' : ''} text-warning"></i>`
     ).join('');
 }
-
 async function viewReviewDetails(reviewId) {
     try {
         const response = await fetch(`/admin/reviews/${reviewId}/details`, {
@@ -1293,7 +1410,14 @@ async function viewReviewDetails(reviewId) {
         });
 
         if (!response.ok) throw new Error('Errore nel recupero dei dettagli della recensione');
-        const review = await response.json();
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero dei dettagli della recensione');
+        }
+
+        const review = result.data;
 
         // Create modal HTML
         const modalHtml = `
@@ -1367,6 +1491,7 @@ async function viewReviewDetails(reviewId) {
     }
 }
 
+
 async function toggleReviewStatus(reviewId, shouldRemove) {
     if (!confirm(`Sei sicuro di voler ${shouldRemove ? 'rimuovere' : 'ripristinare'} questa recensione?`)) {
         return;
@@ -1403,7 +1528,13 @@ async function showReviewReportResolution(reportId, reportData) {
             });
             
             if (!response.ok) throw new Error('Errore nel recupero dettagli segnalazione');
-            reportData = await response.json();
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || 'Errore nel recupero dettagli segnalazione');
+            }
+            
+            reportData = result.data;
         }
 
         // Popola il modale con i dettagli della segnalazione
@@ -1424,7 +1555,7 @@ async function showReviewReportResolution(reportId, reportData) {
         document.getElementById('hideReviewBtn').addEventListener('click', async () => {
             try {
                 // Prima nascondi la recensione
-                const hideResponse = await fetch(`/admin/reviews/${reportData.recensione_id}/hide`, {
+                const hideResponse = await fetch(`/admin/reviews/${reportData.recensione_id}/toggle-visibility`, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
@@ -1460,9 +1591,6 @@ async function showReviewReportResolution(reportId, reportData) {
 }
 
 
-
-
-// --- REPORTS ---
 async function loadReports() {
     try {
         const response = await fetch('/admin/reports', {
@@ -1473,7 +1601,13 @@ async function loadReports() {
 
         if (!response.ok) throw new Error('Errore nel recupero delle segnalazioni');
 
-        const { reports } = await response.json();
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Errore nel recupero delle segnalazioni');
+        }
+
+        const reports = result.data.reports;
         
         // Populate different tables
         populateReportsTable('artisansReportsTableBody', reports);
@@ -1481,9 +1615,9 @@ async function loadReports() {
         populateReportsTable('reviewsReportsTableBody', reports);
 
         // Update counters
-        const orderReports = reports.filter(r => r.tipo_segnalazione === 'ordine' && r.stato === 'in attesa');
-        const artisanReports = reports.filter(r => r.tipo_segnalazione === 'artigiano' && r.stato === 'in attesa');
-        const reviewReports = reports.filter(r => r.tipo_segnalazione === 'recensione' && r.stato === 'in attesa');
+        const orderReports = reports.filter(r => r.ordine_id && r.stato === 'in attesa');
+        const artisanReports = reports.filter(r => r.artigiano_id && r.stato === 'in attesa');
+        const reviewReports = reports.filter(r => r.recensione_id && r.stato === 'in attesa');
 
         // Update counters in navigation
         document.getElementById('reportsCount').textContent = orderReports.length;
@@ -1500,6 +1634,7 @@ async function loadReports() {
         showErrorInTables('Errore nel caricamento delle segnalazioni');
     }
 }
+
 
 
 async function resolveReport(reportId, withAction = false) {

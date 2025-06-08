@@ -91,10 +91,6 @@ function updateUserHeader(user) {
 async function loadCartContent() {
     try {
         const token = sessionStorage.getItem('token');
-        if (!token) {
-            throw new Error('Token di autenticazione non trovato');
-        }
-
         const response = await fetch('/cart', {
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -102,12 +98,12 @@ async function loadCartContent() {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error('Errore nel recupero del carrello');
         }
 
         const data = await response.json();
         if (!data.success) {
-            throw new Error('Errore nel recupero del carrello');
+            throw new Error(data.message || 'Errore nel recupero del carrello');
         }
 
         updateCartTable(data.items);
@@ -115,132 +111,98 @@ async function loadCartContent() {
 
     } catch (error) {
         console.error('Error loading cart:', error);
-        showErrorMessage(error);
+        showErrorMessage(error.message);
     }
 }
 
 function updateCartTable(items) {
-    const tbody = document.querySelector('.table tbody');
-    const modalOpenButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#confirmOrder"]');
-    
-    if (!tbody) return;
+    const cartTableBody = document.querySelector('#cartTable tbody');
+    const emptyCartMessage = document.getElementById('emptyCartMessage');
+    const cartContent = document.getElementById('cartContent');
+    const confirmOrderBtn = document.querySelector('[data-bs-target="#confirmOrder"]');
 
-    // If cart is empty
     if (!items || items.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center">
-                    Il tuo carrello è vuoto
-                </td>
-            </tr>`;
-
-        // Disable modal open button
-        if (modalOpenButton) {
-            modalOpenButton.disabled = true;
-            modalOpenButton.classList.add('opacity-50');
-            modalOpenButton.title = 'Aggiungi prodotti al carrello per procedere all\'ordine';
-        }
+        if (cartContent) cartContent.style.display = 'none';
+        if (emptyCartMessage) emptyCartMessage.style.display = 'block';
+        if (confirmOrderBtn) confirmOrderBtn.disabled = true;
         return;
     }
 
-    // Enable modal open button if cart has items
-    if (modalOpenButton) {
-        modalOpenButton.disabled = false;
-        modalOpenButton.classList.remove('opacity-50');
-        modalOpenButton.title = 'Procedi all\'ordine';
-    }
+    if (cartContent) cartContent.style.display = 'block';
+    if (emptyCartMessage) emptyCartMessage.style.display = 'none';
+    if (confirmOrderBtn) confirmOrderBtn.disabled = false;
 
-    // Update existing tbody with cart items
-    tbody.innerHTML = items.map(item => {
-        const price = parseFloat(item.prezzo_unitario);
-        const quantity = parseInt(item.quantita);
-        const total = price * quantity;
-        
-        // Use default product image if none is available
-        const productImage = item.immagine 
-            ? item.immagine 
-            : '/assets/images/default/product.jpg';
-        
-        return `
-            <tr>
-                <td class="text-center align-middle" style="width: 100px">
-                    <img src="${productImage}" 
-                         alt="${item.nome_prodotto}"
-                         class="img-thumbnail"
-                         style="max-width: 80px; max-height: 80px; object-fit: cover;"
-                         onerror="this.src='/assets/images/default/product.jpg'">
-                </td>
-                <td class="text-center align-middle">
-                    <div class="fw-bold">${item.nome_prodotto}</div>
-                </td>
-                <td class="text-center align-middle">€${price.toFixed(2)}</td>
-                <td class="text-center align-middle">
-                    <input type="number" 
-                           class="form-control form-control-sm w-75 mx-auto"
-                           value="${quantity}" 
-                           min="1"
-                           max="${item.disponibilita}"
-                           onchange="updateQuantity(${item.prodotto_id}, this.value)">
-                </td>
-                <td class="text-center align-middle">€${total.toFixed(2)}</td>
-                <td class="text-center align-middle">
-                    <button class="btn btn-danger btn-sm" 
-                            onclick="removeFromCart(${item.prodotto_id})">
-                        <i class="fas fa-trash"></i>
+    cartTableBody.innerHTML = items.map(item => `
+        <tr>
+            <td class="align-middle">
+                <img src="${item.immagine ? `data:image/jpeg;base64,${item.immagine}` : '/assets/images/default/product.jpg'}"
+                    alt="${item.nome_prodotto}"
+                    class="cart-product-image"
+                    style="width: 50px; height: 50px; object-fit: cover;">
+            </td>
+            <td class="align-middle">${item.nome_prodotto}</td>
+            <td class="align-middle">€${parseFloat(item.prezzo_unitario).toFixed(2)}</td>
+            <td class="align-middle">
+                <div class="quantity-counter">
+                    <button class="btn-quantity" onclick="updateQuantity(${item.prodotto_id}, ${item.quantita - 1})" 
+                            ${item.quantita <= 1 ? 'disabled' : ''}>
+                        <i class="fas fa-minus"></i>
                     </button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+                    <span class="quantity-display">${item.quantita}</span>
+                    <button class="btn-quantity" onclick="updateQuantity(${item.prodotto_id}, ${item.quantita + 1})"
+                            ${item.quantita >= item.disponibilita ? 'disabled' : ''}>
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            </td>
+            <td class="align-middle">€${(parseFloat(item.prezzo_unitario) * item.quantita).toFixed(2)}</td>
+            <td class="align-middle">
+                <button class="btn btn-danger btn-sm" onclick="removeFromCart(${item.prodotto_id})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
 
     updateOrderModal(items);
 }
 
-function updateTotalAmount(items) {
-    const total = items.reduce((sum, item) => 
-        sum + (parseFloat(item.prezzo_unitario) * parseInt(item.quantita)), 0);
-    
-    document.querySelector('.totalOrder h4').textContent = 
-        `Totale provvisorio: €${total.toFixed(2)}`;
-}
-
 async function updateQuantity(productId, newQuantity) {
     try {
-        const token = sessionStorage.getItem('token');
-        if (!token) {
-            throw new Error('Token di autenticazione non trovato');
+        if (newQuantity <= 0) {
+            await removeFromCart(productId);
+            return;
         }
 
+        const token = sessionStorage.getItem('token');
         const response = await fetch('/cart/update', {
             method: 'PUT',
             headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 prodotto_id: productId,
-                quantita: parseInt(newQuantity)
+                quantita: newQuantity
             })
         });
 
+        const data = await response.json();
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(data.message || 'Errore nell\'aggiornamento della quantità');
         }
 
         await loadCartContent();
+
     } catch (error) {
         console.error('Error updating quantity:', error);
-        showErrorMessage(error);
+        showErrorMessage(error.message);
     }
 }
 
 async function removeFromCart(productId) {
     try {
         const token = sessionStorage.getItem('token');
-        if (!token) {
-            throw new Error('Token di autenticazione non trovato');
-        }
-
         const response = await fetch(`/cart/remove/${productId}`, {
             method: 'DELETE',
             headers: {
@@ -248,15 +210,27 @@ async function removeFromCart(productId) {
             }
         });
 
+        const data = await response.json();
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(data.message || 'Errore nella rimozione del prodotto');
         }
 
         await loadCartContent();
+
     } catch (error) {
         console.error('Error removing item:', error);
-        showErrorMessage(error);
+        showErrorMessage(error.message);
     }
+}
+
+function updateTotalAmount(items) {
+    const totalElement = document.getElementById('totalAmount');
+    if (!totalElement || !items) return;
+
+    const total = items.reduce((sum, item) => 
+        sum + (parseFloat(item.prezzo_unitario) * item.quantita), 0);
+    
+    totalElement.textContent = `€${total.toFixed(2)}`;
 }
 
 

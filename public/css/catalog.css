@@ -136,3 +136,35 @@
     text-decoration: none;
     transition: all 0.3s ease;
 }
+/* Quantity controls styles */
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto; /* Push controls to the right */
+}
+
+.quantity-controls .btn {
+    padding: 0.25rem 0.5rem;
+    min-width: 32px;
+    border-radius: 4px;
+}
+
+.quantity-controls span {
+    min-width: 2rem;
+    text-align: center;
+    font-size: var(--font-size-md);
+}
+
+/* Card content spacing */
+.card-body {
+    padding: 1rem;
+}
+
+.card-category {
+    margin-bottom: 1rem;
+}
+
+.mt-auto {
+    margin-top: auto !important;
+}

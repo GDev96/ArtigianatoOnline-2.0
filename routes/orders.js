@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../db/db');
+const { getPool } = require('../db/pool'); // ✅ FIXED: Use correct pool import
 const createAuthMiddleware = require('../middleware/auth');
 
 const requireAuth = createAuthMiddleware();
 
 // Get ordini dell'utente
 router.get('/user', requireAuth, async (req, res) => {
+    const pool = getPool(); // ✅ FIXED: Get pool instance
     try {
         const query = `
             WITH OrderSummary AS (
@@ -63,7 +64,11 @@ router.get('/user', requireAuth, async (req, res) => {
             }))
         }));
 
-        res.json(orders);
+        // ✅ FIXED: Return consistent API format
+        res.json({
+            success: true,
+            data: orders
+        });
 
     } catch (error) {
         console.error('Error fetching user orders:', error);
@@ -77,6 +82,7 @@ router.get('/user', requireAuth, async (req, res) => {
 
 // Get ordini per artigiano
 router.get('/artisan/sales', requireAuth, async (req, res) => {
+    const pool = getPool(); // ✅ FIXED: Get pool instance
     try {
         const artisanId = req.user.id;
         const query = `
@@ -121,9 +127,9 @@ router.get('/artisan/sales', requireAuth, async (req, res) => {
     }
 });
 
-
 // Get dettagli ordine tramite id
 router.get('/:id', requireAuth, async (req, res) => {
+    const pool = getPool(); // ✅ FIXED: Get pool instance
     try {
         const orderId = req.params.id;
         const userId = req.user.id;
@@ -138,7 +144,7 @@ router.get('/:id', requireAuth, async (req, res) => {
                     'nome', p.nome_prodotto,
                     'quantita', det.quantita,
                     'prezzo', det.prezzo_unitario,
-                    'artigiano_id', p.artigiano_id  -- Add this line
+                    'artigiano_id', p.artigiano_id
                 )) as prodotti
             FROM ordini o
             INNER JOIN dettagli_ordine det ON o.ordine_id = det.ordine_id
@@ -155,7 +161,11 @@ router.get('/:id', requireAuth, async (req, res) => {
             });
         }
 
-        res.json(result.rows[0]);
+        // ✅ FIXED: Return consistent API format
+        res.json({
+            success: true,
+            data: result.rows[0]
+        });
 
     } catch (error) {
         console.error('Error fetching order details:', error);
@@ -182,6 +192,7 @@ const STATI = {
 
 // POST /orders/create - Crea un nuovo ordine
 router.post('/create', requireAuth, async (req, res) => {
+    const pool = getPool(); // ✅ FIXED: Get pool instance
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -231,7 +242,7 @@ router.post('/create', requireAuth, async (req, res) => {
                 item.prodotto_id,
                 item.quantita,
                 item.prezzo_unitario,
-                STATI.DETTAGLIO.IN_PREPARAZIONE // Add stato for dettagli_ordine
+                STATI.DETTAGLIO.IN_PREPARAZIONE
             ]);
 
             // Update product quantity
@@ -249,7 +260,9 @@ router.post('/create', requireAuth, async (req, res) => {
         res.status(201).json({
             success: true,
             message: 'Ordine creato con successo',
-            ordine_id: ordineId
+            data: {
+                ordine_id: ordineId
+            }
         });
 
     } catch (error) {
@@ -264,8 +277,71 @@ router.post('/create', requireAuth, async (req, res) => {
     }
 });
 
-// TODO: Implementa l'aggiornamento dello stato di un ordine
+// ✅ NEW: Update order status for artisans
+router.patch('/:id/status', requireAuth, async (req, res) => {
+    const pool = getPool();
+    const client = await pool.connect();
+    
+    try {
+        const { id: orderId } = req.params;
+        const { status } = req.body;
+        const userId = req.user.id;
 
-// TODO: Implementa la cancellazione di un ordine
+        // Validate status
+        const validStatuses = Object.values(STATI.ORDINE);
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Stato non valido'
+            });
+        }
+
+        await client.query('BEGIN');
+
+        // Check if user is artisan and has access to this order
+        const checkQuery = `
+            SELECT DISTINCT o.ordine_id
+            FROM ordini o
+            JOIN dettagli_ordine d ON o.ordine_id = d.ordine_id
+            JOIN prodotti p ON d.prodotto_id = p.prodotto_id
+            WHERE o.ordine_id = $1 AND p.artigiano_id = $2`;
+
+        const checkResult = await client.query(checkQuery, [orderId, userId]);
+        
+        if (checkResult.rows.length === 0) {
+            return res.status(403).json({
+                success: false,
+                message: 'Non autorizzato a modificare questo ordine'
+            });
+        }
+
+        // Update order status
+        const updateQuery = `
+            UPDATE ordini 
+            SET stato = $1 
+            WHERE ordine_id = $2 
+            RETURNING *`;
+
+        const result = await client.query(updateQuery, [status, orderId]);
+
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            message: 'Stato ordine aggiornato con successo',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error updating order status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Errore nell\'aggiornamento dello stato dell\'ordine'
+        });
+    } finally {
+        client.release();
+    }
+});
 
 module.exports = router;
