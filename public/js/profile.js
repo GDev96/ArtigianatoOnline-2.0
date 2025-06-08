@@ -166,9 +166,17 @@ async function loadOrders() {
             }
         });
         
-        if (!response.ok) throw new Error('Errore nel caricamento degli ordini');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Errore nel caricamento degli ordini');
+        }
         
-        const orders = await response.json();
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento degli ordini');
+        }
+
+        const orders = data.orders;
         const tbody = document.getElementById('ordersTableBody');
         
         if (!tbody) {
@@ -176,7 +184,7 @@ async function loadOrders() {
             return;
         }
 
-        if (orders.length === 0) {
+        if (!orders || orders.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" class="text-center text-muted">
@@ -190,7 +198,7 @@ async function loadOrders() {
             <tr>
                 <td>#${order.ordine_id}</td>
                 <td>${new Date(order.data_ordine).toLocaleDateString()}</td>
-                <td>€${order.totale.toFixed(2)}</td>
+                <td>€${parseFloat(order.totale).toFixed(2)}</td>
                 <td>
                     <span class="badge bg-${getStatusColor(order.stato)}">
                         ${getStatusText(order.stato)}
@@ -200,9 +208,11 @@ async function loadOrders() {
                     <button class="btn btn-sm btn-info me-1" onclick="viewOrderDetails(${order.ordine_id})">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn btn-sm btn-warning" onclick="reportOrder(${order.ordine_id})">
-                        <i class="fas fa-flag"></i>
-                    </button>
+                    ${order.stato === 'consegnato' ? `
+                        <button class="btn btn-sm btn-warning" onclick="reportOrder(${order.ordine_id})">
+                            <i class="fas fa-flag"></i>
+                        </button>
+                    ` : ''}
                 </td>
             </tr>
         `).join('');
@@ -211,8 +221,8 @@ async function loadOrders() {
         console.error('Error:', error);
         document.getElementById('ordersTableBody').innerHTML = `
             <tr>
-                <td colspan="6" class="text-center text-muted">
-                    Errore nel caricamento degli ordini
+                <td colspan="5" class="text-center text-muted">
+                    ${error.message || 'Errore nel caricamento degli ordini'}
                 </td>
             </tr>
         `;
@@ -233,60 +243,14 @@ async function viewOrderDetails(orderId) {
             throw new Error(error.message || 'Errore nel caricamento dei dettagli dell\'ordine');
         }
 
-        const order = await response.json();
-        
-        // For each product in order, fetch artisan details
-        if (order.prodotti && order.prodotti.length > 0) {
-            const productsWithArtisans = await Promise.all(order.prodotti.map(async product => {
-                if (!product.artigiano_id) {
-                    console.warn('Product without artisan ID:', product);
-                    return {
-                        ...product,
-                        nome_artigiano: 'Non disponibile',
-                        cognome_artigiano: ''
-                    };
-                }
-
-                try {
-                    const artisanResponse = await fetch(`/users/api/artisan/${product.artigiano_id}`, {
-                        headers: {
-                            'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                        }
-                    });
-                    
-                    if (!artisanResponse.ok) {
-                        console.error(`Failed to fetch artisan details for ID: ${product.artigiano_id}`);
-                        return {
-                            ...product,
-                            nome_artigiano: 'Non disponibile',
-                            cognome_artigiano: ''
-                        };
-                    }
-
-                    const artisan = await artisanResponse.json();
-                    if (!artisan.success) {
-                        throw new Error('Invalid artisan data');
-                    }
-
-                    return {
-                        ...product,
-                        nome_artigiano: artisan.artisan.nome,
-                        cognome_artigiano: artisan.artisan.cognome
-                    };
-                } catch (error) {
-                    console.error(`Error fetching artisan ${product.artigiano_id}:`, error);
-                    return {
-                        ...product,
-                        nome_artigiano: 'Non disponibile',
-                        cognome_artigiano: ''
-                    };
-                }
-            }));
-
-            order.prodotti = productsWithArtisans;
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento dei dettagli dell\'ordine');
         }
 
-        // Update modal content with proper number parsing
+        const order = data.order;
+
+        // Update modal content
         const modalElements = {
             'orderDetailId': order.ordine_id,
             'orderDetailDate': new Date(order.data_ordine).toLocaleDateString(),
@@ -294,34 +258,24 @@ async function viewOrderDetails(orderId) {
             'orderDetailTotal': parseFloat(order.totale).toFixed(2)
         };
 
-        // Update modal elements with error handling
         Object.entries(modalElements).forEach(([id, value]) => {
             const element = document.getElementById(id);
             if (element) {
                 element.innerHTML = value;
-            } else {
-                console.error(`Modal element #${id} not found`);
             }
         });
 
         // Update products table
         const productsTableBody = document.getElementById('orderDetailProducts');
-        if (productsTableBody && order.prodotti) {
-            productsTableBody.innerHTML = order.prodotti.map(product => {
-                const prezzo = parseFloat(product.prezzo);
-                const quantita = parseInt(product.quantita);
-                const subtotale = prezzo * quantita;
-                
-                return `
-                    <tr>
-                        <td>${product.nome}</td>
-                        <!--<td>${product.nome_artigiano} ${product.cognome_artigiano}</td>-->
-                        <td>${quantita}</td>
-                        <td>€${prezzo.toFixed(2)}</td>
-                        <td>€${subtotale.toFixed(2)}</td>
-                    </tr>
-                `;
-            }).join('');
+        if (productsTableBody && order.dettagli) {
+            productsTableBody.innerHTML = order.dettagli.map(item => `
+                <tr>
+                    <td>${item.nome_prodotto}</td>
+                    <td>${item.quantita}</td>
+                    <td>€${parseFloat(item.prezzo_unitario).toFixed(2)}</td>
+                    <td>€${(parseFloat(item.prezzo_unitario) * item.quantita).toFixed(2)}</td>
+                </tr>
+            `).join('');
         }
 
         // Show modal
@@ -330,7 +284,7 @@ async function viewOrderDetails(orderId) {
 
     } catch (error) {
         console.error('Error loading order details:', error);
-        showErrorMessage('Errore nel caricamento dei dettagli dell\'ordine');
+        showErrorMessage(error.message || 'Errore nel caricamento dei dettagli dell\'ordine');
     }
 }
 
@@ -350,7 +304,6 @@ async function submitOrderReport() {
             description: document.getElementById('reportDescription').value
         };
 
-        // Validation
         if (!reportData.order_id || !reportData.reason || !reportData.description) {
             showErrorMessage('Tutti i campi sono obbligatori');
             return;
@@ -365,10 +318,9 @@ async function submitOrderReport() {
             body: JSON.stringify(reportData)
         });
 
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || 'Errore nell\'invio della segnalazione');
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Errore nell\'invio della segnalazione');
         }
 
         // Close modal and reset form
@@ -376,14 +328,10 @@ async function submitOrderReport() {
         modal.hide();
         document.getElementById('reportOrderForm').reset();
 
-        // Show success message
         showSuccessMessage('Segnalazione inviata con successo');
 
-        // Reload orders and reports tables
-        await Promise.all([
-            loadOrders(),
-            loadUserReports()
-        ]);
+        // Reload orders and reports
+        await Promise.all([loadOrders(), loadUserReports()]);
 
     } catch (error) {
         console.error('Error:', error);

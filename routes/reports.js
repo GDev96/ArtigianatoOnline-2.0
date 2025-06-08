@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../db/db'); // Fix pool import
+const { getPool } = require('../db/db');
 const createAuthMiddleware = require('../middleware/auth');
 
-// Create auth middleware
 const requireAuth = createAuthMiddleware();
 
 // Get all reports (admin only)
 router.get('/all', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         if (req.user.ruolo_id !== 3) {
             return res.status(403).json({
@@ -18,15 +18,16 @@ router.get('/all', requireAuth, async (req, res) => {
 
         const query = `
             SELECT 
-                s.segnalazione_id as id,
-                s.data_segnalazione as data,
+                s.segnalazione_id,
+                s.data_segnalazione,
                 s.ordine_id,
                 s.recensione_id,
                 s.artigiano_id,
-                s.testo as descrizione,
-                s.motivazione as tipo,
-                s.stato_segnalazione as stato,
-                us.username as segnalatore_nome,
+                s.testo,
+                s.motivazione,
+                s.stato_segnalazione,
+                s.utente_segnalatore_id,
+                us.username as segnalatore_username,
                 CASE 
                     WHEN s.ordine_id IS NOT NULL THEN 'ordine'
                     WHEN s.recensione_id IS NOT NULL THEN 'recensione'
@@ -35,37 +36,37 @@ router.get('/all', requireAuth, async (req, res) => {
                 CASE 
                     WHEN s.ordine_id IS NOT NULL THEN o.cliente_id
                     WHEN s.recensione_id IS NOT NULL THEN r.cliente_id
-                    WHEN s.artigiano_id IS NOT NULL THEN a.artigiano_id
-                END as target_id,
-                CASE
-                    WHEN s.ordine_id IS NOT NULL THEN uc.username
-                    WHEN s.recensione_id IS NOT NULL THEN ur.username
-                    WHEN s.artigiano_id IS NOT NULL THEN ua.username
-                END as target_nome
+                    WHEN s.artigiano_id IS NOT NULL THEN a.utente_id
+                END as target_id
             FROM segnalazioni s
             JOIN utente us ON s.utente_segnalatore_id = us.id
             LEFT JOIN ordini o ON s.ordine_id = o.ordine_id
-            LEFT JOIN utente uc ON o.cliente_id = uc.id
             LEFT JOIN recensioni r ON s.recensione_id = r.recensione_id
-            LEFT JOIN utente ur ON r.cliente_id = ur.id
             LEFT JOIN artigiani a ON s.artigiano_id = a.artigiano_id
-            LEFT JOIN utente ua ON a.artigiano_id = ua.id
             WHERE s.stato_segnalazione = 'in attesa'
             ORDER BY s.data_segnalazione DESC`;
 
-        const result = await pool.query(query);
-        res.json({ reports: result.rows });
+        const result = await client.query(query);
+        
+        res.json({
+            success: true,
+            reports: result.rows
+        });
+
     } catch (error) {
         console.error('Error fetching all reports:', error);
         res.status(500).json({
             success: false,
             message: 'Errore nel recupero delle segnalazioni'
         });
+    } finally {
+        client.release();
     }
 });
 
-// Get segnalazioni dell'utente
+// Get user's reports
 router.get('/user', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         const query = `
             SELECT 
@@ -81,56 +82,59 @@ router.get('/user', requireAuth, async (req, res) => {
             WHERE s.utente_segnalatore_id = $1
             ORDER BY s.data_segnalazione DESC`;
 
-        const result = await pool.query(query, [req.user.id]);
-        res.json(result.rows);
+        const result = await client.query(query, [req.user.id]);
+        res.json({
+            success: true,
+            reports: result.rows
+        });
+
     } catch (error) {
         console.error('Error fetching user reports:', error);
         res.status(500).json({
             success: false,
             message: 'Errore nel recupero delle segnalazioni'
         });
+    } finally {
+        client.release();
     }
 });
 
-// POST /reports/artisan - Create artisan report
+// Create artisan report
 router.post('/artisan', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         const { artisan_id, reason, description } = req.body;
-        const segnalatore_id = req.user.id;
+        
+        await client.query('BEGIN');
 
-        // Validation
-        if (!artisan_id || !reason || !description) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tutti i campi sono richiesti'
-            });
-        }
-
-        // Check if artisan exists
-        const artisanCheck = await pool.query(
-            'SELECT artigiano_id FROM artigiani WHERE artigiano_id = $1',
+        // Check if artisan exists and is active
+        const artisanCheck = await client.query(
+            `SELECT a.artigiano_id 
+             FROM artigiani a
+             JOIN utente u ON a.artigiano_id = u.id
+             WHERE a.artigiano_id = $1 AND u.stato = 'attivo'`,
             [artisan_id]
         );
 
         if (artisanCheck.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Artigiano non trovato'
-            });
+            throw new Error('Artigiano non trovato o non attivo');
         }
 
-        // Insert report
-        const result = await pool.query(`
+        // Create report
+        const result = await client.query(`
             INSERT INTO segnalazioni (
-                utente_segnalatore_id, 
+                utente_segnalatore_id,
                 artigiano_id,
-                testo, 
-                motivazione, 
+                testo,
+                motivazione,
                 stato_segnalazione
             )
             VALUES ($1, $2, $3, $4, 'in attesa')
-            RETURNING segnalazione_id
-        `, [segnalatore_id, artisan_id, description, reason]);
+            RETURNING segnalazione_id`,
+            [req.user.id, artisan_id, description, reason]
+        );
+
+        await client.query('COMMIT');
 
         res.status(201).json({
             success: true,
@@ -139,16 +143,20 @@ router.post('/artisan', requireAuth, async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error creating artisan report:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore durante l\'invio della segnalazione'
+            message: error.message || 'Errore durante l\'invio della segnalazione'
         });
+    } finally {
+        client.release();
     }
 });
 
 // POST /reports/review - Create review report
 router.post('/review', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         const { review_id, reason, description } = req.body;
         const segnalatore_id = req.user.id;
@@ -161,21 +169,22 @@ router.post('/review', requireAuth, async (req, res) => {
             });
         }
 
-        // Check if review exists
-        const reviewCheck = await pool.query(
-            'SELECT recensione_id FROM recensioni WHERE recensione_id = $1',
+        await client.query('BEGIN');
+
+        // Check if review exists and is active
+        const reviewCheck = await client.query(
+            `SELECT r.recensione_id 
+             FROM recensioni r
+             WHERE r.recensione_id = $1 AND r.stato = 'attiva'`,
             [review_id]
         );
 
         if (reviewCheck.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Recensione non trovata'
-            });
+            throw new Error('Recensione non trovata o non attiva');
         }
 
-        // Insert report with correct field names
-        const result = await pool.query(`
+        // Insert report
+        const result = await client.query(`
             INSERT INTO segnalazioni (
                 utente_segnalatore_id, 
                 recensione_id,
@@ -187,6 +196,8 @@ router.post('/review', requireAuth, async (req, res) => {
             RETURNING segnalazione_id
         `, [segnalatore_id, review_id, description, reason]);
 
+        await client.query('COMMIT');
+
         res.status(201).json({
             success: true,
             message: 'Segnalazione inviata con successo',
@@ -194,78 +205,81 @@ router.post('/review', requireAuth, async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error creating review report:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore durante l\'invio della segnalazione'
+            message: error.message || 'Errore durante l\'invio della segnalazione'
         });
+    } finally {
+        client.release();
     }
 });
 
 // POST /reports/order - Create order report
 router.post('/order', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         const { order_id, reason, description } = req.body;
         const user_id = req.user.id;
 
-        // Start transaction
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
+        await client.query('BEGIN');
 
-            // Check if order exists and belongs to user
-            const orderCheck = await client.query(
-                'SELECT ordine_id FROM ordini WHERE ordine_id = $1 AND cliente_id = $2',
-                [order_id, user_id]
-            );
+        // Check if order exists and belongs to user
+        const orderCheck = await client.query(
+            `SELECT o.ordine_id 
+             FROM ordini o
+             WHERE o.ordine_id = $1 
+             AND o.cliente_id = $2
+             AND o.stato IN ('consegnato', 'completato')`,
+            [order_id, user_id]
+        );
 
-            if (orderCheck.rows.length === 0) {
-                throw new Error('Ordine non trovato o non autorizzato');
-            }
-
-            // Insert report
-            await client.query(`
-                INSERT INTO segnalazioni (
-                    utente_segnalatore_id, 
-                    ordine_id, 
-                    testo, 
-                    motivazione, 
-                    stato_segnalazione
-                )
-                VALUES ($1, $2, $3, $4, 'in attesa')
-            `, [user_id, order_id, description, reason]);
-
-            // Update order status
-            await client.query(
-                `UPDATE ordini SET stato = 'controversia aperta' WHERE ordine_id = $1`,
-                [order_id]
-            );
-
-            await client.query('COMMIT');
-
-            res.status(201).json({
-                success: true,
-                message: 'Segnalazione inviata con successo'
-            });
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
+        if (orderCheck.rows.length === 0) {
+            throw new Error('Ordine non trovato o non idoneo per segnalazione');
         }
+
+        // Insert report
+        await client.query(`
+            INSERT INTO segnalazioni (
+                utente_segnalatore_id, 
+                ordine_id, 
+                testo, 
+                motivazione, 
+                stato_segnalazione
+            )
+            VALUES ($1, $2, $3, $4, 'in attesa')
+        `, [user_id, order_id, description, reason]);
+
+        // Update order status
+        await client.query(
+            `UPDATE ordini SET stato = 'controversia' WHERE ordine_id = $1`,
+            [order_id]
+        );
+
+        await client.query('COMMIT');
+
+        res.status(201).json({
+            success: true,
+            message: 'Segnalazione inviata con successo'
+        });
+
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error creating order report:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Errore durante l\'invio della segnalazione'
         });
+    } finally {
+        client.release();
     }
 });
 
 // Update report status (admin only)
 router.patch('/admin/:id/resolve', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
-        // Verifica che l'utente sia admin
         if (req.user.ruolo_id !== 3) {
             return res.status(403).json({
                 success: false,
@@ -275,20 +289,33 @@ router.patch('/admin/:id/resolve', requireAuth, async (req, res) => {
 
         const { id } = req.params;
         
+        await client.query('BEGIN');
+
         const query = `
             UPDATE segnalazioni
-            SET stato_segnalazione = 'risolta'
+            SET 
+                stato_segnalazione = 'risolta',
+                data_risoluzione = CURRENT_TIMESTAMP
             WHERE segnalazione_id = $1
             RETURNING *`;
 
-        const result = await pool.query(query, [id]);
+        const result = await client.query(query, [id]);
 
         if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Segnalazione non trovata'
-            });
+            throw new Error('Segnalazione non trovata');
         }
+
+        // If it's an order report, update order status
+        if (result.rows[0].ordine_id) {
+            await client.query(
+                `UPDATE ordini 
+                 SET stato = 'completato' 
+                 WHERE ordine_id = $1`,
+                [result.rows[0].ordine_id]
+            );
+        }
+
+        await client.query('COMMIT');
 
         res.json({
             success: true,
@@ -297,34 +324,43 @@ router.patch('/admin/:id/resolve', requireAuth, async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error resolving report:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore nella risoluzione della segnalazione'
+            message: error.message || 'Errore nella risoluzione della segnalazione'
         });
+    } finally {
+        client.release();
     }
 });
 
 // DELETE elimina segnalazione - solo utente che ha fatto la segnalazione
 router.delete('/:id', requireAuth, async (req, res) => {
+    const client = await getPool().connect();
     try {
         const { id } = req.params;
         const user_id = req.user.id;
 
+        await client.query('BEGIN');
+
         // Verifica proprietà della segnalazione
-        const reportCheck = await pool.query(
-            'SELECT segnalazione_id FROM segnalazioni WHERE segnalazione_id = $1 AND utente_segnalatore_id = $2',
+        const reportCheck = await client.query(
+            `SELECT s.* 
+             FROM segnalazioni s
+             WHERE s.segnalazione_id = $1 
+             AND s.utente_segnalatore_id = $2
+             AND s.stato_segnalazione = 'in attesa'`,
             [id, user_id]
         );
 
         if (reportCheck.rows.length === 0) {
-            return res.status(403).json({
-                success: false,
-                message: 'Non autorizzato a eliminare questa segnalazione'
-            });
+            throw new Error('Segnalazione non trovata o non modificabile');
         }
 
-        await pool.query('DELETE FROM segnalazioni WHERE segnalazione_id = $1', [id]);
+        await client.query('DELETE FROM segnalazioni WHERE segnalazione_id = $1', [id]);
+
+        await client.query('COMMIT');
 
         res.json({
             success: true,
@@ -332,14 +368,15 @@ router.delete('/:id', requireAuth, async (req, res) => {
         });
 
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error deleting report:', error);
         res.status(500).json({
             success: false,
-            message: 'Errore nell\'eliminazione della segnalazione'
+            message: error.message || 'Errore nell\'eliminazione della segnalazione'
         });
+    } finally {
+        client.release();
     }
 });
-
-
 
 module.exports = router;

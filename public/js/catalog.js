@@ -88,10 +88,20 @@ async function loadProducts(artisanId) {
             headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const [productsResponse, cartResponse] = await Promise.all([
-            fetch(`/products/artisan/${artisanId}`),
-            token ? fetch('/cart', { headers: { 'Authorization': `Bearer ${token}` } }) : null
-        ]);
+        const productsResponse = await fetch(`/products/artisan/${artisanId}`);
+        let cartData = null;
+
+        if (token) {
+            const cartResponse = await fetch('/cart', { 
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (cartResponse.ok) {
+                const cartResult = await cartResponse.json();
+                if (cartResult.success) {
+                    cartData = cartResult.items;
+                }
+            }
+        }
 
         if (!productsResponse.ok) {
             throw new Error(`HTTP error! status: ${productsResponse.status}`);
@@ -102,22 +112,13 @@ async function loadProducts(artisanId) {
             throw new Error('Formato dati prodotti non valido');
         }
 
-        // If user is logged in, merge cart quantities with products
-        if (cartResponse) {
-            const cartData = await cartResponse.json();
-            if (cartData.success) {
-                allProducts = productsData.products.map(product => ({
-                    ...product,
-                    cart_quantity: cartData.items.find(item => 
-                        item.prodotto_id === product.prodotto_id
-                    )?.quantita || 0
-                }));
-            } else {
-                allProducts = productsData.products;
-            }
-        } else {
-            allProducts = productsData.products;
-        }
+        // Merge cart quantities with products
+        allProducts = productsData.products.map(product => ({
+            ...product,
+            cart_quantity: cartData?.find(item => 
+                item.prodotto_id === product.prodotto_id
+            )?.quantita || 0
+        }));
 
         updateProductsDisplay(allProducts);
 
@@ -327,6 +328,7 @@ function applyFilters() {
 
     updateProductsDisplay(filteredProducts);
 }
+
 // Funzione per aggiornare la quantità del prodotto nel carrello
 async function updateCartQuantity(productId, newQuantity, maxQuantity) {
     if (newQuantity < 0) return;
@@ -336,27 +338,31 @@ async function updateCartQuantity(productId, newQuantity, maxQuantity) {
     }
 
     try {
+        const token = sessionStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html';
+            return;
+        }
+
         if (newQuantity === 0) {
-            // Remove from cart
-            await fetch(`/cart/remove/${productId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                }
-            });
+            await removeFromCart(productId);
         } else {
-            // Update quantity
-            await fetch('/cart/update', {
+            const response = await fetch('/cart/update', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     prodotto_id: productId,
                     quantita: newQuantity
                 })
             });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Errore nell\'aggiornamento della quantità');
+            }
         }
 
         // Refresh the products display
