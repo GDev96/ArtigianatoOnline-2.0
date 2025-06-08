@@ -18,7 +18,7 @@ const dbConfig = {
     database: process.env.DB_NAME || 'artigianato_online',
     password: process.env.DB_PASSWORD || 'postgres',
     port: parseInt(process.env.DB_PORT || '5432'),
-});
+}
 
 console.log('DB_HOST:', process.env.DB_HOST);
 console.log('Database config:', {
