@@ -158,6 +158,7 @@ async function updateProfile(event) {
 
 //********Tabella visualizzazione ordini********** 
 // Carica gli ordini dell'utente
+// Fix loadOrders function
 async function loadOrders() {
     try {
         const response = await fetch('/orders/user', {
@@ -167,8 +168,7 @@ async function loadOrders() {
         });
         
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Errore nel caricamento degli ordini');
+            throw new Error('Errore nel caricamento degli ordini');
         }
         
         const data = await response.json();
@@ -176,24 +176,25 @@ async function loadOrders() {
             throw new Error(data.message || 'Errore nel caricamento degli ordini');
         }
 
-        const orders = data.orders;
+        const orders = data.data; // Update to match API response structure
         const tbody = document.getElementById('ordersTableBody');
         
         if (!tbody) {
-            console.error('Table body element not found');
-            return;
+            throw new Error('Table body element not found');
         }
 
         if (!orders || orders.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" class="text-center text-muted">
-                        Nessun ordine effettuato
+                        <i class="bi bi-inbox mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                        <p>Nessun ordine effettuato</p>
                     </td>
                 </tr>`;
             return;
         }
         
+        // In the loadOrders function, update the table row generation:
         tbody.innerHTML = orders.map(order => `
             <tr>
                 <td>#${order.ordine_id}</td>
@@ -204,28 +205,28 @@ async function loadOrders() {
                         ${getStatusText(order.stato)}
                     </span>
                 </td>
-                <td>
-                    <button class="btn btn-sm btn-info me-1" onclick="viewOrderDetails(${order.ordine_id})">
+                <td class="d-flex gap-2 justify-content-center">
+                    <button class="btn btn-sm btn-info" onclick="viewOrderDetails(${order.ordine_id})" title="Visualizza dettagli">
                         <i class="fas fa-eye"></i>
                     </button>
-                    ${order.stato === 'consegnato' ? `
-                        <button class="btn btn-sm btn-warning" onclick="reportOrder(${order.ordine_id})">
-                            <i class="fas fa-flag"></i>
-                        </button>
-                    ` : ''}
+                    <button class="btn btn-sm btn-warning" onclick="reportOrder(${order.ordine_id})" title="Segnala ordine">
+                        <i class="fas fa-flag"></i>
+                    </button>
                 </td>
             </tr>
         `).join('');
-
     } catch (error) {
         console.error('Error:', error);
-        document.getElementById('ordersTableBody').innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center text-muted">
-                    ${error.message || 'Errore nel caricamento degli ordini'}
-                </td>
-            </tr>
-        `;
+        const tbody = document.getElementById('ordersTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle mb-3"></i>
+                        <p>${error.message || 'Errore nel caricamento degli ordini'}</p>
+                    </td>
+                </tr>`;
+        }
     }
 }
 
@@ -234,49 +235,72 @@ async function viewOrderDetails(orderId) {
     try {
         const response = await fetch(`/orders/${orderId}`, {
             headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+                'Accept': 'application/json'
             }
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Errore nel caricamento dei dettagli dell\'ordine');
+            throw new Error('Errore nel caricamento dei dettagli dell\'ordine');
         }
 
         const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.message || 'Errore nel caricamento dei dettagli dell\'ordine');
+        
+        if (!data.success || !data.data) {
+            throw new Error('Dati ordine non validi');
         }
 
-        const order = data.order;
+        const order = data.data;
 
         // Update modal content
-        const modalElements = {
-            'orderDetailId': order.ordine_id,
-            'orderDetailDate': new Date(order.data_ordine).toLocaleDateString(),
-            'orderDetailStatus': `<span class="badge bg-${getStatusColor(order.stato)}">${getStatusText(order.stato)}</span>`,
-            'orderDetailTotal': parseFloat(order.totale).toFixed(2)
-        };
-
-        Object.entries(modalElements).forEach(([id, value]) => {
-            const element = document.getElementById(id);
-            if (element) {
-                element.innerHTML = value;
-            }
-        });
-
-        // Update products table
-        const productsTableBody = document.getElementById('orderDetailProducts');
-        if (productsTableBody && order.dettagli) {
-            productsTableBody.innerHTML = order.dettagli.map(item => `
-                <tr>
-                    <td>${item.nome_prodotto}</td>
-                    <td>${item.quantita}</td>
-                    <td>€${parseFloat(item.prezzo_unitario).toFixed(2)}</td>
-                    <td>€${(parseFloat(item.prezzo_unitario) * item.quantita).toFixed(2)}</td>
-                </tr>
-            `).join('');
+        const modalBody = document.querySelector('#orderDetailsModal .modal-body');
+        if (!modalBody) {
+            throw new Error('Modal body not found');
         }
+
+        modalBody.innerHTML = `
+            <div class="container-fluid">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Ordine #:</strong> ${order.ordine_id}</p>
+                        <p><strong>Data:</strong> ${new Date(order.data_ordine).toLocaleDateString()}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Stato:</strong> <span class="badge bg-${getStatusColor(order.stato)}">${getStatusText(order.stato)}</span></p>
+                        <p><strong>Totale:</strong> €${parseFloat(order.totale).toFixed(2)}</p>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Prodotto</th>
+                                <th>Quantità</th>
+                                <th>Prezzo unitario</th>
+                                <th>Totale</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${order.prodotti.map(item => `
+                                <tr>
+                                    <td>${item.nome}</td>
+                                    <td>${item.quantita}</td>
+                                    <td>€${parseFloat(item.prezzo).toFixed(2)}</td>
+                                    <td>€${(item.quantita * parseFloat(item.prezzo)).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${order.stato === 'consegnato' ? `
+                    <div class="mt-3 text-end">
+                        <button class="btn btn-warning" onclick="reportOrder(${order.ordine_id})">
+                            <i class="fas fa-flag me-1"></i> Segnala Ordine
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
 
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
@@ -284,7 +308,7 @@ async function viewOrderDetails(orderId) {
 
     } catch (error) {
         console.error('Error loading order details:', error);
-        showErrorMessage(error.message || 'Errore nel caricamento dei dettagli dell\'ordine');
+        showErrorMessage(error.message);
     }
 }
 
@@ -557,6 +581,8 @@ function getReviewStatus(status) {
 
 /**********Tabella segnalazioni************* */
 //Carica le segnalazioni dell'utente
+
+// Fix loadUserReports function
 async function loadUserReports() {
     try {
         const response = await fetch('/reports/user', {
@@ -565,55 +591,82 @@ async function loadUserReports() {
             }
         });
         
-        if (!response.ok) throw new Error('Errore nel caricamento delle segnalazioni');
+        if (!response.ok) {
+            throw new Error('Errore nel caricamento delle segnalazioni');
+        }
         
-        const reports = await response.json();
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.message || 'Errore nel caricamento delle segnalazioni');
+        }
+
+        const reports = data.reports;
         const tbody = document.getElementById('reportsTableBody');
         
         if (!tbody) {
-            console.error('Reports table body element not found');
-            return;
+            throw new Error('Reports table body element not found');
         }
 
-        if (reports.length === 0) {
+        if (!reports || reports.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" class="text-center text-muted">
-                        Nessuna segnalazione effettuata
+                        <i class="bi bi-shield-check mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                        <p>Nessuna segnalazione effettuata</p>
                     </td>
                 </tr>`;
             return;
         }
         
-        tbody.innerHTML = reports.map(report => `
-            <tr>
-                <td>${report.ordine_id ? `#${report.ordine_id}` : 'N/A'}</td>
-                <td>${new Date(report.data_segnalazione).toLocaleDateString()}</td>
-                <td>${getReportReasonText(report.motivazione)}</td>
-                <td>
-                    <span class="badge bg-${getReportStatusColor(report.stato_segnalazione)}">
-                        ${getReportStatusText(report.stato_segnalazione)}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-danger" onclick="deleteReport(${report.segnalazione_id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        tbody.innerHTML = reports.map(report => {
+            // Determine reference type and format
+            let reference = '';
+            if (report.ordine_id) {
+                reference = `Ordine #${report.ordine_id}`;
+            } else if (report.recensione_id) {
+                reference = `Recensione #${report.recensione_id}`;
+            } else if (report.artigiano_id) {
+                reference = `Artigiano #${report.artigiano_id}`;
+            } else {
+                reference = 'N/A';
+            }
+
+            return `
+                <tr>
+                    <td>${reference}</td>
+                    <td>${new Date(report.data_segnalazione).toLocaleDateString()}</td>
+                    <td>${getReportReasonText(report.motivazione)}</td>
+                    <td>
+                        <span class="badge bg-${getReportStatusColor(report.stato_segnalazione)}">
+                            ${getReportStatusText(report.stato_segnalazione)}
+                        </span>
+                    </td>
+                    <td>
+                        ${report.stato_segnalazione === 'in attesa' ? `
+                            <button class="btn btn-sm btn-danger" onclick="deleteReport(${report.segnalazione_id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
     } catch (error) {
         console.error('Error:', error);
-        document.getElementById('reportsTableBody').innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center text-muted">
-                    Errore nel caricamento delle segnalazioni
-                </td>
-            </tr>
-        `;
+        const tbody = document.getElementById('reportsTableBody');
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle mb-3"></i>
+                        <p>${error.message || 'Errore nel caricamento delle segnalazioni'}</p>
+                    </td>
+                </tr>`;
+        }
     }
 }
+
 function deleteReport(reportId) {
     document.getElementById('deleteReportId').value = reportId;
     const modal = new bootstrap.Modal(document.getElementById('deleteReportModal'));

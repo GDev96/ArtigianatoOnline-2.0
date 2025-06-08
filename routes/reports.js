@@ -228,10 +228,9 @@ router.post('/order', requireAuth, async (req, res) => {
         // Check if order exists and belongs to user
         const orderCheck = await client.query(
             `SELECT o.ordine_id 
-             FROM ordini o
-             WHERE o.ordine_id = $1 
-             AND o.cliente_id = $2
-             AND o.stato IN ('consegnato', 'completato')`,
+            FROM ordini o
+            WHERE o.ordine_id = $1 
+            AND o.cliente_id = $2`,
             [order_id, user_id]
         );
 

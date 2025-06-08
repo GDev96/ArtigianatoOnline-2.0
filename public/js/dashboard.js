@@ -448,10 +448,10 @@ function getCategoryName(tipologia_id) {
 // --- GESTIONE PRODOTTI ---
 async function loadArtisanProducts() {
     try {
-        const user = JSON.parse(sessionStorage.getItem('user')); // Change localStorage to sessionStorage
-        const response = await fetch('/products', { // Change from /api/products to /products
+        const user = JSON.parse(sessionStorage.getItem('user'));
+        const response = await fetch('/products', {
             headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('token')}` // Change localStorage to sessionStorage
+                'Authorization': `Bearer ${sessionStorage.getItem('token')}`
             }
         });
 
@@ -460,47 +460,68 @@ async function loadArtisanProducts() {
         }
 
         const data = await response.json();
-        if (!data.products) {
-            console.error('Formato dati non valido:', data);
-            return;
+        if (!data.success || !data.products) {
+            throw new Error('Formato dati non valido');
         }
 
         const artisanProducts = data.products.filter(p => p.artigiano_id === user.id);
-        
         const tbody = document.getElementById('productTable');
+        
         if (!tbody) {
-            console.error('Elemento productTable non trovato');
+            throw new Error('Elemento productTable non trovato');
+        }
+
+        if (artisanProducts.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="card">
+                            <div class="card-bg-light body text-center p-5">
+                                <i class="bi bi-box mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                                <h5 class="card-title">Nessun prodotto disponibile</h5>
+                                <p class="card-text text-muted">
+                                    Aggiungi il tuo primo prodotto usando il pulsante "Aggiungi Prodotto"
+                                </p>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
             return;
         }
 
-        tbody.innerHTML = artisanProducts.length === 0 
-            ? `<tr><td colspan="5" class="text-center">Nessun prodotto disponibile</td></tr>`
-            : artisanProducts.map(product => `
-                <tr>
-                    <td>${product.nome_prodotto || ''}</td>
-                    <td>${getCategoryName(product.tipologia_id)}</td>
-                    <td>€${parseFloat(product.prezzo || 0).toFixed(2)}</td>
-                    <td>${product.quantita || 0}</td>
-                    <td class="d-flex justify-content-evenly align-items-center">
-                        <button class="btn" onclick="editProduct(${product.prodotto_id})" data-bs-toggle="modal" data-bs-target="#editProductModal">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M21.2799 6.40005L11.7399 15.94C10.7899 16.89 7.96987 17.33 7.33987 16.7C6.70987 16.07 7.13987 13.25 8.08987 12.3L17.6399 2.75002C17.8754 2.49308 18.1605 2.28654 18.4781 2.14284C18.7956 1.99914 19.139 1.92124 19.4875 1.9139C19.8359 1.90657 20.1823 1.96995 20.5056 2.10012C20.8289 2.23029 21.1225 2.42473 21.3686 2.67153C21.6147 2.91833 21.8083 3.21243 21.9376 3.53609C22.0669 3.85976 22.1294 4.20626 22.1211 4.55471C22.1128 4.90316 22.0339 5.24635 21.8894 5.5635C21.7448 5.88065 21.5375 6.16524 21.2799 6.40005V6.40005Z" stroke="#000000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                        <button class="btn" onclick="deleteProduct(${product.prodotto_id})">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M9 3H15M3 6H21M19 6L18.2987 16.5193C18.1935 18.0975 18.1409 18.8867 17.8 19.485C17.4999 20.0118 17.0472 20.4353 16.5017 20.7007C15.882 21 15.0911 21 13.5093 21H10.4907C8.90891 21 8.11803 21 7.49834 20.7007C6.95276 20.4353 6.50009 20.0118 6.19998 19.485C5.85911 18.8867 5.8065 18.0975 5.70129 16.5193L5 6" stroke="#000000" stroke-width="1.5" stroke-linecap="round"></path>
-                            </svg>
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
+        tbody.innerHTML = artisanProducts.map(product => `
+            <tr>
+                <td>${product.nome_prodotto || ''}</td>
+                <td>${getCategoryName(product.tipologia_id)}</td>
+                <td>€${parseFloat(product.prezzo || 0).toFixed(2)}</td>
+                <td>${product.quantita || 0}</td>
+                <td class="d-flex justify-content-evenly align-items-center">
+                    <button class="btn" onclick="editProduct(${product.prodotto_id})" data-bs-toggle="modal" data-bs-target="#editProductModal">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn" onclick="deleteProduct(${product.prodotto_id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
 
     } catch (error) {
         console.error('Errore nel caricamento dei prodotti:', error);
         const tbody = document.getElementById('productTable');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Errore nel caricamento dei prodotti</td></tr>`;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5">
+                        <div class="card">
+                            <div class="card-bg-light body text-center p-5">
+                                <i class="fas fa-exclamation-circle mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                                <h5 class="card-title">Errore</h5>
+                                <p class="card-text text-muted">${error.message}</p>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
         }
     }
 }
