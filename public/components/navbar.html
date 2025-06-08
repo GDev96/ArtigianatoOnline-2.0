@@ -17,46 +17,46 @@
 
         <!-- Menu per utenti loggati -->
         <div id="userMenu" class="d-none">
-            
-
-            <div class="dropdown">
-                <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-                    <span id="username" class="me-2"></span>
+            <div class="d-flex align-items-center">
+                <!-- Cart button for clients -->
+                <a class="nav-link me-3 client-only d-none" href="/cart.html" title="Carrello">
+                    <i class="bi bi-cart" style="font-size: 1.2rem;"></i>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <!-- Menu Cliente -->
-                    <li class="client-only d-none">
-                        <a class="dropdown-item" href="/profile.html">
-                            <i class="bi bi-person me-2"></i>Profilo
-                        </a>
-                    </li>
-                    <li class="client-only d-none">
-                        <a class="dropdown-item" href="/cart.html">
-                            <i class="bi bi-cart me-1"></i>Carrello
-                        </a>
-                    </li>
 
-                    <!-- Menu Artigiano -->
-                    <li class="artisan-only d-none">
-                        <a class="dropdown-item" href="/dashboard.html">
-                            <i class="bi bi-grid me-2"></i>Dashboard Artigiano
-                        </a>
-                    </li>
-                    
-                    <!-- Menu Admin -->
-                    <li class="admin-only d-none">
-                        <a class="dropdown-item" href="/admin.html">
-                            <i class="bi bi-gear me-2"></i>Pannello Admin
-                        </a>
-                    </li>
-            
-                    <hr>        
-                    <li>
-                        <a class="dropdown-item" href="#" id="logoutButton">
-                            <i class="bi bi-box-arrow-right me-2"></i>Logout
-                        </a>
-                    </li>
-                </ul>
+                <div class="dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                        <span id="username" class="me-2"></span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <!-- Menu Cliente -->
+                        <li class="client-only d-none">
+                            <a class="dropdown-item" href="/profile.html">
+                                <i class="bi bi-person me-2"></i>Profilo
+                            </a>
+                        </li>
+
+                        <!-- Menu Artigiano -->
+                        <li class="artisan-only d-none">
+                            <a class="dropdown-item" href="/dashboard.html">
+                                <i class="bi bi-grid me-2"></i>Dashboard Artigiano
+                            </a>
+                        </li>
+                        
+                        <!-- Menu Admin -->
+                        <li class="admin-only d-none">
+                            <a class="dropdown-item" href="/admin.html">
+                                <i class="bi bi-gear me-2"></i>Pannello Admin
+                            </a>
+                        </li>
+                
+                        <hr>        
+                        <li>
+                            <a class="dropdown-item" href="#" id="logoutButton">
+                                <i class="bi bi-box-arrow-right me-2"></i>Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>

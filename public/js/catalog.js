@@ -109,9 +109,15 @@ function updateProductsDisplay(products) {
     if (products.length === 0) {
         productsContainer.innerHTML = `
             <div class="col-12">
-                <div class="alert alert-info text-center" role="alert">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Nessun prodotto disponibile al momento.
+                <div class="card">
+                    <div class="card-body text-center p-5">
+                        <i class="bi bi-search mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                        <h5 class="card-title">Nessun prodotto trovato</h5>
+                        <p class="card-text text-muted">
+                            Non ci sono prodotti disponibili al momento.
+                            <br>Riprova più tardi o contatta l'artigiano.
+                        </p>
+                    </div>
                 </div>
             </div>`;
         return;
@@ -368,12 +374,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Container recensioni non trovato');
         }
 
-        if (artisanReviews.length === 0) {
+if (artisanReviews.length === 0) {
             reviewsContainer.innerHTML = `
-                <div class="col-12 text-center">
-                    <div class="alert alert-info" role="alert">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Non ci sono ancora recensioni per questo artigiano.
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body text-center p-5">
+                            <i class="bi bi-chat-square-text mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
+                            <h5 class="card-title">Nessuna recensione trovata</h5>
+                            <p class="card-text text-muted">
+                                Non ci sono ancora recensioni per questo artigiano.
+                                ${user && user.ruolo_id === 1 ? 
+                                    '<br>Sii il primo a lasciare una recensione!' : 
+                                    '<br>Le recensioni appariranno qui quando disponibili.'}
+                            </p>
+                        </div>
                     </div>
                 </div>`;
             updateAverageRating(0, 0);
@@ -435,11 +449,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const reviewsContainer = document.querySelector('.container-review .row');
         if (reviewsContainer) {
             reviewsContainer.innerHTML = `
-                <div class="col-9 mb-4">
-                    <div class="alert alert-danger" role="alert">
-                        <i class="fas fa-exclamation-circle me-2"></i>
-                        Si è verificato un errore nel caricamento delle recensioni. 
-                        <br>Dettaglio: ${error.message}
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body text-center p-5">
+                            <i class="bi bi-exclamation-circle mb-3" style="font-size: 2rem; color: var(--palette-danger);"></i>
+                            <h5 class="card-title">Si è verificato un errore</h5>
+                            <p class="card-text text-muted">
+                                Impossibile caricare le recensioni.
+                                <br>Dettaglio: ${error.message}
+                            </p>
+                        </div>
                     </div>
                 </div>`;
         }
