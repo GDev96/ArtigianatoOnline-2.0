@@ -75,21 +75,24 @@ async function startServer() {
         // Initialize scheduled jobs
         await initializeJobs();
         
-        app.listen(PORT, () => {
+        const server = app.listen(PORT, () => {
             console.log(`Server is running on http://localhost:${PORT}`);
         });
+        
+        app.server = server;
+        return server;
 
     } catch (error) {
         console.error('Error starting server:', error);
-        process.exit(1);
+        if (process.env.NODE_ENV !== 'test') {
+            process.exit(1);
+        }
     }
 }
 
-// Avvia il server
-startServer();
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
 
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
-
-module.exports = app;
+module.exports = { app, startServer };

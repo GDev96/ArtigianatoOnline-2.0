@@ -1,26 +1,35 @@
 {
   "name": "artigianatoonline",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "test": "jest --detectOpenHandles --config ./jest.config.js",
+    "test:setup": "node tests/db-init.js",
+    "test:init": "npm run test:setup && npm test",
+    "test:unit": "jest --testPathPattern=tests/unit --config ./jest.config.js",
+    "test:integration": "jest --testPathPattern=tests/integration --config ./jest.config.js",
+    "test:coverage": "jest --coverage --config ./jest.config.js",
+    "db:init": "node tests/db-init.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.0",
-    "node-cron": "^4.1.0",
-    "node-schedule": "^2.1.1",
-    "nodemailer": "^7.0.3",
     "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.4",
+    "@babel/preset-env": "^7.27.2",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4"
   }
 }
