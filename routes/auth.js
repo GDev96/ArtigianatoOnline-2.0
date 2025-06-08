@@ -187,7 +187,7 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({
                 success: false,
                 error: 'Account non attivo',
-                code: 'ACCOUNT_INACTIVE'
+                code: 'ACCOUNT_SUSPENDED',
             });
         }
 

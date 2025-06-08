@@ -697,12 +697,21 @@ document.getElementById('editProductForm').addEventListener('submit', async (e) 
     }
 });
 
+// Sostituisci la funzione deleteProduct esistente (circa riga 585) con questa:
 async function deleteProduct(productId) {
-    if (!confirm('Sei sicuro di voler eliminare questo prodotto?')) {
-        return;
-    }
+    // Salva l'ID del prodotto da eliminare
+    document.getElementById('deleteProductId').value = productId;
+    
+    // Mostra il modale di conferma
+    const modal = new bootstrap.Modal(document.getElementById('deleteProductModal'));
+    modal.show();
+}
 
+// Aggiungi questa nuova funzione per confermare l'eliminazione:
+async function confirmDeleteProduct() {
     try {
+        const productId = document.getElementById('deleteProductId').value;
+        
         const response = await fetch(`/products/${productId}`, {
             method: 'DELETE',
             headers: {
@@ -715,7 +724,11 @@ async function deleteProduct(productId) {
             throw new Error(errorData.message || 'Errore durante l\'eliminazione del prodotto');
         }
 
-        // Reload products and show success message
+        // Chiudi il modale
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteProductModal'));
+        modal.hide();
+
+        // Ricarica i prodotti e mostra messaggio di successo
         await loadArtisanProducts();
         showSuccessMessage('Prodotto eliminato con successo');
 

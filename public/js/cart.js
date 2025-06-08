@@ -117,20 +117,23 @@ async function loadCartContent() {
 
 function updateCartTable(items) {
     const cartTableBody = document.querySelector('#cartTable tbody');
+    const cartTableHead = document.querySelector('#cartTable thead'); // Add this line
     const emptyCartMessage = document.getElementById('emptyCartMessage');
     const cartContent = document.getElementById('cartContent');
     const confirmOrderBtn = document.querySelector('[data-bs-target="#confirmOrder"]');
+
+    if (cartContent) cartContent.style.display = 'block';
+    if (emptyCartMessage) emptyCartMessage.style.display = 'none';
+    if (confirmOrderBtn) confirmOrderBtn.disabled = false;
+    if (cartTableHead) cartTableHead.style.display = 'table-header-group'; // Show table header
 
     if (!items || items.length === 0) {
         if (cartContent) cartContent.style.display = 'none';
         if (emptyCartMessage) emptyCartMessage.style.display = 'block';
         if (confirmOrderBtn) confirmOrderBtn.disabled = true;
+        if (cartTableHead) cartTableHead.style.display = 'none'; // Hide table header
         return;
     }
-
-    if (cartContent) cartContent.style.display = 'block';
-    if (emptyCartMessage) emptyCartMessage.style.display = 'none';
-    if (confirmOrderBtn) confirmOrderBtn.disabled = false;
 
     cartTableBody.innerHTML = items.map(item => `
         <tr>

@@ -377,176 +377,55 @@ async function updateCartQuantity(productId, newQuantity, maxQuantity) {
 
 
 /** SEZIONE RECENSIONI */
-// Popola le recensioni
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const artisanId = urlParams.get('id');
-        
-        // Get user info at the start
-        const user = JSON.parse(sessionStorage.getItem('user'));
-
-        if (!artisanId) {
-            console.error('ID artigiano non trovato');
-            return;
-        }
-
-        // Fetch delle recensioni
-        const response = await fetch('/reviews', {
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
+// Add event listener for review form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const reviewForm = document.getElementById('reviewForm');
+    if (reviewForm) {
+        reviewForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitReview();
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.success) {
-            throw new Error('Formato risposta API non valido');
-        }
-
-        // Filtra le recensioni per l'artigiano specifico
-        const artisanReviews = data.reviews.filter(review => 
-            review.artigiano_id && review.artigiano_id.toString() === artisanId
-        );
-
-        const reviewsContainer = document.querySelector('.container-review .row');
-        if (!reviewsContainer) {
-            throw new Error('Container recensioni non trovato');
-        }
-
-if (artisanReviews.length === 0) {
-            reviewsContainer.innerHTML = `
-                <div class="col-12">
-                    <div class="card bg-light">
-                        <div class="card-body text-center p-5">
-                            <i class="bi bi-chat-square-text mb-3" style="font-size: 2rem; color: var(--palette-primary);"></i>
-                            <h5 class="card-title">Nessuna recensione trovata</h5>
-                            <p class="card-text text-muted">
-                                Non ci sono ancora recensioni per questo artigiano.
-                                ${user && user.ruolo_id === 1 ? 
-                                    '<br>Sii il primo a lasciare una recensione!' : 
-                                    '<br>Le recensioni appariranno qui quando disponibili.'}
-                            </p>
-                        </div>
-                    </div>
-                </div>`;
-            updateAverageRating(0, 0);
-            return;
-        }
-
-        // Calcola la valutazione media
-        const averageRating = artisanReviews.reduce((acc, review) => 
-            acc + parseFloat(review.valutazione), 0) / artisanReviews.length;
-        
-        // Aggiorna la sezione della valutazione media
-        updateAverageRating(averageRating, artisanReviews.length);
-
-        // Popola le recensioni
-        reviewsContainer.innerHTML = artisanReviews.map(review => `
-            <div class="col-9 mb-4">
-                <div class="card bg-light w-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="card-title">${review.cliente_nome} ${review.cliente_cognome}</h5>
-                            ${user && user.id !== review.cliente_id ? 
-                                `<button class="btn btn-outline-danger btn-sm" 
-                                        onclick="openReviewReport(${review.recensione_id})"
-                                        title="Segnala questa recensione">
-                                    <i class="fas fa-flag"></i>
-                                </button>` : 
-                                ''
-                            }
-                        </div>
-                        <div class="stars mb-2 d-flex align-items-center">
-                            ${generateStars(review.valutazione)}
-                            <small class="text-muted ms-2">
-                                ${new Date(review.data_recensione).toLocaleDateString()}
-                            </small>
-                        </div>
-                        <p class="card-text">${review.descrizione}</p>
-                        ${user && user.id === review.cliente_id ? 
-                            `<div class="d-flex justify-content-end mt-3">
-                                <button class="btn btn-link text-primary" 
-                                        onclick="editReview(${review.recensione_id})"
-                                        title="Modifica recensione">
-                                    <i class="fas fa-edit"></i> Modifica
-                                </button>
-                                <button class="btn btn-link text-danger" 
-                                        onclick="deleteReview(${review.recensione_id})"
-                                        title="Elimina recensione">
-                                    <i class="fas fa-trash"></i> Elimina
-                                </button>
-                            </div>` : 
-                            ''
-                        }
-                    </div>
-                </div>
-            </div>
-        `).join('');
-
-    } catch (error) {
-        console.error('Errore nel caricamento recensioni:', error);
-        const reviewsContainer = document.querySelector('.container-review .row');
-        if (reviewsContainer) {
-            reviewsContainer.innerHTML = `
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-body text-center p-5">
-                            <i class="bi bi-exclamation-circle mb-3" style="font-size: 2rem; color: var(--palette-danger);"></i>
-                            <h5 class="card-title">Si è verificato un errore</h5>
-                            <p class="card-text text-muted">
-                                Impossibile caricare le recensioni.
-                                <br>Dettaglio: ${error.message}
-                            </p>
-                        </div>
-                    </div>
-                </div>`;
-        }
     }
+
+    // Setup rating stars for both add and edit modals
+    setupRatingStars('#addReviewModal');
+    setupRatingStars('#editReviewModal');
 });
 
-// Funzione per generare le stelle della valutazione
-function generateStars(rating) {
-    return Array(5).fill(0).map((_, index) => 
-        `<i class="fa${index < Math.round(parseFloat(rating)) ? 's' : 'r'} fa-star" aria-hidden="true"></i>`
-    ).join('');
+// Update the stars setup function
+function setupRatingStars(modalId) {
+    const ratingStars = document.querySelectorAll(`${modalId} .rating-input .fa-star`);
+    const ratingValue = document.querySelector(`${modalId} #ratingValue`);
+
+    if (!ratingStars.length || !ratingValue) return;
+
+    ratingStars.forEach(star => {
+        star.addEventListener('mouseover', function() {
+            highlightStars(this.dataset.rating, ratingStars);
+        });
+
+        star.addEventListener('mouseout', function() {
+            highlightStars(ratingValue.value, ratingStars);
+        });
+
+        star.addEventListener('click', function() {
+            ratingValue.value = this.dataset.rating;
+            highlightStars(this.dataset.rating, ratingStars);
+        });
+    });
 }
 
-// Funzione per aggiornare la valutazione media nella header
-function updateAverageRating(averageRating, totalReviews) {
-    const ratingSection = document.querySelector('.rating');
-    if (ratingSection) {
-        const rating = parseFloat(averageRating) || 0;
-        const reviews = parseInt(totalReviews) || 0;
-        const stars = generateStars(rating);
-        
-        ratingSection.innerHTML = `
-            <div class="heading">Valutazione media</div>
-            <div class="stars">
-                ${stars}
-            </div>
-            <p>${rating.toFixed(1)} su 5 basato su ${reviews} ${reviews === 1 ? 'recensione' : 'recensioni'}.</p>
-        `;
-    }
-}
-
-// Aggiungere nuova recensione al db
+// Update the review submission function
 async function submitReview() {
     try {
         const rating = document.getElementById('ratingValue').value;
         const reviewText = document.getElementById('reviewText').value;
         const urlParams = new URLSearchParams(window.location.search);
         const artisanId = urlParams.get('id');
-        const user = JSON.parse(sessionStorage.getItem('user'));
         const token = sessionStorage.getItem('token');
 
-        // Validazione input e controllo autenticazione
-        if (!user || !token) {
+        // Validation
+        if (!token) {
             throw new Error('Devi essere loggato per lasciare una recensione');
         }
         if (!rating) {
@@ -559,51 +438,39 @@ async function submitReview() {
             throw new Error('ID artigiano non valido');
         }
 
-        // Prepara i dati della recensione
-        const reviewData = {
-            artigiano_id: parseInt(artisanId),
-            valutazione: parseInt(rating),
-            descrizione: reviewText.trim()
-        };
-
-        // Invia la recensione al server
         const response = await fetch('/reviews', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify(reviewData)
+            body: JSON.stringify({
+                artigiano_id: parseInt(artisanId),
+                valutazione: parseInt(rating),
+                descrizione: reviewText.trim()
+            })
         });
 
         const data = await response.json();
-
         if (!response.ok) {
             throw new Error(data.message || 'Errore nel salvataggio della recensione');
         }
 
-        // Chiudi il modale
-        const reviewModal = document.getElementById('addReviewModal');
-        const modalInstance = bootstrap.Modal.getInstance(reviewModal);
-        modalInstance.hide();
-
-        // Reset form
+        // Close modal and reset form
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addReviewModal'));
+        modal.hide();
         resetReviewForm();
 
-        // Mostra messaggio di successo
         showSuccessMessage('Recensione pubblicata con successo!');
-
-        // Ricarica la pagina dopo un breve delay
-        setTimeout(() => {
-            window.location.reload();
-        }, 1500);
+        setTimeout(() => window.location.reload(), 1500);
 
     } catch (error) {
-        console.error('Errore nella sottomissione della recensione:', error);
+        console.error('Error submitting review:', error);
         showErrorMessage(error.message);
     }
 }
 
+// Update the review edit function
 async function editReview(reviewId) {
     try {
         const token = sessionStorage.getItem('token');
@@ -611,7 +478,6 @@ async function editReview(reviewId) {
             throw new Error('Devi essere loggato per modificare una recensione');
         }
 
-        // Fetch existing review data
         const response = await fetch(`/reviews/${reviewId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -623,23 +489,14 @@ async function editReview(reviewId) {
             throw new Error(data.message || 'Errore nel recupero della recensione');
         }
 
-        // Populate edit modal with existing data
+        // Populate edit modal
         document.getElementById('editReviewId').value = reviewId;
         document.getElementById('editReviewText').value = data.review.descrizione;
-        
-        // Set rating stars
-        const ratingStars = document.querySelectorAll('#editReviewModal .rating-input .fa-star');
-        ratingStars.forEach(star => {
-            const starRating = parseInt(star.dataset.rating);
-            if (starRating <= data.review.valutazione) {
-                star.classList.remove('far');
-                star.classList.add('fas');
-            } else {
-                star.classList.remove('fas');
-                star.classList.add('far');
-            }
-        });
         document.getElementById('editRatingValue').value = data.review.valutazione;
+
+        // Update stars
+        const ratingStars = document.querySelectorAll('#editReviewModal .rating-input .fa-star');
+        highlightStars(data.review.valutazione, ratingStars);
 
         // Show modal
         const modal = new bootstrap.Modal(document.getElementById('editReviewModal'));
@@ -651,6 +508,7 @@ async function editReview(reviewId) {
     }
 }
 
+// Update the review update function
 async function updateReview() {
     try {
         const reviewId = document.getElementById('editReviewId').value;
@@ -658,14 +516,13 @@ async function updateReview() {
         const reviewText = document.getElementById('editReviewText').value;
         const token = sessionStorage.getItem('token');
 
+        // Validation
         if (!token) {
             throw new Error('Devi essere loggato per modificare una recensione');
         }
-
         if (!rating) {
             throw new Error('Per favore seleziona una valutazione');
         }
-
         if (!reviewText.trim()) {
             throw new Error('Per favore scrivi una recensione');
         }
@@ -683,7 +540,6 @@ async function updateReview() {
         });
 
         const data = await response.json();
-
         if (!response.ok) {
             throw new Error(data.message || 'Errore durante la modifica della recensione');
         }
@@ -692,13 +548,8 @@ async function updateReview() {
         const modal = bootstrap.Modal.getInstance(document.getElementById('editReviewModal'));
         modal.hide();
 
-        // Show success message
         showSuccessMessage('Recensione modificata con successo');
-
-        // Reload reviews after a short delay
-        setTimeout(() => {
-            window.location.reload();
-        }, 1500);
+        setTimeout(() => window.location.reload(), 1500);
 
     } catch (error) {
         console.error('Error updating review:', error);
@@ -706,135 +557,33 @@ async function updateReview() {
     }
 }
 
-function deleteReview(reviewId) {
-    try {
-        // Get the modal element
-        const deleteModal = document.getElementById('deleteReviewModal');
-        if (!deleteModal) {
-            throw new Error('Modal element not found');
+// Helper functions remain mostly the same
+function highlightStars(rating, stars) {
+    stars.forEach(star => {
+        const starRating = star.dataset.rating;
+        if (starRating <= rating) {
+            star.classList.remove('far');
+            star.classList.add('fas');
+        } else {
+            star.classList.remove('fas');
+            star.classList.add('far');
         }
-
-        // Set the review ID in the hidden input
-        const hiddenInput = deleteModal.querySelector('#deleteReviewId');
-        if (!hiddenInput) {
-            throw new Error('Hidden input not found');
-        }
-        hiddenInput.value = reviewId;
-
-        // Create and show the modal
-        const modal = new bootstrap.Modal(deleteModal);
-        modal.show();
-
-    } catch (error) {
-        console.error('Error showing delete modal:', error);
-        showErrorMessage('Errore nell\'apertura del modale di conferma');
-    }
-}
-
-async function confirmDeleteReview() {
-    let modal = null;
-    try {
-        const reviewId = document.getElementById('deleteReviewId').value;
-        const token = sessionStorage.getItem('token');
-        
-        if (!token) {
-            throw new Error('Devi essere loggato per eliminare una recensione');
-        }
-
-        if (!reviewId) {
-            throw new Error('ID recensione non valido');
-        }
-
-        const response = await fetch(`/reviews/${reviewId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.message || 'Errore durante l\'eliminazione della recensione');
-        }
-
-        // Get the modal instance before closing
-        modal = bootstrap.Modal.getInstance(document.getElementById('deleteReviewModal'));
-        if (modal) {
-            modal.hide();
-        }
-
-        // Show success message
-        showSuccessMessage('Recensione eliminata con successo');
-
-        // Reload reviews after a short delay
-        setTimeout(() => {
-            window.location.reload();
-        }, 1500);
-
-    } catch (error) {
-        console.error('Error deleting review:', error);
-        showErrorMessage(error.message);
-        // Make sure to close modal even on error
-        if (modal) {
-            modal.hide();
-        }
-    }
+    });
 }
 
 function resetReviewForm() {
-    // Reset form
-    document.getElementById('reviewForm').reset();
-    document.getElementById('ratingValue').value = '';
+    const form = document.getElementById('reviewForm');
+    const ratingValue = document.getElementById('ratingValue');
+    const ratingStars = document.querySelectorAll('#addReviewModal .rating-input .fa-star');
+
+    if (form) form.reset();
+    if (ratingValue) ratingValue.value = '';
     
-    // Reset stars
-    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
     ratingStars.forEach(star => {
-        star.classList.remove('fas', 'hover');
+        star.classList.remove('fas');
         star.classList.add('far');
     });
 }
-
-// Gestione delle stelle per la valutazione
-document.addEventListener('DOMContentLoaded', function() {
-    const ratingStars = document.querySelectorAll('.rating-input .fa-star');
-    const ratingValue = document.getElementById('ratingValue');
-
-    // Gestione hover
-    ratingStars.forEach(star => {
-        star.addEventListener('mouseover', function() {
-            const rating = this.dataset.rating;
-            highlightStars(rating);
-        });
-
-        star.addEventListener('mouseout', function() {
-            const currentRating = ratingValue.value;
-            highlightStars(currentRating);
-        });
-
-        // Gestione click
-        star.addEventListener('click', function() {
-            const rating = this.dataset.rating;
-            ratingValue.value = rating;
-            highlightStars(rating);
-        });
-    });
-
-    // Funzione per evidenziare le stelle
-    function highlightStars(rating) {
-        ratingStars.forEach(star => {
-            const starRating = star.dataset.rating;
-            if (starRating <= rating) {
-                star.classList.remove('far');
-                star.classList.add('fas');
-            } else {
-                star.classList.remove('fas');
-                star.classList.add('far');
-            }
-        });
-    }
-});
-
 
 
 

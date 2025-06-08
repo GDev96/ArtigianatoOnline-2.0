@@ -166,8 +166,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.code === 'ACCOUNT_SUSPENDED') {
                     handleAccountSuspension(data);
                     return;
-                } else if (data.code === 'ACCOUNT_INACTIVE') {
-                    throw new Error('Account non attivo. Contatta l\'amministratore.');
                 } else {
                     throw new Error(data.error || 'Accesso negato');
                 }
@@ -291,62 +289,76 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function handleAccountSuspension(data) {
+        function handleAccountSuspension(data) {
         console.log('⚠️ Handling account suspension');
-        let giorniRimanenti = 3; // Default
-
+        console.log('Suspension data:', data);
+    
         try {
             // Controlla se Bootstrap è disponibile
             if (typeof bootstrap === 'undefined') {
                 throw new Error('Bootstrap non disponibile');
             }
-
+    
             const modalEl = document.getElementById('suspensionModal');
             if (!modalEl) {
                 throw new Error('Modal di sospensione non trovato');
             }
-
+    
+            let giorniRimanenti = 0;
+            let dataFineFormatted = '';
+    
             // Calcola giorni rimanenti se disponibile la data
-            if (data.suspension?.dataFine) {
-                const dataFine = new Date(data.suspension.dataFine);
+            if (data.suspension?.data_fine_prevista) {
+                const dataFine = new Date(data.suspension.data_fine_prevista);
                 const oggi = new Date();
                 giorniRimanenti = Math.ceil((dataFine - oggi) / (1000 * 60 * 60 * 24));
-                giorniRimanenti = Math.max(1, Math.min(30, giorniRimanenti)); // Tra 1 e 30 giorni
+                
+                // Formatta la data in italiano
+                dataFineFormatted = dataFine.toLocaleString('it-IT', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
             }
-
+    
             const modalBody = modalEl.querySelector('.modal-body');
             if (!modalBody) {
                 throw new Error('Corpo del modal non trovato');
             }
-
+    
             // Genera contenuto del modal
             modalBody.innerHTML = `
                 <div class="text-center">
                     <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3"></i>
                     <h4 class="text-danger mb-3">Account Sospeso</h4>
-                    <p class="mb-2">Il tuo account è stato sospeso per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}.</p>
-                    ${data.suspension?.dataFine ? `
+                    <p class="mb-2">Il tuo account è stato sospeso ${
+                        giorniRimanenti > 0 
+                            ? `per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}`
+                            : 'a tempo indeterminato'
+                    }.</p>
+                    ${dataFineFormatted ? `
                         <p class="text-muted">Data prevista di riattivazione:<br>
-                        <strong>${new Date(data.suspension.dataFine).toLocaleString('it-IT', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                        })}</strong></p>
+                        <strong>${dataFineFormatted}</strong></p>
                     ` : ''}
-                    <p class="text-muted mt-3">Per maggiori informazioni, contatta l'amministratore.</p>
+                    <p class="text-muted mt-3">
+                        Per maggiori informazioni, contatta l'amministratore.
+                    </p>
                 </div>
             `;
-
+    
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
-
+    
         } catch (modalError) {
             console.error('❌ Error handling suspension modal:', modalError);
-            // Fallback con alert
-            alert(`Account sospeso per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}. Contatta l'amministratore per maggiori informazioni.`);
+            // Fallback con alert se il modal fallisce
+            const message = giorniRimanenti > 0
+                ? `Account sospeso per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}`
+                : 'Account sospeso a tempo indeterminato';
+            alert(`${message}. Contatta l'amministratore per maggiori informazioni.`);
         }
     }
 });

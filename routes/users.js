@@ -177,7 +177,7 @@ router.put('/update/:id', requireAuth, async (req, res) => {
         const userId = req.params.id;
         const updates = req.body;
         
-        if (userId !== req.user.id) {
+        if (parseInt(userId) !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Non autorizzato ad aggiornare questo profilo'

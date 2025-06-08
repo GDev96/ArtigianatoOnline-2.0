@@ -401,44 +401,6 @@ async function checkUserReportsAndReactivate(userId) {
     }
 }
 
-async function toggleUserStatus(userId, currentStatus) {
-    const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
-    
-    // Se stiamo riattivando
-    if (newStatus === 'attivo') {
-        try {
-            const reportsResponse = await fetch(`/admin/users/${userId}/reports-count`, {
-                headers: {
-                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-                }
-            });
-            
-            const result = await reportsResponse.json();
-            
-            if (result.success && result.data.reportCount > 3) {
-                showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
-                return;
-            }
-
-            // Store userId and show reactivation modal
-            document.getElementById('userIdToReactivate').value = userId;
-            const modal = new bootstrap.Modal(document.getElementById('reactivateUserModal'));
-            modal.show();
-            return;
-        } catch (error) {
-            console.error('Error:', error);
-            showErrorMessage('Errore nel controllo delle segnalazioni');
-            return;
-        }
-    }
-
-    // Per la sospensione manteniamo il comportamento esistente
-    if (!confirm(`Sei sicuro di voler sospendere questo utente?`)) {
-        return;
-    }
-
-    await updateUserStatus(userId, newStatus);
-}
 
 
 // Add new function to handle user reactivation confirmation
@@ -540,6 +502,7 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
     const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
     
     if (newStatus === 'attivo') {
+        // Per la riattivazione, controlla le segnalazioni
         try {
             const reportsResponse = await fetch(`/admin/artisans/${artisanId}/reports-count`, {
                 headers: {
@@ -554,24 +517,21 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
                 return;
             }
 
-            // Store artisanId and show reactivation modal
-            document.getElementById('artisanIdToReactivate').value = artisanId;
-            const modal = new bootstrap.Modal(document.getElementById('reactivateArtisanModal'));
-            modal.show();
-            return;
+            // Conferma diretta per la riattivazione
+            if (confirm('Sei sicuro di voler riattivare questo artigiano?')) {
+                await updateArtisanStatus(artisanId, 'attivo');
+            }
         } catch (error) {
             console.error('Error:', error);
             showErrorMessage('Errore nel controllo delle segnalazioni');
-            return;
         }
     } else {
-        // Per la sospensione mostra il modale di conferma
-        document.getElementById('artisanIdToSuspend').value = artisanId;
-        const modal = new bootstrap.Modal(document.getElementById('suspendArtisanConfirmModal'));
-        modal.show();
+        // Per la sospensione, conferma diretta
+        if (confirm('Sei sicuro di voler sospendere questo artigiano? La sospensione durerà 3 giorni.')) {
+            await updateArtisanStatus(artisanId, 'sospeso');
+        }
     }
 }
-
 
 // Aggiungi questa nuova funzione per gestire la conferma di sospensione
 async function confirmSuspendArtisan() {
@@ -602,14 +562,17 @@ async function updateArtisanStatus(artisanId, newStatus) {
             body: JSON.stringify({ status: newStatus })
         });
 
-        if (!response.ok) throw new Error('Errore nella modifica dello stato');
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Errore HTTP ${response.status}: ${errorText}`);
+        }
 
         const result = await response.json();
         
         if (result.success) {
             showSuccessMessage(result.message || `Artigiano ${newStatus === 'attivo' ? 'riattivato' : 'sospeso'} con successo`);
             
-            // Aggiorna entrambe le tabelle
+            // Aggiorna le tabelle
             await Promise.all([
                 loadArtisans(),
                 loadSuspendedArtisans()
@@ -618,10 +581,12 @@ async function updateArtisanStatus(artisanId, newStatus) {
             throw new Error(result.message || 'Errore nella risposta del server');
         }
     } catch (error) {
-        console.error('Error:', error);
-        showErrorMessage('Errore nella modifica dello stato dell\'artigiano');
+        console.error('Error updating artisan status:', error);
+        showErrorMessage('Errore nella modifica dello stato dell\'artigiano: ' + error.message);
     }
 }
+
+
 async function loadSuspendedArtisans() {
     try {
         const response = await fetch('/admin/artisans/suspended', {
@@ -1130,7 +1095,39 @@ async function viewOrderDetails(orderId) {
     }
 }
 
+async function toggleUserStatus(userId, currentStatus) {
+    const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
+    
+    if (newStatus === 'attivo') {
+        try {
+            const reportsResponse = await fetch(`/admin/users/${userId}/reports-count`, {
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+                }
+            });
+            
+            const result = await reportsResponse.json();
+            
+            if (result.success && result.data.reportCount > 3) {
+                showErrorMessage('Impossibile riattivare: troppe segnalazioni attive');
+                return;
+            }
 
+            // Conferma diretta per la riattivazione
+            if (confirm('Sei sicuro di voler riattivare questo utente?')) {
+                await updateUserStatus(userId, 'attivo');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showErrorMessage('Errore nel controllo delle segnalazioni');
+        }
+    } else {
+        // Per la sospensione, conferma diretta
+        if (confirm('Sei sicuro di voler sospendere questo utente?')) {
+            await updateUserStatus(userId, 'sospeso');
+        }
+    }
+}
 async function showOrderReportResolution(reportId, reportData) {
     try {
         // Populate modal with report details
@@ -1200,83 +1197,90 @@ async function resolveReportRequest(reportId, withAction) {
         throw new Error('Errore nella risoluzione della segnalazione');
     }
 }
-
 function showSuccessMessage(message) {
-    // Implementa la visualizzazione del messaggio di successo
-    // Puoi usare toast, alert, o un sistema di notifiche
     console.log('SUCCESS:', message);
     
-    // Esempio con toast Bootstrap se disponibile
-    if (typeof bootstrap !== 'undefined') {
-        const toastHtml = `
-            <div class="toast align-items-center text-white bg-success border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
+    // Usa un semplice alert se Bootstrap non è disponibile
+    if (typeof bootstrap === 'undefined') {
+        alert('✅ ' + message);
+        return;
+    }
+    
+    // Implementazione toast migliorata
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-success border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
-        `;
-        
-        // Aggiungi toast container se non esiste
-        let toastContainer = document.getElementById('toast-container');
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.id = 'toast-container';
-            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-            document.body.appendChild(toastContainer);
-        }
-        
-        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-        const toastElement = toastContainer.lastElementChild;
-        const toast = new bootstrap.Toast(toastElement);
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    
+    try {
+        const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
         toast.show();
         
-        // Rimuovi il toast dopo che è nascosto
         toastElement.addEventListener('hidden.bs.toast', () => {
             toastElement.remove();
         });
-    } else {
-        // Fallback con alert
-        alert(message);
+    } catch (e) {
+        console.error('Toast error:', e);
+        alert('✅ ' + message);
     }
 }
 
 function showErrorMessage(message) {
-    // Implementa la visualizzazione del messaggio di errore
     console.error('ERROR:', message);
     
-    // Esempio con toast Bootstrap se disponibile
-    if (typeof bootstrap !== 'undefined') {
-        const toastHtml = `
-            <div class="toast align-items-center text-white bg-danger border-0" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
+    // Usa un semplice alert se Bootstrap non è disponibile
+    if (typeof bootstrap === 'undefined') {
+        alert('❌ ' + message);
+        return;
+    }
+    
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-danger border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
             </div>
-        `;
-        
-        // Aggiungi toast container se non esiste
-        let toastContainer = document.getElementById('toast-container');
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.id = 'toast-container';
-            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-            document.body.appendChild(toastContainer);
-        }
-        
-        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-        const toastElement = toastContainer.lastElementChild;
-        const toast = new bootstrap.Toast(toastElement);
+        </div>
+    `;
+    
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    const toastElement = toastContainer.lastElementChild;
+    
+    try {
+        const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
         toast.show();
         
-        // Rimuovi il toast dopo che è nascosto
         toastElement.addEventListener('hidden.bs.toast', () => {
             toastElement.remove();
         });
-    } else {
-        // Fallback con alert
-        alert(message);
+    } catch (e) {
+        console.error('Toast error:', e);
+        alert('❌ ' + message);
     }
 }
 
