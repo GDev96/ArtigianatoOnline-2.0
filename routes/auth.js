@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const { pool } = require('../db/db');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
+const { getPool } = require('../db/pool');
 const { sendPasswordRecoveryEmail } = require('../services/emailService');
 require('dotenv').config();
 
@@ -20,94 +21,77 @@ function isValidImageData(base64String) {
 // Registrazione utente - corretto
 router.post('/signup', async (req, res) => {
     try {
-        let {
-            nome_utente, email, nome, cognome, 
-            password, indirizzo, citta, isArtigiano,
-            numero_telefono, tipologia_id, iban, immagine
+        const {
+            username,
+            email,
+            password,
+            nome,
+            cognome,
+            numero_telefono,
+            indirizzo,
+            citta,
+            ruolo_id
         } = req.body;
 
-        // Validate required fields
-        if (!nome_utente || !email || !nome || !cognome || !password) {
+        // Validation
+        if (!username || !email || !password || !nome || !cognome || !ruolo_id) {
             return res.status(400).json({
                 success: false,
                 error: 'Tutti i campi obbligatori devono essere compilati'
             });
         }
 
-        // Process image if present
-        let processedImage = null;
-        if (immagine) {
-            if (!isValidImageData(immagine)) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Formato immagine non valido'
-                });
-            }
+        const pool = getPool();
 
-            // Convert base64 to buffer
-            const base64Data = immagine.replace(/^data:image\/\w+;base64,/, '');
-            processedImage = Buffer.from(base64Data, 'base64');
-        }
+        // Check if username exists
+        const userExists = await pool.query(
+            'SELECT username FROM utente WHERE username = $1',
+            [username]
+        );
 
-        // Generate password hash
-        const saltRounds = 10;
-        const hash = await bcrypt.hash(password, saltRounds);
-
-        // Start transaction
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-
-            // Insert user
-            const userResult = await client.query(`
-                INSERT INTO utente (
-                    username, email, nome, cognome, 
-                    password_hash, indirizzo, citta, 
-                    numero_telefono, ruolo_id, stato
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                RETURNING id
-            `, [
-                nome_utente, email, nome, cognome,
-                hash, indirizzo, citta,
-                numero_telefono, isArtigiano ? 2 : 1, 'attivo'
-            ]);
-
-            // If artisan, insert additional data
-            if (isArtigiano) {
-                await client.query(`
-                    INSERT INTO artigiani (
-                        artigiano_id, tipologia_id, 
-                        iban, immagine
-                    )
-                    VALUES ($1, $2, $3, $4)
-                `, [
-                    userResult.rows[0].id,
-                    tipologia_id,
-                    iban,
-                    processedImage
-                ]);
-            }
-
-            await client.query('COMMIT');
-            res.status(201).json({
-                success: true,
-                message: 'Utente registrato con successo'
+        if (userExists.rows.length > 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Username già esistente'
             });
-
-        } catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
-        } finally {
-            client.release();
         }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Insert new user
+        const result = await pool.query(
+            `INSERT INTO utente 
+            (username, email, password_hash, nome, cognome, numero_telefono, indirizzo, citta, ruolo_id, stato) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'attivo') 
+            RETURNING id, username, email, ruolo_id`,
+            [username, email, hashedPassword, nome, cognome, numero_telefono, indirizzo, citta, ruolo_id]
+        );
+
+        const user = result.rows[0];
+
+        // Generate JWT
+        const token = jwt.sign(
+            { id: user.id, username: user.username },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.status(201).json({
+            success: true,
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            }
+        });
 
     } catch (error) {
-        console.error('Errore registrazione:', error);
+        console.error('Signup error:', error);
         res.status(500).json({
             success: false,
-            error: 'Errore durante la registrazione',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            error: 'Errore durante la registrazione'
         });
     }
 });

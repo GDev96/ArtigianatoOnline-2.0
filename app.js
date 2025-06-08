@@ -1,12 +1,17 @@
 require('dotenv').config();
-
 const express = require('express');
+const { getPool } = require('./db/pool'); // Update import
+
+const app = express();
+const config = process.env.NODE_ENV === 'test' 
+    ? require('./config/test')
+    : require('./config/production');
+
 const cookieParser = require('cookie-parser');
 const { initializeDatabase, pool } = require('./db/db');
 const path = require('path');
 const createAuthMiddleware = require('./middleware/auth');
 const { initializeJobs } = require('./jobs');
-const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Create auth middleware
@@ -67,32 +72,20 @@ app.use((err, req, res, next) => {
     });
 });
 
-async function startServer() {
+const startServer = async () => {
     try {
-        // Initialize database
-        await initializeDatabase();
+        const pool = getPool(); // Remove await
+        const port = config.server.port || 3000;
         
-        // Initialize scheduled jobs
-        await initializeJobs();
-        
-        const server = app.listen(PORT, () => {
-            console.log(`Server is running on http://localhost:${PORT}`);
+        const server = app.listen(port, () => {
+            console.log(`Server running on port ${port}`);
         });
         
-        app.server = server;
         return server;
-
     } catch (error) {
-        console.error('Error starting server:', error);
-        if (process.env.NODE_ENV !== 'test') {
-            process.exit(1);
-        }
+        console.error('Server startup error:', error);
+        throw error; // Don't exit process during tests
     }
-}
-
-// Only start server if not in test environment
-if (process.env.NODE_ENV !== 'test') {
-    startServer();
-}
+};
 
 module.exports = { app, startServer };

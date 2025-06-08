@@ -1,22 +1,30 @@
-const { afterAll, afterEach } = require('@jest/globals');
-const { pool } = require('../db/db');
+const { afterAll, afterEach, beforeAll } = require('@jest/globals');
+const { closePool } = require('../db/pool');
+const { app, startServer } = require('../app');
 
-// Aumenta timeout per tutti i test
-jest.setTimeout(10000);
+let server;
 
-// Cleanup dopo ogni test
-afterEach(async () => {
-  // Aggiungi qui eventuali pulizie specifiche per test
+beforeAll(async () => {
+    try {
+        jest.setTimeout(10000);
+        server = await startServer();
+    } catch (error) {
+        console.error('Test setup error:', error);
+        throw error;
+    }
 });
 
-// Cleanup finale
+afterEach(async () => {
+    // Add specific test cleanup if needed
+});
+
 afterAll(async () => {
-  try {
-    if (pool) {
-      await pool.end();
-      console.log('Database pool chiuso correttamente');
+    try {
+        if (server) {
+            await new Promise(resolve => server.close(resolve));
+        }
+        await closePool();
+    } catch (error) {
+        console.error('Test cleanup error:', error);
     }
-  } catch (error) {
-    console.error('Errore durante la chiusura del pool:', error);
-  }
 });

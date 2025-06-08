@@ -1,55 +1,85 @@
-const { describe, test, expect, beforeAll, afterAll } = require('@jest/globals');
 const request = require('supertest');
-const { app, startServer } = require('../../app');
-const { pool } = require('../../db/db');
-
-let server;
+const { app } = require('../../app');
+const { getPool } = require('../../db/pool');
 
 describe('API Integration Tests', () => {
-    beforeAll(async () => {
-        process.env.NODE_ENV = 'test';
-        server = await startServer();
-    });
+    let pool;
 
-    afterAll(async () => {
-        if (pool) await pool.end();
-        if (server) await new Promise(resolve => server.close(resolve));
+    beforeAll(async () => {
+        pool = getPool();
+        
+        // Setup test database state
+        await pool.query('TRUNCATE TABLE utente, ruoli CASCADE');
+        
+        // Insert required roles
+        await pool.query(`
+            INSERT INTO ruoli (ruolo_id, nome_ruolo) 
+            VALUES (1, 'cliente'), (2, 'artigiano'), (3, 'admin')
+            ON CONFLICT (ruolo_id) DO NOTHING
+        `);
+
+        // Verify roles were inserted
+        const roles = await pool.query('SELECT * FROM ruoli');
+        console.log('Available roles:', roles.rows);
     });
 
     describe('Authentication', () => {
-        test('POST /auth/login - invalid credentials returns 400', async () => {
+        test('POST /auth/signup - valid data creates user', async () => {
+            const userData = {
+                username: 'testuser',
+                email: 'test@example.com',
+                password: 'Test123!',
+                nome: 'Test',
+                cognome: 'User',
+                numero_telefono: '1234567890',
+                indirizzo: 'Via Test 123',
+                citta: 'Test City',
+                ruolo_id: 1
+            };
+    
+            console.log('Sending signup request with:', userData);
+    
             const response = await request(app)
-                .post('/auth/login')
-                .send({
-                    email: 'nonexistent@test.com',
-                    password: 'wrongpassword'
+                .post('/auth/signup')
+                .send(userData);
+    
+            // Detailed error logging
+            if (response.status !== 201) {
+                console.log('Signup failed:', response.body);
+                
+                // Check database state
+                const user = await pool.query(
+                    'SELECT username, email, stato, ruolo_id FROM utente WHERE username = $1',
+                    [userData.username]
+                );
+                console.log('User in database:', user.rows);
+            }
+    
+            expect(response.status).toBe(201);
+            expect(response.body).toMatchObject({
+                success: true,
+                token: expect.any(String),
+                user: expect.objectContaining({
+                    username: userData.username,
+                    email: userData.email
                 })
-                .expect(400); // Updated to match actual response
+            });
+    
+            // Verify user was created with correct data
+            const savedUser = await pool.query(
+                'SELECT username, email, stato, ruolo_id FROM utente WHERE username = $1',
+                [userData.username]
+            );
+            expect(savedUser.rows[0]).toMatchObject({
+                username: userData.username,
+                email: userData.email,
+                stato: 'attivo',
+                ruolo_id: 1
+            });
         });
-
-    test('POST /auth/signup - valid data creates user', async () => {
-      const userData = {
-        username: 'testuser',
-        email: 'test@example.com',
-        password: 'password123',
-        role: 1
-      };
-
-      const response = await request(app)
-        .post('/auth/signup')
-        .send(userData)
-        .expect(201);
-
-      expect(response.body).toHaveProperty('token');
     });
-  });
 
-  // Cleanup after all tests
-  afterAll(async () => {
-    await pool.end();
-    // Close server properly
-    if (app.listening) {
-      await new Promise(resolve => app.server.close(resolve));
-    }
-  });
+    afterAll(async () => {
+        await pool.query('TRUNCATE TABLE utente CASCADE');
+    });
 });

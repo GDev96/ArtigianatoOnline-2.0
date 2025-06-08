@@ -4,15 +4,12 @@
   "main": "app.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js",
     "test:setup": "node tests/db-init.js",
-    "test": "jest --detectOpenHandles --forceExit",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:unit": "jest tests/unit",
-    "test:integration": "jest tests/integration",
-    "db:init": "node tests/db-init.js"
+    "test": "cross-env NODE_ENV=test jest --detectOpenHandles --forceExit",
+    "test:watch": "cross-env NODE_ENV=test jest --watch",
+    "test:coverage": "cross-env NODE_ENV=test jest --coverage",
+    "test:unit": "cross-env NODE_ENV=test jest tests/unit",
+    "test:integration": "cross-env NODE_ENV=test jest tests/integration"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +29,7 @@
     "@babel/core": "^7.27.4",
     "@babel/preset-env": "^7.27.2",
     "babel-jest": "^29.7.0",
+    "cross-env": "^7.0.3",
     "jest": "^29.7.0",
     "supertest": "^6.3.4"
   }
