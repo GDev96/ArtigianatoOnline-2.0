@@ -736,36 +736,31 @@ Authorization: Bearer <jwt_token>
 }
 ```
 
+## Riferimento API
 
+### Endpoint di Autenticazione
 
-
-
-
-## API Reference
-
-### Authentication Endpoints
-
-#### 1. User Registration
+#### 1. Registrazione Utente
 **POST** `/auth/signup`
 
-Creates a new user account.
+Crea un nuovo account utente.
 
 ```javascript
-Request Body: {
-    username: string,       // Required, unique username
-    email: string,         // Required, valid email format
-    password: string,      // Required, min 8 chars
-    nome: string,         // Required, first name
-    cognome: string,      // Required, last name
-    numero_telefono: string, // Optional, phone number
-    indirizzo: string,    // Optional, address
-    citta: string,        // Optional, city
-    ruolo_id: number      // Required, [1: cliente, 2: artigiano, 3: admin]
+Corpo della Richiesta: {
+    username: string,       // Obbligatorio, nome utente univoco
+    email: string,         // Obbligatorio, formato email valido
+    password: string,      // Obbligatorio, minimo 8 caratteri
+    nome: string,         // Obbligatorio, nome
+    cognome: string,      // Obbligatorio, cognome
+    numero_telefono: string, // Opzionale, numero di telefono
+    indirizzo: string,    // Opzionale, indirizzo
+    citta: string,        // Opzionale, città
+    ruolo_id: number      // Obbligatorio, [1: cliente, 2: artigiano, 3: amministratore]
 }
 
-Response (201): {
+Risposta (201): {
     success: true,
-    token: string,        // JWT authentication token
+    token: string,        // Token di autenticazione JWT
     user: {
         id: number,
         username: string,
@@ -773,10 +768,10 @@ Response (201): {
     }
 }
 
-Error Responses:
+Risposte di Errore:
 400: {
     success: false,
-    error: "Username già esistente" | "Tutti i campi obbligatori devono essere compilati"
+    error: "Nome utente già esistente" | "Tutti i campi obbligatori devono essere compilati"
 }
 
 500: {
@@ -785,18 +780,18 @@ Error Responses:
 }
 ```
 
-#### 2. User Login
+#### 2. Accesso Utente
 **POST** `/auth/login`
 
-Authenticates a user and returns a JWT token.
+Autentica un utente e restituisce un token JWT.
 
 ```javascript
-Request Body: {
-    nome_utente: string,  // Required, username
-    password: string      // Required, password
+Corpo della Richiesta: {
+    nome_utente: string,  // Obbligatorio, nome utente
+    password: string      // Obbligatorio, password
 }
 
-Response (200): {
+Risposta (200): {
     success: true,
     token: string,
     user: {
@@ -808,45 +803,45 @@ Response (200): {
     }
 }
 
-Error Responses:
+Risposte di Errore:
 400: {
     success: false,
-    error: "Username e password sono richiesti",
-    code: "MISSING_CREDENTIALS"
+    error: "Nome utente e password sono richiesti",
+    code: "CREDENZIALI_MANCANTI"
 }
 
 401: {
     success: false,
     error: "Credenziali non valide",
-    code: "INVALID_CREDENTIALS"
+    code: "CREDENZIALI_NON_VALIDE"
 }
 
 403: {
     success: false,
     error: "Account sospeso",
-    code: "ACCOUNT_SUSPENDED",
+    code: "ACCOUNT_SOSPESO",
     suspension: {
-        dataFine: string  // Expected end date of suspension
+        dataFine: string  // Data di fine sospensione prevista
     }
 }
 ```
 
-#### 3. Password Recovery
+#### 3. Recupero Password
 **POST** `/auth/recover-password`
 
-Initiates password recovery process.
+Avvia il processo di recupero password.
 
 ```javascript
-Request Body: {
-    email: string  // Required, registered email
+Corpo della Richiesta: {
+    email: string  // Obbligatorio, email registrata
 }
 
-Response (200): {
+Risposta (200): {
     success: true,
     message: "Email di recupero inviata con successo"
 }
 
-Error Responses:
+Risposte di Errore:
 400: {
     success: false,
     error: "Email richiesta"
@@ -858,39 +853,39 @@ Error Responses:
 }
 ```
 
-#### 4. Password Reset
+#### 4. Reimpostazione Password
 **POST** `/auth/reset-password`
 
-Resets user password using recovery token.
+Reimposta la password dell'utente utilizzando il token di recupero.
 
 ```javascript
-Request Body: {
-    token: string,     // Required, recovery token from email
-    newPassword: string // Required, new password
+Corpo della Richiesta: {
+    token: string,     // Obbligatorio, token di recupero dall'email
+    newPassword: string // Obbligatorio, nuova password
 }
 
-Response (200): {
+Risposta (200): {
     success: true,
     message: "Password aggiornata con successo"
 }
 
-Error Responses:
+Risposte di Errore:
 400: {
     success: false,
     error: "Token non valido o scaduto" | "Token e nuova password sono richiesti"
 }
 ```
 
-### Error Handling
-All API endpoints follow a consistent error response format:
+#### Gestione degli Errori
+Tutti gli endpoint API seguono un formato di risposta di errore coerente:
 
 ```javascript
 {
     success: false,
     error: {
-        code: string,    // Machine-readable error code
-        message: string, // User-friendly error message
-        details?: {      // Optional technical details (development only)
+        code: string,    // Codice errore leggibile dalla macchina
+        message: string, // Messaggio di errore comprensibile all'utente
+        details?: {      // Dettagli tecnici opzionali (solo in sviluppo)
             cause: string,
             stack: string
         }
@@ -898,50 +893,55 @@ All API endpoints follow a consistent error response format:
 }
 ```
 
-#### Common Error Codes
+##### Codici di Errore Comuni
 
-1. Authentication Errors:
+1. Errori di Autenticazione:
 ```javascript
-INVALID_CREDENTIALS  // Wrong username/password
-ACCOUNT_SUSPENDED   // User account is suspended
-ACCOUNT_INACTIVE    // User account is not active
-TOKEN_EXPIRED      // JWT token has expired
-INVALID_TOKEN      // JWT token is invalid
+CREDENZIALI_NON_VALIDE    // Nome utente/password errati
+ACCOUNT_SOSPESO          // Account utente sospeso
+ACCOUNT_INATTIVO         // Account utente non attivo
+TOKEN_SCADUTO           // Token JWT scaduto
+TOKEN_NON_VALIDO        // Token JWT non valido
 ```
 
-2. Validation Errors:
+2. Errori di Validazione:
 ```javascript
-MISSING_FIELDS     // Required fields not provided
-INVALID_FORMAT     // Field format is invalid
-DUPLICATE_ENTRY    // Unique constraint violation
+CAMPI_MANCANTI          // Campi obbligatori non forniti
+FORMATO_NON_VALIDO      // Formato del campo non valido
+VOCE_DUPLICATA          // Violazione di vincolo di unicità
 ```
 
-3. Server Errors:
+3. Errori del Server:
 ```javascript
-SERVER_ERROR       // Internal server error
-DB_ERROR          // Database operation failed
-EMAIL_ERROR       // Email sending failed
+ERRORE_SERVER           // Errore interno del server
+ERRORE_DATABASE         // Operazione database fallita
+ERRORE_EMAIL           // Invio email fallito
 ```
 
-### Security Considerations
+### Considerazioni sulla Sicurezza
 
-1. **Authentication**:
-   - JWT tokens expire after 30 minutes
-   - Passwords are hashed using bcrypt (10 rounds)
-   - Sensitive operations require fresh authentication
+1. **Autenticazione**:
+   - I token JWT scadono dopo 30 minuti
+   - Le password sono hashate usando bcrypt (10 iterazioni)
+   - Le operazioni sensibili richiedono autenticazione recente
 
-2. **Rate Limiting**:
-   - Login attempts: 5 per minute
-   - Password recovery: 3 per hour
-   - Account creation: 2 per hour
+2. **Limitazione delle Richieste**:
+   - Tentativi di accesso: 5 al minuto
+   - Recupero password: 3 all'ora
+   - Creazione account: 2 all'ora
 
-3. **Data Validation**:
-   - Email format validation
-   - Password strength requirements
-   - Input sanitization for all fields
+3. **Validazione dei Dati**:
+   - Validazione formato email
+   - Requisiti di robustezza password
+   - Sanificazione input per tutti i campi
 
 
 
+
+
+
+
+#TODO: TRADUCI IN ITALIANO
 ## Docker Configuration
 
 ### Overview

@@ -1,17 +1,11 @@
 require('dotenv').config();
 const express = require('express');
-const { getPool } = require('./db/pool'); // Update import
+const { getPool } = require('./db/pool');
 
 const app = express();
-const config = process.env.NODE_ENV === 'test' 
-    ? require('./config/test')
-    : require('./config/production');
-
 const cookieParser = require('cookie-parser');
-const { initializeDatabase, pool } = require('./db/db');
 const path = require('path');
 const createAuthMiddleware = require('./middleware/auth');
-const { initializeJobs } = require('./jobs');
 const PORT = process.env.PORT || 3000;
 
 // Create auth middleware
@@ -32,21 +26,20 @@ const cartRouter = require('./routes/cart');
 const ordersRouter = require('./routes/orders');
 const reviewsRouter = require('./routes/reviews');
 const reportsRouter = require('./routes/reports');
-const adminRouter = require('./routes/admin'); // Add this line
+const adminRouter = require('./routes/admin');
 
-// Only use routes that are properly defined
+// Routes
 app.use('/', indexRouter);
 app.use('/auth', authRouter);
+app.use('/products', productsRouter);
+app.use('/cart', cartRouter);
+app.use('/orders', ordersRouter);
+app.use('/reviews', reviewsRouter);
+app.use('/reports', reportsRouter);
+app.use('/users', usersRouter);
+app.use('/admin', adminRouter);
 
-// Add checks before using each router
-if (productsRouter) app.use('/products', productsRouter);
-if (cartRouter) app.use('/cart', cartRouter);
-if (ordersRouter) app.use('/orders', ordersRouter);
-if (reviewsRouter) app.use('/reviews', reviewsRouter);
-if (reportsRouter) app.use('/reports', reportsRouter);
-if (usersRouter) app.use('/users', usersRouter);
-if (adminRouter) app.use('/admin', adminRouter);
-
+// Protected routes
 app.get('/profile.html', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/profile.html'));
 });
@@ -74,18 +67,37 @@ app.use((err, req, res, next) => {
 
 const startServer = async () => {
     try {
-        const pool = getPool(); // Remove await
-        const port = config.server.port || 3000;
-        
-        const server = app.listen(port, () => {
-            console.log(`Server running on port ${port}`);
+        const pool = getPool();
+        const server = app.listen(PORT, () => {
+            console.log('\x1b[32m%s\x1b[0m', `🚀 Server running on port ${PORT}`);
+            console.log('\x1b[36m%s\x1b[0m', `➜ Local:   http://localhost:${PORT}`);
+            console.log('\x1b[36m%s\x1b[0m', `➜ Network: http://${getLocalIP()}:${PORT}`);
         });
-        
         return server;
     } catch (error) {
         console.error('Server startup error:', error);
-        throw error; // Don't exit process during tests
+        throw error;
     }
 };
+
+const { networkInterfaces } = require('os');
+
+function getLocalIP() {
+    const nets = networkInterfaces();
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
+            if (net.family === 'IPv4' && !net.internal) {
+                return net.address;
+            }
+        }
+    }
+    return 'localhost'; // Fallback to localhost if no network interface found
+}
+
+// Start server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
 
 module.exports = { app, startServer };
