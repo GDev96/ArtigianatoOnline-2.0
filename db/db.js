@@ -17,8 +17,15 @@ const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
     database: process.env.DB_NAME || 'artigianato_online',
     password: process.env.DB_PASSWORD || 'postgres',
-    port: parseInt(process.env.DB_PORT || '5432')
-};
+    port: parseInt(process.env.DB_PORT || '5432'),
+});
+
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('Database config:', {
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || '5432',
+    database: process.env.DB_NAME || 'artigianato_online'
+});
 
 let pool = null;
 
@@ -69,11 +76,42 @@ async function initializeDatabase() {
 }
 
 module.exports = {
-    pool: () => {
-        if (!pool) {
-            throw new Error('Database not initialized');
+    pool,
+    initializeDatabase: async () => {
+        try {
+            console.log('Verifica esistenza del database...');
+            
+            // Colleghiamoci prima al database di default 'postgres' per controllare se il nostro database esiste
+            const adminPool = new Pool({
+                user: process.env.DB_USER || 'postgres',
+                host: process.env.DB_HOST || 'localhost',  // ← USA LA VARIABILE D'AMBIENTE
+                database: 'postgres', // Database di default per la verifica
+                password: process.env.DB_PASSWORD || 'postgres',
+                port: parseInt(process.env.DB_PORT || '5432'),
+            });
+
+            // Verifica se il database esiste
+            const dbCheckResult = await adminPool.query(
+                "SELECT 1 FROM pg_database WHERE datname = 'artigianato_online'"
+            );
+
+            // Se il database non esiste, crealo
+            if (dbCheckResult.rows.length === 0) {
+                console.log('Database non trovato. Creazione in corso...');
+                await adminPool.query('CREATE DATABASE artigianato_online');
+                console.log('Database artigianato_online creato con successo');
+            } else {
+                console.log('Database artigianato_online già esistente');
+            }
+
+            await adminPool.end();
+            
+            // Ora possiamo connetterci al nostro database e inizializzarlo
+            return initializeTables();
+        } catch (err) {
+            console.error('Errore durante l\'inizializzazione del database:', err);
+            throw err;
         }
-        return pool;
-    },
-    initializeDatabase
+    }
 };
+
