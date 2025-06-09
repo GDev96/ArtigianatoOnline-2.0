@@ -12,7 +12,7 @@ async function updateOrderStatuses() {
     try {
         await client.query('BEGIN');
 
-        // Step 1: Update orders to "spedito" after 1 day
+        // Step 1: aggiorna "spedito" per ordini in preparazione da più di 1 giorno
         await client.query(`
             UPDATE ordini 
             SET stato = $1
@@ -23,7 +23,7 @@ async function updateOrderStatuses() {
             [STATI.SPEDITO, STATI.IN_PREPARAZIONE]
         );
 
-        // Step 2: Update orders to "consegnato" after 4 days
+        // Step 2: aggiorna "consegnato" per ordini spediti da più di 4 giorni
         await client.query(`
             UPDATE ordini 
             SET stato = $1
@@ -33,7 +33,7 @@ async function updateOrderStatuses() {
             [STATI.CONSEGNATO, STATI.SPEDITO]
         );
 
-        // Step 3: Update orders with active reports to "controversia aperta"
+        // Step 3: aggiorna controversia per ordini con segnalazioni in attesa
         await client.query(`
             UPDATE ordini o
             SET stato = $1

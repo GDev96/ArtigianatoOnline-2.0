@@ -5,7 +5,7 @@ async function checkAndRemoveSuspensions() {
     try {
         await client.query('BEGIN');
 
-        // Get users with expired suspensions
+        // Get utenti con sospensioni scadute
         const expiredSuspensions = await client.query(`
             SELECT DISTINCT u.id
             FROM utente u
@@ -25,7 +25,7 @@ async function checkAndRemoveSuspensions() {
             )
         `);
 
-        // Reactivate users
+        // Riattiva gli utenti con sospensioni scadute
         for (const row of expiredSuspensions.rows) {
             await client.query(`
                 UPDATE utente 

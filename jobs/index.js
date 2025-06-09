@@ -4,7 +4,7 @@ const { checkAndRemoveSuspensions } = require('./userSuspensionManager');
 
 async function initializeJobs() {
     try {
-        // Schedule order status updates (every hour)
+        // Schedule per aggiornare gli stati degli ordini (ogni ora)
         cron.schedule('0 * * * *', async () => {
             try {
                 await updateOrderStatuses();
@@ -13,7 +13,7 @@ async function initializeJobs() {
             }
         });
         
-        // Schedule suspension checks (every hour)
+        // Schedule per controllare e rimuovere sospensioni utenti (ogni ora)
         cron.schedule('0 * * * *', async () => {
             try {
                 await checkAndRemoveSuspensions();

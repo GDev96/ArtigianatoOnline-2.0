@@ -206,7 +206,7 @@ async function uploadProfilePicture(event) {
     }
 }
 
-// Update the profile image upload endpoint //FIXME: non salva l'immagine nuova a db
+// Update the profile image upload endpoint
 document.getElementById('profilePictureInput')?.addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (!file) return;

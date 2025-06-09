@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS segnalazioni (
         ON DELETE CASCADE
 );
 
--- Add table for tracking suspensions
+-- creazione della tabella per le sospensioni degli artigiani
 CREATE TABLE IF NOT EXISTS sospensioni_artigiani (
     sospensione_id SERIAL PRIMARY KEY,
     artigiano_id INTEGER NOT NULL,
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS sospensioni_artigiani (
         ON DELETE CASCADE
 );
 
-
+-- crea tabella per le sospensioni degli ordini
 CREATE TABLE IF NOT EXISTS log_utenti (
     id SERIAL PRIMARY KEY,
     utente_id INTEGER REFERENCES utente(id),
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS log_utenti (
     data_creazione TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Add table for tracking user suspensions
+-- crea tabella per le sospensioni degli utenti
 CREATE TABLE IF NOT EXISTS sospensioni_utenti (
     sospensione_id SERIAL PRIMARY KEY,
     utente_id INTEGER NOT NULL,
@@ -200,8 +200,10 @@ CREATE TABLE IF NOT EXISTS sospensioni_utenti (
         ON DELETE CASCADE
 );
 
+-- Aggiunta di colonne alla tabella sospensioni_artigiani
 ALTER TABLE sospensioni_artigiani 
 ADD COLUMN IF NOT EXISTS rimossa_da_admin BOOLEAN DEFAULT false;
 
+-- Aggiunta di colonna data_fine_prevista alla tabella sospensioni_artigiani
 ALTER TABLE sospensioni_artigiani 
 ADD COLUMN IF NOT EXISTS data_fine_prevista TIMESTAMP;

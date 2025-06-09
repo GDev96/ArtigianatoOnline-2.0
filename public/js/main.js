@@ -277,7 +277,6 @@ function checkAuthForNavigation() {
             );
 
             if (matchingPage && !protectedPages[matchingPage].includes(user.ruolo_id)) {
-                console.log('Unauthorized access attempt');
                 window.location.href = '/index.html';
                 return;
             }

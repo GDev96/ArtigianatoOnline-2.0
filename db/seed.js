@@ -1,8 +1,8 @@
 const bcrypt = require('bcrypt');
-const { getPool } = require('./pool'); // Usa il pool corretto
+const { getPool } = require('./pool'); 
 
 async function seed() {
-    const pool = getPool(); // Ottieni il pool
+    const pool = getPool(); 
     
     console.log('Avvio del seed...');
     try {

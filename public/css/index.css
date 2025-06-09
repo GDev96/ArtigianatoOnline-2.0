@@ -38,7 +38,7 @@
     margin-bottom: 0.25rem;
 }
 
-/* Reduce padding to match the smaller text */
+/* Riduci il padding per adattarsi al testo più piccolo */
 .dropdown-filter select.form-select {
     padding: 0.375rem 0.75rem;
 }

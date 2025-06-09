@@ -1,4 +1,4 @@
-/* Login form specific styles */
+/* Stili specifici modulo login */
 .card {
     background-color: var(--bg-color);
     border: 2px solid var(--palette-light);
@@ -12,7 +12,7 @@
     font-size: var(--font-size-2xl);
 }
 
-/* Password input styling */
+/* Stili input password */
 .password-container {
     position: relative;
 }
@@ -32,7 +32,7 @@
     color: var(--palette-primary);
 }
 
-/* Alert styling */
+/* Stili avvisi */
 .alert-danger {
     background-color: var(--bg-color);
     border: 2px solid var(--palette-secondary);
@@ -42,7 +42,7 @@
     font-size: var(--font-size-sm);
 }
 
-/* Register link styling */
+/* Stili link registrazione */
 .register-link {
     color: var(--palette-primary);
     text-decoration: none;
@@ -56,7 +56,7 @@
     text-decoration: underline;
 }
 
-/* Recovery link styling */
+/* Stili link recupero */
 .recover-link {
     color: var(--palette-primary);
     text-decoration: none;
@@ -70,7 +70,7 @@
     text-decoration: underline;
 }
 
-/* Modal styling */
+/* Stili modale */
 .modal-content {
     background-color: var(--bg-color);
     border: 2px solid var(--palette-light);
@@ -91,7 +91,7 @@
     font-weight: var(--font-weight-semibold);
 }
 
-/* Success alert styling */
+/* Stili avviso successo */
 .alert-success {
     background-color: var(--bg-color);
     border: 2px solid var(--palette-primary);

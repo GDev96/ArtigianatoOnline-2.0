@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Verifica che tutti gli elementi esistano
         if (!usernameInput || !passwordInput || !submitButton) {
-            console.error('❌ Required form elements not found');
+            console.error('Required form elements not found');
             showError('Errore: elementi del form non trovati');
             window.isLoggingIn = false;
             return;
@@ -85,9 +85,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Password deve contenere almeno 4 caratteri');
             }
 
-            console.log('Validation passed, sending request...');
-            console.log('Request URL: /auth/login');
-            console.log('Request method: POST');
 
             // Invia la richiesta
             const response = await fetch('/auth/login', {
@@ -102,7 +99,6 @@ document.addEventListener('DOMContentLoaded', function() {
             let data;
             try {
                 const responseText = await response.text();
-                console.log('Raw response text (first 200 chars):', responseText.substring(0, 200));
                 
                 if (responseText) {
                     data = JSON.parse(responseText);
@@ -117,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error('Empty response from server');
                 }
             } catch (jsonError) {
-                console.error('❌ JSON parsing error:', jsonError);
+                console.error('JSON parsing error:', jsonError);
                 throw new Error('Errore di comunicazione con il server - risposta non valida');
             }
 
@@ -308,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.show();
     
         } catch (modalError) {
-            console.error('❌ Error handling suspension modal:', modalError);
+            console.error('Error handling suspension modal:', modalError);
             // Fallback con alert se il modal fallisce
             const message = giorniRimanenti > 0
                 ? `Account sospeso per ${giorniRimanenti} ${giorniRimanenti === 1 ? 'giorno' : 'giorni'}`
@@ -339,7 +335,6 @@ async function requestPasswordRecovery() {
 
     try {
         const email = emailInput.value.trim();
-        console.log('Recovery request for email:', email);
         
         if (!email) {
             throw new Error('Inserisci un indirizzo email valido');
@@ -392,7 +387,7 @@ async function requestPasswordRecovery() {
         }, 3000);
 
     } catch (error) {
-        console.error('❌ Password recovery error:', error);
+        console.error('Password recovery error:', error);
         
         const errorMsg = error.message;
         if (recoverError) {
@@ -402,7 +397,6 @@ async function requestPasswordRecovery() {
             alert('Errore: ' + errorMsg);
         }
     } finally {
-        // Ripristina il bottone
         if (recoverButton) {
             recoverButton.disabled = false;
             recoverButton.textContent = originalButtonText;

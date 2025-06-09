@@ -28,7 +28,6 @@ class AuthService {
         const token = this.getToken();
         if (!token) return false;
 
-        // Optional: check token expiration
         const authTime = sessionStorage.getItem('auth_time');
         if (authTime) {
             const elapsed = (new Date().getTime() - parseInt(authTime)) / 1000;
@@ -62,7 +61,6 @@ class AuthService {
     static handleTokenExpiration(response) {
         if (!response) return false;
         
-        // NON mostrare il modale durante il login - lascia che sia il login handler a gestire l'errore
         if (window.isLoggingIn) {
             return false; // Non intercettare durante il login
         }
@@ -75,7 +73,6 @@ class AuthService {
     }
 
     static async fetchWithAuth(url, options = {}) {
-        // Skip auth for login requests
         if (url.includes('/auth/login')) {
             return fetch(url, options);
         }

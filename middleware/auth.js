@@ -63,5 +63,4 @@ function createAuthMiddleware() {
     };
 }
 
-// Export the function properly
 module.exports = createAuthMiddleware;

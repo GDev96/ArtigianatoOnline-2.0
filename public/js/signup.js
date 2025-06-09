@@ -337,8 +337,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error('Tutti i campi obbligatori devono essere compilati');
                 }
 
-                console.log('Sending registration request...');
-
                 const response = await fetch('/auth/signup', {
                     method: 'POST',
                     headers: {

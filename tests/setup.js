@@ -11,5 +11,3 @@ process.env.DB_PASSWORD = 'postgres';
 jest.mock('node-cron', () => ({
   schedule: jest.fn()
 }));
-
-console.log('Environment variables set for testing');

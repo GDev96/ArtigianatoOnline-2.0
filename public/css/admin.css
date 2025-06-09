@@ -22,7 +22,7 @@ body {
     z-index: 1;
 }
 
-/* Admin header */
+/* Header amministratore */
 .admin-header {
     position: fixed;
     top: 0;
@@ -70,7 +70,7 @@ body {
     color: var(--palette-secondary);
 }
 
-/* Sidebar */
+/* Barra laterale */
 .sidebar {
     position: fixed;
     top: 0;
@@ -102,14 +102,14 @@ body {
     color: var(--text-color-light);
 }
 
-/* Main content area */
+/* Area contenuto principale */
 .main-content {
     margin-left: 250px;
     padding: 5rem;
     background-color: var(--bg-color);
 }
 
-/* Stat cards */
+/* Schede statistiche */
 .stat-card {
     background-color: var(--bg-button-color);
     border: none;
@@ -141,7 +141,7 @@ body {
     font-family: var(--font-primary);
 }
 
-/* Chart cards */
+/* Schede grafici */
 .chart-card {
     background-color: var(--bg-button-color);
     border: none;
@@ -150,7 +150,7 @@ body {
     margin-bottom: 1.5rem;
 }
 
-/* Charts styling */
+/* Stili grafici */
 .chart-container {
     position: relative;
     min-height: 300px;
@@ -174,7 +174,7 @@ body {
     --bs-gutter-y: 1.5rem;
 }
 
-/* Tables */
+/* Tabelle */
 .table {
     background-color: var(--bg-button-color);
     border-radius: 15px;
@@ -193,7 +193,7 @@ body {
     margin-top: 2rem;
 }
 
-/* Buttons */
+/* Pulsanti */
 .btn-primary {
     background-color: var(--palette-primary);
     border-color: var(--palette-primary);
@@ -205,7 +205,7 @@ body {
     border-color: var(--palette-secondary);
 }
 
-/* Search bar */
+/* Barra di ricerca */
 .search-bar {
     background-color: var(--bg-button-color);
     border-radius: 15px;
@@ -235,7 +235,7 @@ body {
 /* Sostituisci tutta la sezione modali nel file admin.css con questo: */
 
 /* =================================== */
-/* OVERRIDE COMPLETO MODALI BOOTSTRAP */
+/* SOVRASCRITTURA COMPLETA MODALI BOOTSTRAP */
 /* =================================== */
 
 /* Rimuovi completamente lo stile di default di Bootstrap per i modali */
@@ -302,7 +302,7 @@ body {
     pointer-events: auto !important;
 }
 
-/* Fix per elementi che potrebbero interferire */
+/* Correzione per elementi che potrebbero interferire */
 .sidebar {
     z-index: 999 !important;
 }

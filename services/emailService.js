@@ -2,9 +2,6 @@ const nodemailer = require('nodemailer');
 
 // Configurazione del trasportatore email con miglioramenti
 const createTransporter = () => {
-    console.log('📧 Creazione trasportatore email...');
-    console.log('EMAIL_USER:', process.env.EMAIL_USER || 'NON DEFINITO');
-    console.log('EMAIL_APP_PASSWORD:', process.env.EMAIL_APP_PASSWORD ? 'DEFINITO' : 'NON DEFINITO');
     
     return nodemailer.createTransport({
         service: 'gmail',
@@ -28,18 +25,15 @@ const createTransporter = () => {
 const sendPasswordRecoveryEmail = async (email, recoveryLink) => {
     console.log('\n🔗 === LINK DI RECUPERO PASSWORD ===');
     console.log(recoveryLink);
-    console.log('💡 Copia questo link per testare direttamente il reset password.');
+    console.log('Copia questo link per testare direttamente il reset password.');
     console.log('=====================================\n');
     
     try {
-        console.log('📤 Tentativo invio email...');
         
         const transporter = createTransporter();
         
         // Test della connessione prima dell'invio
-        console.log('🔌 Verifica connessione Gmail...');
         await transporter.verify();
-        console.log('✅ Connessione Gmail verificata');
         
         const mailOptions = {
             from: process.env.EMAIL_USER || 'fratg.dev@gmail.com',
@@ -95,10 +89,8 @@ const sendPasswordRecoveryEmail = async (email, recoveryLink) => {
             `
         };
 
-        console.log('📧 Invio email in corso...');
         const result = await transporter.sendMail(mailOptions);
         
-        console.log('\n🎉 Email di recupero inviata con successo!');
         console.log('Message ID:', result.messageId);
         
         // Log email details for debug (come nel tuo codice originale)
@@ -117,7 +109,7 @@ const sendPasswordRecoveryEmail = async (email, recoveryLink) => {
         return true;
         
     } catch (error) {
-        console.error('\n❌ Errore nell\'invio dell\'email:', error);
+        console.error('\nErrore nell\'invio dell\'email:', error);
         console.error('Tipo errore:', error.name);
         console.error('Messaggio:', error.message);
         console.error('Codice:', error.code);
@@ -132,22 +124,22 @@ const sendPasswordRecoveryEmail = async (email, recoveryLink) => {
         
         // Suggerimenti specifici per Gmail
         if (error.code === 'EAUTH') {
-            console.error('\n💡 PROBLEMA DI AUTENTICAZIONE GMAIL:');
+            console.error('\n PROBLEMA DI AUTENTICAZIONE GMAIL:');
             console.error('1. Verifica che l\'account abbia l\'autenticazione a 2 fattori attiva');
             console.error('2. Usa una "Password per le app" generata da Gmail, non la password normale');
             console.error('3. Vai su: https://myaccount.google.com/apppasswords');
             console.error('4. La password attuale potrebbe essere scaduta');
         } else if (error.code === 'ENOTFOUND') {
-            console.error('\n💡 PROBLEMA DI CONNESSIONE:');
+            console.error('\n PROBLEMA DI CONNESSIONE:');
             console.error('1. Verifica la connessione internet');
             console.error('2. Potrebbe essere un problema di DNS o firewall');
         } else if (error.code === 'ETIMEDOUT') {
-            console.error('\n💡 PROBLEMA DI TIMEOUT:');
+            console.error('\n PROBLEMA DI TIMEOUT:');
             console.error('1. La connessione a Gmail è troppo lenta');
             console.error('2. Riprova tra qualche minuto');
         }
         
-        console.error('\n🔄 Il link di recupero è comunque disponibile sopra per il test.\n');
+        console.error('\n Il link di recupero è comunque disponibile sopra per il test.\n');
         
         // Rilancia l'errore come nel tuo codice originale
         throw error;

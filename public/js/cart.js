@@ -1,22 +1,22 @@
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Get session user first
+        // Ottieni prima l'utente della sessione
         const sessionUser = JSON.parse(sessionStorage.getItem('user'));
         if (!sessionUser || sessionUser.ruolo_id !== 1) {
             window.location.href = '/login.html';
             return;
         }
 
-        // Get user ID from URL parameters or session
+        // Ottieni l'ID utente dai parametri dell'URL o dalla sessione
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id') || sessionUser.id;
 
-        // Check if URL ID matches session user
+        // Controlla se l'ID dell'URL corrisponde all'utente della sessione
         if (parseInt(userId) !== sessionUser.id) {
             throw new Error('Accesso non autorizzato');
         }
 
-        // Fetch complete user data from backend
+        // Recupera i dati completi dell'utente dal backend
         const response = await fetch(`/users/api/${userId}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -27,10 +27,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             throw new Error('Errore nel recupero dei dati utente');
         }
 
-        // Update header with user data
+        // Aggiorna l'intestazione con i dati dell'utente
         updateUserHeader(data.user);
 
-        // Load cart content
+        // Carica il contenuto del carrello
         await loadCartContent();
         
     } catch (error) {
@@ -40,9 +40,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function updateUserHeader(user) {
-    // Update profile name and username in header
+    // Aggiorna il nome del profilo e il nome utente nell'intestazione
     const profileNameEl = document.getElementById('profileName');
-    const headerUsernameEl = document.querySelector('#profile-header .username'); // More specific selector
+    const headerUsernameEl = document.querySelector('#profile-header .username'); // Selettore più specifico
 
     if (profileNameEl) {
         profileNameEl.textContent = `${user.nome} ${user.cognome}`;
@@ -51,7 +51,7 @@ function updateUserHeader(user) {
     if (headerUsernameEl) {
         headerUsernameEl.textContent = user.username;
     }
-    // Update address card
+    // Aggiorna la scheda dell'indirizzo
     const addressElement = document.querySelector('.card-address p');
     if (addressElement) {
         addressElement.textContent = user.indirizzo && user.citta 
@@ -59,19 +59,19 @@ function updateUserHeader(user) {
             : 'Non salvato';
     }
 
-    // Update phone card
+    // Aggiorna la scheda del telefono
     const phoneElement = document.querySelector('.card-phone p');
     if (phoneElement) {
         phoneElement.textContent = user.numero_telefono || 'Non salvato';
     }
 
-    // Update email card
+    // Aggiorna la scheda email
     const emailElement = document.querySelector('.card-mail p');
     if (emailElement) {
         emailElement.textContent = user.email || 'Non salvato';
     }
 
-    // Update modal shipping info
+    // Aggiorna le informazioni di spedizione nel modale
     const modalElements = {
         name: document.getElementById('modalShippingName'),
         surname: document.getElementById('modalShippingSurname'),
@@ -117,7 +117,7 @@ async function loadCartContent() {
 
 function updateCartTable(items) {
     const cartTableBody = document.querySelector('#cartTable tbody');
-    const cartTableHead = document.querySelector('#cartTable thead'); // Add this line
+    const cartTableHead = document.querySelector('#cartTable thead'); // Aggiungi questa riga
     const emptyCartMessage = document.getElementById('emptyCartMessage');
     const cartContent = document.getElementById('cartContent');
     const confirmOrderBtn = document.querySelector('[data-bs-target="#confirmOrder"]');
@@ -125,13 +125,13 @@ function updateCartTable(items) {
     if (cartContent) cartContent.style.display = 'block';
     if (emptyCartMessage) emptyCartMessage.style.display = 'none';
     if (confirmOrderBtn) confirmOrderBtn.disabled = false;
-    if (cartTableHead) cartTableHead.style.display = 'table-header-group'; // Show table header
+    if (cartTableHead) cartTableHead.style.display = 'table-header-group'; // Mostra l'intestazione della tabella
 
     if (!items || items.length === 0) {
         if (cartContent) cartContent.style.display = 'none';
         if (emptyCartMessage) emptyCartMessage.style.display = 'block';
         if (confirmOrderBtn) confirmOrderBtn.disabled = true;
-        if (cartTableHead) cartTableHead.style.display = 'none'; // Hide table header
+        if (cartTableHead) cartTableHead.style.display = 'none'; // Nascondi l'intestazione della tabella
         return;
     }
 
@@ -238,8 +238,8 @@ function updateTotalAmount(items) {
 
 
 
-/*******Modale di conferma ordine **************/
-//Modale di invio ordine
+/******* Modale di conferma ordine **************/
+// Modale di invio ordine
 function updateOrderModal(items) {
     const modalTbody = document.querySelector('#confirmOrder .table tbody');
     const modalTfoot = document.querySelector('#confirmOrder .table tfoot');
@@ -261,7 +261,7 @@ function updateOrderModal(items) {
         return;
     }
 
-    // Update items list
+    // Aggiorna la lista degli articoli
     modalTbody.innerHTML = items.map(item => {
         const price = parseFloat(item.prezzo_unitario);
         const quantity = parseInt(item.quantita);
@@ -276,7 +276,7 @@ function updateOrderModal(items) {
             </tr>`;
     }).join('');
 
-    // Calculate and update total
+    // Calcola e aggiorna il totale
     const orderTotal = items.reduce((sum, item) => 
         sum + (parseFloat(item.prezzo_unitario) * parseInt(item.quantita)), 0);
 
@@ -287,7 +287,7 @@ function updateOrderModal(items) {
         </tr>`;
 }
 
-//Gestione del metodo di pagamento
+// Gestione del metodo di pagamento
 document.addEventListener('DOMContentLoaded', () => {
   const paymentDetails = document.getElementById('paymentDetails');
 
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // Event listener per i cambiamenti nel metodo di pagamento
+  // Listener per i cambiamenti nel metodo di pagamento
   document.querySelectorAll('input[name="paymentMethod"]').forEach((input) => {
     input.addEventListener('change', (e) => {
       updatePaymentDetails(e.target.value);
@@ -361,12 +361,12 @@ document.addEventListener('DOMContentLoaded', () => {
   updatePaymentDetails('creditCard');
 }); 
 
-// Add payment validation function
+// Aggiungi la funzione di validazione del pagamento
 function validatePaymentFields() {
     const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
     let isValid = true;
     
-    // Reset all fields first
+    // Reimposta prima tutti i campi
     document.querySelectorAll('#paymentDetails .form-control').forEach(input => {
         input.classList.remove('is-invalid');
     });
@@ -431,7 +431,7 @@ function validatePaymentFields() {
     return isValid;
 }
 
-// Add event listeners to remove invalid class when user types
+// Aggiungi i listener per rimuovere la classe invalid quando l'utente digita
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('paymentDetails').addEventListener('input', (e) => {
         if (e.target.classList.contains('form-control')) {
@@ -440,10 +440,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Update order confirmation listener
+// Aggiorna il listener di conferma dell'ordine
 document.querySelector('#confirmOrder .btn-success').addEventListener('click', async function() {
     try {
-        // First validate payment fields
+        // Prima valida i campi di pagamento
         if (!validatePaymentFields()) {
             return;
         }
@@ -463,14 +463,14 @@ document.querySelector('#confirmOrder .btn-success').addEventListener('click', a
 
         const data = await response.json();
 
-        // Close payment modal
+        // Chiudi il modale di pagamento
         const orderModal = bootstrap.Modal.getInstance(document.getElementById('confirmOrder'));
         orderModal.hide();
 
-        // Show success message using global function
+        // Mostra il messaggio di successo usando la funzione globale
         showSuccessMessage('Ordine creato con successo!');
 
-        // Reload cart page after a short delay
+        // Ricarica la pagina del carrello dopo una breve pausa
         setTimeout(() => {
             window.location.reload();
         }, 1500);

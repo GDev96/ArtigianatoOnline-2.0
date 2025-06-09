@@ -86,7 +86,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const newPassword = newPasswordInput.value;
                 const confirmPassword = confirmPasswordInput.value;
                 
-                console.log('Password validation...');
         
                 // Validation
                 if (!newPassword || !confirmPassword) {

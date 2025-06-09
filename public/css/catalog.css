@@ -1,4 +1,4 @@
-/* Form layout adjustments */
+/* Regolazioni layout moduli */
 .form-label {
     padding-left: 0 !important;
 }
@@ -8,7 +8,7 @@
     width: 100% !important;
 }
 
-/* Quantity counter styles */
+/* Stili contatore quantità */
 .quantity-counter {
     display: flex;
     align-items: center;
@@ -54,7 +54,7 @@
     z-index: 0;
 }
 
-/* Rating input styles */
+/* Stili input valutazione */
 .rating-input {
     cursor: pointer;
     font-size: var(--font-size-xl);
@@ -81,7 +81,7 @@
     padding: 2rem 0;
     margin: 0;
 }
-/* Filter styles */
+/* Stili filtri */
 .dropdown-menu {
     border: 1px solid var(--palette-primary);
     font-family: var(--font-primary);
@@ -136,12 +136,12 @@
     text-decoration: none;
     transition: all 0.3s ease;
 }
-/* Quantity controls styles */
+/* Stili controlli quantità */
 .quantity-controls {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-left: auto; /* Push controls to the right */
+    margin-left: auto; /* Spinge i controlli a destra */
 }
 
 .quantity-controls .btn {
@@ -156,7 +156,7 @@
     font-size: var(--font-size-md);
 }
 
-/* Card content spacing */
+/* Spaziatura contenuto scheda */
 .card-body {
     padding: 1rem;
 }
