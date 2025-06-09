@@ -640,7 +640,6 @@ async function resolveReport(reportId, withAction = false) {
     }
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function showArtisanReportResolution(reportId, reportData) {
     try {
         // Get report details if not already present
@@ -760,7 +759,6 @@ async function showArtisanReportResolution(reportId, reportData) {
     }
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function toggleArtisanStatus(artisanId, currentStatus) {
     const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
     
@@ -797,7 +795,6 @@ async function toggleArtisanStatus(artisanId, currentStatus) {
     }
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function confirmSuspendArtisan() {
     const artisanId = document.getElementById('artisanIdToSuspend').value;
     
@@ -810,7 +807,6 @@ async function confirmSuspendArtisan() {
     await updateArtisanStatus(artisanId, 'sospeso');
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function confirmReactivateArtisan() {
     const artisanId = document.getElementById('artisanIdToReactivate').value;
     
@@ -823,7 +819,6 @@ async function confirmReactivateArtisan() {
     await updateArtisanStatus(artisanId, 'attivo');
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function toggleUserStatus(userId, currentStatus) {
     const newStatus = currentStatus === 'attivo' ? 'sospeso' : 'attivo';
     
@@ -856,7 +851,6 @@ async function toggleUserStatus(userId, currentStatus) {
     }
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function confirmReactivateUser() {
     const userId = document.getElementById('userIdToReactivate').value;
     
@@ -868,7 +862,6 @@ async function confirmReactivateUser() {
     await updateUserStatus(userId, 'attivo');
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function showOrderReportResolution(reportId, reportData) {
     try {
         // Populate modal with report details
@@ -922,7 +915,6 @@ async function showOrderReportResolution(reportId, reportData) {
     }
 }
 
-// SOSTITUISCI questa funzione nel tuo admin.js
 async function showReviewReportResolution(reportId, reportData) {
     try {
         // Se necessario, recupera i dettagli completi della segnalazione
@@ -1010,7 +1002,6 @@ async function showReviewReportResolution(reportId, reportData) {
     }
 }
 
-// SOSTITUISCI queste funzioni nel tuo admin.js
 function showSuccessMessage(message) {
     console.log('SUCCESS:', message);
     
@@ -1091,7 +1082,6 @@ function showErrorMessage(message) {
     }
 }
 
-// AGGIUNGI questa nuova funzione al tuo admin.js
 function showCustomConfirm(title, message) {
     return new Promise((resolve) => {
         // Create overlay
@@ -1171,7 +1161,6 @@ function showCustomConfirm(title, message) {
 
 
 
-// Aggiungi questa nuova funzione per gestire la conferma di sospensione
 async function confirmSuspendArtisan() {
     const artisanId = document.getElementById('artisanIdToSuspend').value;
     const modal = bootstrap.Modal.getInstance(document.getElementById('suspendArtisanConfirmModal'));
