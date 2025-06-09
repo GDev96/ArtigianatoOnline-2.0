@@ -1735,7 +1735,6 @@ async function resolveReportRequest(reportId, withAction) {
 
         await loadOrders(); // Aggiorna la tabella ordini
         await loadReports(); // Aggiorna la tabella segnalazioni
-        showSuccessMessage(result.message || 'Segnalazione risolta con successo');
 
     } catch (error) {
         console.error('Error resolving report:', error);
