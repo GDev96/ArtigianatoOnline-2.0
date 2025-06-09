@@ -1,6 +1,5 @@
 // Funzione per mostrare/nascondere la sezione artigiano
 function toggleArtisanSection(isArtisan) {
-    console.log('funzione chiamata', isArtisan);
     const artisanSection = document.getElementById('artisanSection');
     if (artisanSection) {
         if (isArtisan) {
@@ -28,8 +27,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         const data = await response.json();
-
-        console.log('Categorie ricevute:', data);
         
         if (!data.success || !data.categories) {
             throw new Error('Invalid API response format');
@@ -310,10 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     isArtigiano: artisanCheck ? artisanCheck.checked : false
                 };
 
-                console.log('Form data prepared:', {
-                    ...formData,
-                    password: '[HIDDEN]'
-                });
 
                 // Add artisan specific fields if artisan registration
                 if (formData.isArtigiano) {

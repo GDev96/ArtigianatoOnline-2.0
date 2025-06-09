@@ -130,7 +130,6 @@ async function initNavbar() {
 
                     // Clear session storage
                     sessionStorage.clear();
-                    console.log('Logout successful');
                     
                     // Redirect to login page
                     window.location.href = '/login.html';
@@ -253,13 +252,10 @@ function checkAuthForNavigation() {
     };
 
     const currentPath = window.location.pathname;
-    
-    // Debug log
-    console.log('Checking auth for:', currentPath);
+
     
     // Get user from session storage
     const rawUser = sessionStorage.getItem('user');
-    console.log('Session user:', rawUser);
 
     // For protected pages, check authentication
     const isProtectedPage = Object.keys(protectedPages).some(page => 
@@ -268,14 +264,12 @@ function checkAuthForNavigation() {
 
     if (isProtectedPage) {
         if (!rawUser) {
-            console.log('No user found, redirecting to login');
             window.location.href = '/login.html';
             return;
         }
 
         try {
             const user = JSON.parse(rawUser);
-            console.log('User role:', user.ruolo_id);
 
             // Find matching protected page
             const matchingPage = Object.keys(protectedPages).find(page => 

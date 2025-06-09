@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 //Funzione per aggiornare il profilo utente
 function updateUserProfile(user) {
-    console.log('Updating user profile with:', user);
 
     // Update profile name and username in header
     const profileNameEl = document.getElementById('profileName');
@@ -119,8 +118,6 @@ async function updateProfile(event) {
         Object.keys(formData).forEach(key => 
             formData[key] === null && delete formData[key]
         );
-
-        console.log('Sending update with data:', formData);
 
         const response = await fetch(`/users/update/${userId}`, {
             method: 'PUT',

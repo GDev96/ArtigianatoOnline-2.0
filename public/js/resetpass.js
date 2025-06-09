@@ -1,17 +1,12 @@
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔐 Reset password page loaded');
-    
+document.addEventListener('DOMContentLoaded', function() {    
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     
     const tokenError = document.getElementById('tokenError');
     const resetForm = document.getElementById('resetPasswordForm');
     const resetSuccess = document.getElementById('resetSuccess');
-    
-    console.log('Token from URL:', token ? 'Present' : 'Missing');
-    
+        
     if (!token) {
-        console.log('❌ No token found in URL');
         if (tokenError) {
             tokenError.classList.remove('d-none');
         }
@@ -20,8 +15,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return;
     }
-
-    console.log('✅ Token found, setting up form');
 
     // Setup password toggles
     ['toggleNewPassword', 'toggleConfirmPassword'].forEach((toggleId, index) => {
@@ -40,7 +33,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Funzione per mostrare messaggi di successo
     function showSuccess(message) {
-        console.log('✅ Showing success message:', message);
         if (resetSuccess) {
             resetSuccess.textContent = message;
             resetSuccess.classList.remove('d-none');
@@ -61,7 +53,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Funzione per mostrare errori
     function showError(message) {
-        console.log('❌ Showing error message:', message);
         const resetError = document.getElementById('resetError');
         if (resetError) {
             resetError.textContent = message;
@@ -76,7 +67,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (resetForm) {
         resetForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            console.log('📝 Form submission started');
             
             const resetError = document.getElementById('resetError');
             const submitButton = this.querySelector('button[type="submit"]');
@@ -121,15 +111,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error('La password deve contenere almeno una lettera maiuscola, una minuscola e un numero');
                 }
                 
-                console.log('✅ Password validation passed');
         
                 if (submitButton) {
                     submitButton.disabled = true;
                     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Elaborazione...';
                 }
-                
-                console.log('🔗 Sending reset request...');
-        
+                        
                 const response = await fetch('/auth/reset-password', {
                     method: 'POST',
                     headers: {
@@ -141,11 +128,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         newPassword
                     })
                 });
-                
-                console.log('📡 Response received:', response.status);
-        
+                        
                 const data = await response.json();
-                console.log('Response data:', data);
         
                 if (!response.ok) {
                     throw new Error(data.error || 'Errore durante il reset della password');

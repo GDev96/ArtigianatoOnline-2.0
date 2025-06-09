@@ -28,8 +28,6 @@ router.post('/signup', async (req, res) => {
             numero_telefono, tipologia_id, iban, immagine
         } = req.body;
 
-        console.log('Signup attempt for:', nome_utente);
-
         // Validate required fields
         if (!nome_utente || !email || !nome || !cognome || !password) {
             return res.status(400).json({
@@ -74,8 +72,6 @@ router.post('/signup', async (req, res) => {
                 hash, indirizzo, citta,
                 numero_telefono, isArtigiano ? 2 : 1, 'attivo'
             ]);
-
-            console.log('User created with ID:', userResult.rows[0].id);
 
             // If artisan, insert additional data
             if (isArtigiano) {
@@ -134,12 +130,9 @@ router.post('/signup', async (req, res) => {
 
 // === LOGIN UTENTE ===
 router.post('/login', async (req, res) => {
-    console.log('=== LOGIN ATTEMPT ===');
     
     try {
         const { nome_utente, password } = req.body;
-
-        console.log('Login attempt for user:', nome_utente);
 
         // Check for required fields
         if (!nome_utente || !password) {
@@ -150,13 +143,10 @@ router.post('/login', async (req, res) => {
         }
 
         // Get user from database
-        console.log('Querying database for user...');
         const result = await pool.query(
             'SELECT * FROM utente WHERE username = $1',
             [nome_utente.trim()]
         );
-
-        console.log('Query result:', result.rows.length > 0 ? 'User found' : 'User not found');
 
         if (result.rows.length === 0) {
             return res.status(401).json({
@@ -167,12 +157,8 @@ router.post('/login', async (req, res) => {
         }
 
         const user = result.rows[0];
-        console.log('User found:', user.username, 'Role:', user.ruolo_id);
 
-        // Verify password BEFORE checking account status
-        console.log('Verifying password...');
         const isMatch = await bcrypt.compare(password, user.password_hash);
-        console.log('Password match:', isMatch);
 
         if (!isMatch) {
             return res.status(401).json({
@@ -212,7 +198,6 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        console.log('Generating JWT token...');
         // Generate JWT token - usa un fallback se JWT_SECRET non è disponibile
         const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-development';
         const token = jwt.sign({
@@ -235,7 +220,6 @@ router.post('/login', async (req, res) => {
             }
         };
 
-        console.log('Login successful for user:', user.username);
         res.json(responseData);
 
     } catch (error) {
@@ -307,8 +291,6 @@ router.post('/recover-password', async (req, res) => {
         // Create recovery link with fallback
         const appUrl = process.env.APP_URL || 'http://localhost:3000';
         const recoveryLink = `${appUrl}/resetPass.html?token=${recoveryToken}`;
-
-        console.log('Recovery link created:', recoveryLink);
 
         try {
             await sendPasswordRecoveryEmail(email, recoveryLink);
